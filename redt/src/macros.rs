@@ -23,27 +23,13 @@ macro_rules! hset {
     };
 }
 
-/// The macro creates a tree-based set from a series of elements separated by
-/// commas.
-#[macro_export]
-macro_rules! tset {
-    ($($elem:expr),* $(,)?) => {
-        {
-            #[allow(clippy::mutable_key_type)]
-            let mut set = ::std::collections::BTreeSet::new();
-            $(set.insert($elem);)*
-            set
-        }
-    };
-}
-
 /// The macro creates a set from a series of elements separated by commas.
 #[macro_export]
 macro_rules! set {
     ($($elem:expr),* $(,)?) => {
         {
             #[allow(clippy::mutable_key_type)]
-            let mut set = ::redt::Set::new();
+            let mut set = ::redt::Set::default();
             $(set.insert($elem);)*
             set
         }
@@ -57,7 +43,7 @@ macro_rules! map {
     ($($key:expr => $value:expr),* $(,)?) => {
         {
             #[allow(clippy::mutable_key_type)]
-            let mut map = ::redt::Map::new();
+            let mut map = ::redt::Map::default();
             $(map.insert($key, $value);)*
             map
         }

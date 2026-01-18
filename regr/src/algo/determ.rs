@@ -2,8 +2,7 @@ use crate::algo::{self, VisitResult::*};
 use crate::graph::Graph;
 use crate::isa::Inst;
 use crate::node::Node;
-use redt::Map;
-use std::collections::BTreeSet;
+use redt::{Map, Set};
 use std::rc::Rc;
 
 #[allow(clippy::mutable_key_type)]
@@ -15,8 +14,8 @@ pub fn determinize(nfa: &Graph<'_>, dfa: &Graph<'_>) {
 struct Determinizer<'na, 'ng, 'da, 'dg> {
     nfa: &'ng Graph<'na>,
     dfa: &'dg Graph<'da>,
-    inst_map: Map<Node<'na>, BTreeSet<Inst>>,
-    convert_map: Map<Rc<BTreeSet<Node<'na>>>, Node<'da>>,
+    inst_map: Map<Node<'na>, Set<Inst>>,
+    convert_map: Map<Rc<Set<Node<'na>>>, Node<'da>>,
 }
 
 #[allow(clippy::mutable_key_type)]
@@ -25,8 +24,8 @@ impl<'na, 'ng, 'da, 'dg> Determinizer<'na, 'ng, 'da, 'dg> {
         Self {
             nfa,
             dfa,
-            inst_map: Map::new(),
-            convert_map: Map::new(),
+            inst_map: Map::default(),
+            convert_map: Map::default(),
         }
     }
 
@@ -58,14 +57,14 @@ impl<'na, 'ng, 'da, 'dg> Determinizer<'na, 'ng, 'da, 'dg> {
         }
     }
 
-    fn e_closure(&mut self, start_node: Node<'na>) -> BTreeSet<Node<'na>> {
-        let mut e_closure = BTreeSet::new();
+    fn e_closure(&mut self, start_node: Node<'na>) -> Set<Node<'na>> {
+        let mut e_closure = Set::default();
         e_closure.insert(start_node);
         algo::visit_transitions(start_node, |source, tr, target| {
             if tr.is_epsilon() {
                 e_closure.insert(target);
 
-                let mut new_set = BTreeSet::new();
+                let mut new_set = Set::default();
                 for inst in tr.instructs() {
                     new_set.insert(inst);
                 }
@@ -86,13 +85,9 @@ impl<'na, 'ng, 'da, 'dg> Determinizer<'na, 'ng, 'da, 'dg> {
         e_closure
     }
 
-    fn closure(
-        &mut self,
-        start_nodes: &BTreeSet<Node<'na>>,
-        symbol: u8,
-    ) -> (BTreeSet<Node<'na>>, BTreeSet<Inst>) {
-        let mut closure = BTreeSet::new();
-        let mut inst_set = BTreeSet::new();
+    fn closure(&mut self, start_nodes: &Set<Node<'na>>, symbol: u8) -> (Set<Node<'na>>, Set<Inst>) {
+        let mut closure = Set::default();
+        let mut inst_set = Set::default();
         for node in start_nodes.iter().copied() {
             algo::visit_transitions(node, |source, tr, target| {
                 if tr.contains(symbol) {

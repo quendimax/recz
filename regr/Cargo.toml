@@ -8,7 +8,6 @@ repository.workspace = true
 
 [dependencies]
 bumpalo = { workspace = true, features = ["collections"] }
-cfg-if.workspace = true
 paste.workspace = true
 redt = { path = "../redt" }
 resy = { path = "../resy" }

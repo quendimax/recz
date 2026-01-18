@@ -351,8 +351,8 @@ struct Summary {
 impl Summary {
     fn empty() -> Self {
         Self {
-            absolute_tags: redt::Set::new(),
-            pseudo_absolute_tags: redt::Set::new(),
+            absolute_tags: redt::Set::default(),
+            pseudo_absolute_tags: redt::Set::default(),
         }
     }
 

@@ -34,8 +34,8 @@ impl<'a> Graph<'a> {
             arena,
             next_nid: Cell::new(0),
             start_node: Cell::new(None),
-            tag_bank: RefCell::new(Map::new()),
-            tag_groups: RefCell::new(Map::new()),
+            tag_bank: RefCell::new(Map::default()),
+            tag_groups: RefCell::new(Map::default()),
         }
     }
 
@@ -177,7 +177,7 @@ impl<'a> Graph<'a> {
             }
         }
         Lambda {
-            visited: Set::new(),
+            visited: Set::default(),
             handler: f,
         }
         .visit(self.start_node());

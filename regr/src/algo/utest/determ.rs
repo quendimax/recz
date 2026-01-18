@@ -1,8 +1,7 @@
 use super::*;
 use crate::{Arena, Graph, Inst};
 use pretty_assertions::assert_eq;
-use redt::{map, tmap, tset};
-use std::collections::BTreeMap;
+use redt::{map, set};
 
 #[test]
 fn e_closure() {
@@ -27,18 +26,18 @@ fn e_closure() {
     let dfa = Graph::new_in(&mut dfa_arena);
 
     let mut det = Determinizer::new(&nfa, &dfa);
-    assert_eq!(det.e_closure(a), tset![a, b, c, e, f]);
-    assert_eq!(det.e_closure(b), tset![b]);
-    assert_eq!(det.e_closure(c), tset![c, e, f]);
-    assert_eq!(det.e_closure(d), tset![d, f]);
-    assert_eq!(det.e_closure(e), tset![e, f]);
-    assert_eq!(det.e_closure(f), tset![f]);
+    assert_eq!(det.e_closure(a), set![a, b, c, e, f]);
+    assert_eq!(det.e_closure(b), set![b]);
+    assert_eq!(det.e_closure(c), set![c, e, f]);
+    assert_eq!(det.e_closure(d), set![d, f]);
+    assert_eq!(det.e_closure(e), set![e, f]);
+    assert_eq!(det.e_closure(f), set![f]);
 
     f.connect(b);
-    assert_eq!(det.e_closure(f), tset![b, f]);
+    assert_eq!(det.e_closure(f), set![f, b]);
 
     f.connect(c);
-    assert_eq!(det.e_closure(f), tset![b, c, e, f]);
+    assert_eq!(det.e_closure(f), set![f, b, c, e]);
 
     assert!(det.inst_map.is_empty());
 }
@@ -70,37 +69,37 @@ fn e_closure_with_tags() {
     let dfa = Graph::new_in(&mut dfa_arena);
 
     let mut det = Determinizer::new(&nfa, &dfa);
-    assert_eq!(det.e_closure(q), tset![q, a, b, c]);
+    assert_eq!(det.e_closure(q), set![q, a, b, c]);
     assert_eq!(
         det.inst_map,
         map! {
-            a => tset![Inst::WritePos(0, 0)],
-            b => tset![Inst::WritePos(0, 0), Inst::WritePos(1, 1)],
-            c => tset![Inst::WritePos(0, 0), Inst::WritePos(2, 2)],
+            a => set![Inst::WritePos(0, 0)],
+            b => set![Inst::WritePos(1, 1), Inst::WritePos(0, 0)],
+            c => set![Inst::WritePos(2, 2), Inst::WritePos(0, 0)],
         }
     );
 
-    assert_eq!(det.e_closure(d), tset![d, f, g]);
+    assert_eq!(det.e_closure(d), set![d, f, g]);
     assert_eq!(
-        BTreeMap::from_iter(det.inst_map.iter().map(|(k, v)| (*k, v.clone()))),
-        tmap! {
-            a => tset![Inst::WritePos(0, 0)],
-            b => tset![Inst::WritePos(0, 0), Inst::WritePos(1, 1)],
-            c => tset![Inst::WritePos(0, 0), Inst::WritePos(2, 2)],
-            f => tset![Inst::InvalidateTag(2)],
-            g => tset![Inst::InvalidateTag(2), Inst::WritePos(3, 3)],
+        Map::from_iter(det.inst_map.iter().map(|(k, v)| (*k, v.clone()))),
+        map! {
+            a => set![Inst::WritePos(0, 0)],
+            b => set![Inst::WritePos(1, 1), Inst::WritePos(0, 0)],
+            c => set![Inst::WritePos(2, 2), Inst::WritePos(0, 0)],
+            f => set![Inst::InvalidateTag(2)],
+            g => set![Inst::WritePos(3, 3), Inst::InvalidateTag(2)],
         }
     );
 
-    assert_eq!(det.e_closure(e), tset![e, f, g]);
+    assert_eq!(det.e_closure(e), set![e, f, g]);
     assert_eq!(
-        BTreeMap::from_iter(det.inst_map.iter().map(|(k, v)| (*k, v.clone()))),
-        tmap! {
-            a => tset![Inst::WritePos(0, 0)],
-            b => tset![Inst::WritePos(0, 0), Inst::WritePos(1, 1)],
-            c => tset![Inst::WritePos(0, 0), Inst::WritePos(2, 2)],
-            f => tset![Inst::InvalidateTag(1), Inst::InvalidateTag(2)],
-            g => tset![Inst::InvalidateTag(1), Inst::InvalidateTag(2), Inst::WritePos(3, 3)],
+        Map::from_iter(det.inst_map.iter().map(|(k, v)| (*k, v.clone()))),
+        map! {
+            a => set![Inst::WritePos(0, 0)],
+            b => set![Inst::WritePos(1, 1), Inst::WritePos(0, 0)],
+            c => set![Inst::WritePos(2, 2), Inst::WritePos(0, 0)],
+            f => set![Inst::InvalidateTag(2), Inst::InvalidateTag(1)],
+            g => set![Inst::WritePos(3, 3), Inst::InvalidateTag(2), Inst::InvalidateTag(1)],
         }
     );
 }

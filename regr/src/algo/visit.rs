@@ -20,7 +20,7 @@ where
     A: FnMut(Node<'n>) -> VisitResult,
 {
     let mut action = action;
-    let mut visited = Set::new();
+    let mut visited = Set::default();
     let mut unvisited = Vec::with_capacity(512);
     unvisited.push(start_node);
     while let Some(node) = unvisited.pop() {
@@ -50,7 +50,7 @@ where
     A: FnMut(Node<'n>, Transition<'n>, Node<'n>) -> VisitResult,
 {
     let mut action = action;
-    let mut visited = Set::new();
+    let mut visited = Set::default();
     let mut unvisited = Vec::with_capacity(512);
     unvisited.push(start_node);
     while let Some(node) = unvisited.pop() {

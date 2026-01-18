@@ -7,7 +7,7 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-cfg-if.workspace = true
+fnv.workspace = true
 ordermap.workspace = true
 num-traits.workspace = true
 
