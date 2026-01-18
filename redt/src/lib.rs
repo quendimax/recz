@@ -1,5 +1,5 @@
 mod collections;
-pub use collections::{Map, MapIter, MapKeyIter, Set, SetIter};
+pub use collections::{Map, Set};
 
 mod legible;
 pub use legible::Legible;

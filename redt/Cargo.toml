@@ -8,17 +8,8 @@ repository.workspace = true
 
 [dependencies]
 cfg-if.workspace = true
-linked-hash-map = { workspace = true, optional = true }
-linked_hash_set = { workspace = true, optional = true }
+ordermap.workspace = true
 num-traits.workspace = true
-
-[features]
-hash-map = []
-hash-set = []
-hash = ["hash-map", "hash-set"]
-ordered-hash-map = ["dep:linked-hash-map", "hash-map"]
-ordered-hash-set = ["dep:linked_hash_set", "hash-set"]
-ordered-hash = ["ordered-hash-map", "ordered-hash-set"]
 
 [dev-dependencies]
 pretty_assertions.workspace = true

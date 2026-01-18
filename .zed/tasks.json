@@ -1,10 +1,10 @@
 [
   {
-    "label": "qm::cargo_miri_test",
+    "label": "cargo miri test",
     "command": "cargo",
     "args": ["+nightly", "miri", "test"],
     "env": {
-      "MIRIFLAGS": "-Zmiri-backtrace=full -Zmiri-disable-isolation"
-    }
-  }
+      "MIRIFLAGS": "-Zmiri-backtrace=full -Zmiri-disable-isolation",
+    },
+  },
 ]
