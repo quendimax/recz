@@ -409,8 +409,8 @@ fn translate_group_3() {
             ///}
             ///node(1) {}
             ///node(2) {
-            ///    [Epsilon] -> node(5)
             ///    [Epsilon] -> node(6)
+            ///    [Epsilon] -> node(5)
             ///}
             ///node(3) {
             ///    ['a'] -> node(4)

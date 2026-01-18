@@ -89,8 +89,8 @@ fn translate_repeat() {
         tr(&hir),
         lit!(
             ///node(0) {
-            ///    [Epsilon] -> node(1)
             ///    [Epsilon] -> node(2)
+            ///    [Epsilon] -> node(1)
             ///}
             ///node(1) {}
             ///node(2) {
@@ -187,8 +187,8 @@ fn translate_repeat() {
             ///}
             ///node(1) {}
             ///node(2) {
-            ///    [Epsilon] -> node(1)
             ///    [Epsilon] -> node(3)
+            ///    [Epsilon] -> node(1)
             ///}
             ///node(3) {
             ///    ['a'] -> node(4)
@@ -197,8 +197,8 @@ fn translate_repeat() {
             ///    [Epsilon] -> node(5)
             ///}
             ///node(5) {
-            ///    [Epsilon] -> node(1)
             ///    [Epsilon] -> node(6)
+            ///    [Epsilon] -> node(1)
             ///}
             ///node(6) {
             ///    ['a'] -> node(7)

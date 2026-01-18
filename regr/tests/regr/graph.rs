@@ -211,8 +211,8 @@ fn graph_display_fmt_0() {
             ///    ['a'-FFh] -> node(1)
             ///}
             ///node(1) {
-            ///    [Epsilon] -> node(0)
             ///    [Epsilon] -> node(2)
+            ///    [Epsilon] -> node(0)
             ///}
             ///node(2) {
             ///    ['c'] -> node(3)
@@ -256,8 +256,8 @@ fn graph_display_fmt_1() {
             ///    ['a'] -> node(3)
             ///}
             ///node(3) {
-            ///    [Epsilon] -> node(2)
             ///    [Epsilon] -> node(4)
+            ///    [Epsilon] -> node(2)
             ///}
             ///node(4) {}
         )

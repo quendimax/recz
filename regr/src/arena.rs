@@ -128,9 +128,9 @@ struct BumpIter<T> {
     // number of items at the moment when this iterator was created
     len: usize,
     chunks: SmallVec<[(*mut u8, usize); 4]>,
-    chunk_start: *const u8,
+    chunk_start: *mut u8,
     chunk_size: usize,
-    cur_ptr: *const u8,
+    cur_ptr: *mut u8,
     _phantom: std::marker::PhantomData<*mut T>,
 }
 
@@ -142,9 +142,9 @@ impl<T> BumpIter<T> {
         Self {
             len,
             chunks: chunk_iter.collect::<SmallVec<[(*mut u8, usize); 4]>>(),
-            chunk_start: std::ptr::null(),
+            chunk_start: std::ptr::null_mut(),
             chunk_size: 0,
-            cur_ptr: std::ptr::null(),
+            cur_ptr: std::ptr::null_mut(),
             _phantom: std::marker::PhantomData,
         }
     }
