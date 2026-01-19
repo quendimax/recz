@@ -4,7 +4,7 @@ use crate::symbol::Epsilon;
 use crate::tag::Tag;
 use redt::{Map, Set};
 use std::cell::{Cell, RefCell};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::fmt::Write;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -111,7 +111,7 @@ impl<'a> Graph<'a> {
     /// If instead of NFA, this graph is a DFA, this method just builds a clone
     /// of it.
     pub fn determinize_in<'d>(&self, arena: &'d mut Arena) -> Graph<'d> {
-        type ConvertMap<'n, 'd> = BTreeMap<Rc<BTreeSet<Node<'n>>>, Node<'d>>;
+        type ConvertMap<'n, 'd> = Map<Rc<Set<Node<'n>>>, Node<'d>>;
 
         struct Lambda<'a, 'n, 'd> {
             #[allow(clippy::mutable_key_type)]
@@ -119,7 +119,7 @@ impl<'a> Graph<'a> {
             dfa: &'a Graph<'d>,
         }
         impl<'a, 'n, 'd> Lambda<'a, 'n, 'd> {
-            fn convert(&mut self, nfa_closure: Rc<BTreeSet<Node<'n>>>) -> Node<'d> {
+            fn convert(&mut self, nfa_closure: Rc<Set<Node<'n>>>) -> Node<'d> {
                 if let Some(dfa_node) = self.convert_map.get(&nfa_closure) {
                     return *dfa_node;
                 }
@@ -148,7 +148,7 @@ impl<'a> Graph<'a> {
         let dfa = Graph::new_in(arena);
         let start_e_closure = Rc::new(self.start_node().closure(Epsilon));
         Lambda {
-            convert_map: ConvertMap::new(),
+            convert_map: ConvertMap::default(),
             dfa: &dfa,
         }
         .convert(start_e_closure);

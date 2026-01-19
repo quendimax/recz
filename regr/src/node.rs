@@ -1,9 +1,8 @@
 use crate::arena::Arena;
 use crate::symbol::Epsilon;
 use crate::transition::Transition;
-use redt::Map;
+use redt::{Map, Set};
 use std::cell::{Cell, RefCell};
-use std::collections::BTreeSet;
 use std::fmt::Write;
 use std::ops::Deref;
 
@@ -85,7 +84,7 @@ impl<'a> Node<'a> {
     }
 
     #[allow(clippy::mutable_key_type)]
-    pub fn closure<T>(&self, symbol: T) -> BTreeSet<Node<'a>>
+    pub fn closure<T>(&self, symbol: T) -> Set<Node<'a>>
     where
         Self: ClosureOp<'a, T>,
     {
@@ -154,21 +153,21 @@ impl<'a> Node<'a> {
 
 pub trait ClosureOp<'a, T> {
     #[allow(clippy::mutable_key_type)]
-    fn closure(&self, symbol: T) -> BTreeSet<Node<'a>>;
+    fn closure(&self, symbol: T) -> Set<Node<'a>>;
 }
 
 impl<'a> ClosureOp<'a, u8> for Node<'a> {
     #[allow(clippy::mutable_key_type)]
-    fn closure(&self, symbol: u8) -> BTreeSet<Node<'a>> {
+    fn closure(&self, symbol: u8) -> Set<Node<'a>> {
         let e_closure = self.closure(Epsilon);
         e_closure.closure(symbol)
     }
 }
 
-impl<'a> ClosureOp<'a, u8> for BTreeSet<Node<'a>> {
+impl<'a> ClosureOp<'a, u8> for Set<Node<'a>> {
     #[allow(clippy::mutable_key_type)]
-    fn closure(&self, symbol: u8) -> BTreeSet<Node<'a>> {
-        let mut closure = BTreeSet::new();
+    fn closure(&self, symbol: u8) -> Set<Node<'a>> {
+        let mut closure = Set::default();
         for node in self.iter() {
             for (target_node, transition) in node.targets().iter() {
                 if transition.contains(symbol) {
@@ -183,9 +182,9 @@ impl<'a> ClosureOp<'a, u8> for BTreeSet<Node<'a>> {
 
 impl<'a> ClosureOp<'a, Epsilon> for Node<'a> {
     #[allow(clippy::mutable_key_type)]
-    fn closure(&self, _: Epsilon) -> BTreeSet<Node<'a>> {
-        let mut closure = BTreeSet::new();
-        fn closure_impl<'a>(node: Node<'a>, closure: &mut BTreeSet<Node<'a>>) {
+    fn closure(&self, _: Epsilon) -> Set<Node<'a>> {
+        let mut closure = Set::default();
+        fn closure_impl<'a>(node: Node<'a>, closure: &mut Set<Node<'a>>) {
             if closure.contains(&node) {
                 return;
             }

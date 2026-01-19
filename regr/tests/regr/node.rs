@@ -1,7 +1,6 @@
 use pretty_assertions::{assert_eq, assert_ne};
-use redt::range;
+use redt::{range, set};
 use regr::{Arena, Epsilon, Graph};
-use std::collections::BTreeSet;
 
 #[test]
 fn node_copy_and_clone() {
@@ -111,9 +110,7 @@ fn node_closure() {
     a.connect(d);
     d.connect(e).merge(b'a');
 
-    #[allow(clippy::mutable_key_type)]
-    let set = BTreeSet::from_iter(vec![a, b, d, e]);
-    assert_eq!(a.closure(b'a'), set)
+    assert_eq!(a.closure(b'a'), set!(b, a, d, e));
 }
 
 #[test]
@@ -133,9 +130,7 @@ fn node_eclosure() {
     d.connect(b);
     d.connect(c);
 
-    #[allow(clippy::mutable_key_type)]
-    let set = BTreeSet::from_iter(vec![a, b, c]);
-    assert_eq!(a.closure(Epsilon), set)
+    assert_eq!(a.closure(Epsilon), set!(a, b, c))
 }
 
 #[test]
