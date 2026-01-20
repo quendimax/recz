@@ -2,6 +2,9 @@
 /// step.
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Inst {
+    /// Non instruction
+    Nop,
+
     /// Store the current position to the specified register
     WritePos(/*tag id*/ u32, /*reg id*/ u32),
 
@@ -14,6 +17,7 @@ macro_rules! impl_fmt {
         impl std::fmt::$trait for Inst {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
+                    Inst::Nop => f.write_str("nop")?,
                     Inst::WritePos(tag, reg) => write!(f, "wrpos t{tag}/r{reg}")?,
                     Inst::InvalidateTag(tag) => write!(f, "invd t{tag}")?,
                 }

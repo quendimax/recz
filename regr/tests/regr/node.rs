@@ -1,6 +1,6 @@
 use pretty_assertions::{assert_eq, assert_ne};
 use redt::{range, set};
-use regr::{Arena, Epsilon, Graph};
+use regr::{Arena, Epsilon, Graph, Inst::Nop};
 
 #[test]
 fn node_copy_and_clone() {
@@ -66,10 +66,10 @@ fn node_connect_nfa() {
     let node_a = graph.node();
     let node_b = graph.node();
     let node_c = graph.node();
-    node_a.connect(node_b).merge(b'a');
-    node_a.connect(node_c).merge(b'a');
-    node_a.connect(node_c).merge(b'a');
-    node_c.connect(node_a);
+    node_a.connect(node_b, Nop).merge(b'a');
+    node_a.connect(node_c, Nop).merge(b'a');
+    node_a.connect(node_c, Nop).merge(b'a');
+    node_c.connect(node_a, Nop);
 }
 
 #[test]
@@ -78,7 +78,7 @@ fn node_connect_dfa() {
     let graph = Graph::new_in(&mut arena);
     let node_a = graph.node();
     let node_b = graph.node();
-    node_a.connect(node_b).merge(b'a');
+    node_a.connect(node_b, Nop).merge(b'a');
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn node_connect_panics() {
     let graph_b = Graph::new_in(&mut arena_b);
     let node_a = graph_a.node();
     let node_b = graph_b.node();
-    node_a.connect(node_b);
+    node_a.connect(node_b, Nop);
 }
 
 #[test]
@@ -103,12 +103,12 @@ fn node_closure() {
     let d = graph.node();
     let e = graph.node();
 
-    a.connect(b).merge(b'a');
-    b.connect(c).merge(b'a');
-    c.connect(d);
-    b.connect(a);
-    a.connect(d);
-    d.connect(e).merge(b'a');
+    a.connect(b, Nop).merge(b'a');
+    b.connect(c, Nop).merge(b'a');
+    c.connect(d, Nop);
+    b.connect(a, Nop);
+    a.connect(d, Nop);
+    d.connect(e, Nop).merge(b'a');
 
     assert_eq!(a.closure(b'a'), set!(b, a, d, e));
 }
@@ -122,13 +122,13 @@ fn node_eclosure() {
     let c = graph.node();
     let d = graph.node();
 
-    a.connect(b);
-    b.connect(c);
-    c.connect(d).merge(b'c');
-    b.connect(a);
-    d.connect(a);
-    d.connect(b);
-    d.connect(c);
+    a.connect(b, Nop);
+    b.connect(c, Nop);
+    c.connect(d, Nop).merge(b'c');
+    b.connect(a, Nop);
+    d.connect(a, Nop);
+    d.connect(b, Nop);
+    d.connect(c, Nop);
 
     assert_eq!(a.closure(Epsilon), set!(a, b, c))
 }
@@ -142,14 +142,14 @@ fn node_symbol_targets() {
     let c = graph.node();
     let d = graph.node();
 
-    a.connect(b).merge(range(b'a', u8::MAX));
-    a.connect(b);
-    b.connect(c);
-    c.connect(d).merge(b'c');
-    b.connect(a);
-    d.connect(a);
-    d.connect(b);
-    d.connect(c);
+    a.connect(b, Nop).merge(range(b'a', u8::MAX));
+    a.connect(b, Nop);
+    b.connect(c, Nop);
+    c.connect(d, Nop).merge(b'c');
+    b.connect(a, Nop);
+    d.connect(a, Nop);
+    d.connect(b, Nop);
+    d.connect(c, Nop);
 
     assert_eq!(a.targets().keys().copied().collect::<Vec<_>>(), vec![b]);
     assert_eq!(c.targets().keys().copied().collect::<Vec<_>>(), vec![d]);
@@ -162,11 +162,11 @@ fn node_symbol_targets_panic() {
     let graph = Graph::new_in(&mut arena);
     let a = graph.node();
     let b = graph.node();
-    a.connect(b).merge(b'c');
+    a.connect(b, Nop).merge(b'c');
 
     // expected that _node_tr is (Node, Transition), and it locks writing to node a
     for _ in a.targets().iter() {
-        a.connect(b).merge(b'a');
+        a.connect(b, Nop).merge(b'a');
     }
 }
 
@@ -179,13 +179,13 @@ fn node_collect_epsilon_targets() {
     let c = graph.node();
     let d = graph.node();
 
-    a.connect(b);
-    b.connect(c);
-    c.connect(d).merge(b'c');
-    b.connect(a);
-    d.connect(a);
-    d.connect(b);
-    d.connect(c);
+    a.connect(b, Nop);
+    b.connect(c, Nop);
+    c.connect(d, Nop).merge(b'c');
+    b.connect(a, Nop);
+    d.connect(a, Nop);
+    d.connect(b, Nop);
+    d.connect(c, Nop);
 
     assert_eq!(a.collect_epsilon_targets::<Vec<_>>(), vec![b]);
     assert_eq!(c.collect_epsilon_targets::<Vec<_>>(), vec![]);
@@ -199,11 +199,11 @@ fn node_iter_and_connect_overlap_panics() {
     let a = graph.node();
     let b = graph.node();
     let c = graph.node();
-    a.connect(b);
-    b.connect(c);
+    a.connect(b, Nop);
+    b.connect(c, Nop);
     a.for_each_epsilon_target(|b| {
         b.for_each_epsilon_target(|c| {
-            b.connect(c);
+            b.connect(c, Nop);
         });
     });
 }

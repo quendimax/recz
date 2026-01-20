@@ -7,7 +7,7 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-bumpalo = { workspace = true, features = ["collections"] }
+bumpalo = { workspace = true }
 paste.workspace = true
 redt = { path = "../redt" }
 resy = { path = "../resy" }

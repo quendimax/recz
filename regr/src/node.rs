@@ -1,4 +1,5 @@
 use crate::arena::Arena;
+use crate::isa::Inst;
 use crate::symbol::Epsilon;
 use crate::transition::Transition;
 use redt::{Map, Set};
@@ -66,8 +67,14 @@ impl<'a> Node<'a> {
         self.0.arena
     }
 
-    /// Connects this node to another node with an Epsilon transition.
-    pub fn connect(&self, to: Node<'a>) -> Transition<'a> {
+    /// Creates a new empty transition between two nodes. You can fill the
+    /// transition with symbols later.
+    ///
+    /// Specifying instruction is mandatory. If there is no instruction for the
+    /// transition use [`nop`].
+    ///
+    /// [`nop`]: crate::isa::Inst::Nop
+    pub fn connect(&self, to: Node<'a>, with: Inst) -> Transition<'a> {
         assert_eq!(
             self.gid(),
             to.gid(),
@@ -77,7 +84,7 @@ impl<'a> Node<'a> {
         if let Some(tr) = targets.get(&to) {
             *tr
         } else {
-            let tr = Transition::new(*self, to);
+            let tr = Transition::new(*self, to, with);
             targets.insert(to, tr);
             tr
         }

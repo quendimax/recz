@@ -1,5 +1,12 @@
 [workspace]
-members = ["recz", "redt", "regr", "remc", "renc", "resy"]
+members = [
+    #"recz",
+    "redt",
+    "regr",
+    #"remc",
+    "renc",
+    "resy"
+]
 resolver = "2"
 
 [workspace.package]

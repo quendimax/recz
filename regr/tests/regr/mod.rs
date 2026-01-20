@@ -1,7 +1,7 @@
-mod algo;
+//mod algo;
 mod arena;
 mod graph;
 mod node;
 mod symbol;
 mod transition;
-mod translator;
+//mod translator;

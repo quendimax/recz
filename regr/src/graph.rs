@@ -1,12 +1,10 @@
 use crate::arena::Arena;
-use crate::node::{ClosureOp, Node};
-use crate::symbol::Epsilon;
+use crate::node::Node;
 use crate::tag::Tag;
 use redt::{Map, Set};
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeSet;
 use std::fmt::Write;
-use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 pub struct Graph<'a> {
@@ -106,55 +104,6 @@ impl<'a> Graph<'a> {
         TagGroupIter::new(self)
     }
 
-    /// Builds a new DFA from `self` using determinization algorithm.
-    ///
-    /// If instead of NFA, this graph is a DFA, this method just builds a clone
-    /// of it.
-    pub fn determinize_in<'d>(&self, arena: &'d mut Arena) -> Graph<'d> {
-        type ConvertMap<'n, 'd> = Map<Rc<Set<Node<'n>>>, Node<'d>>;
-
-        struct Lambda<'a, 'n, 'd> {
-            #[allow(clippy::mutable_key_type)]
-            convert_map: ConvertMap<'n, 'd>,
-            dfa: &'a Graph<'d>,
-        }
-        impl<'a, 'n, 'd> Lambda<'a, 'n, 'd> {
-            fn convert(&mut self, nfa_closure: Rc<Set<Node<'n>>>) -> Node<'d> {
-                if let Some(dfa_node) = self.convert_map.get(&nfa_closure) {
-                    return *dfa_node;
-                }
-
-                let dfa_node = self.dfa.node();
-                for nfa_node in nfa_closure.iter() {
-                    if nfa_node.is_final() {
-                        dfa_node.finalize();
-                        break;
-                    }
-                }
-                self.convert_map.insert(Rc::clone(&nfa_closure), dfa_node);
-
-                for symbol in u8::MIN..=u8::MAX {
-                    let symbol_closure = Rc::new(nfa_closure.closure(symbol));
-                    if !symbol_closure.is_empty() {
-                        let target_dfa_node = self.convert(symbol_closure);
-                        let tr = dfa_node.connect(target_dfa_node);
-                        tr.merge(symbol);
-                    }
-                }
-                dfa_node
-            }
-        }
-
-        let dfa = Graph::new_in(arena);
-        let start_e_closure = Rc::new(self.start_node().closure(Epsilon));
-        Lambda {
-            convert_map: ConvertMap::default(),
-            dfa: &dfa,
-        }
-        .convert(start_e_closure);
-        dfa
-    }
-
     /// Visits each node of the graph, i.e. every node reachable from the start
     /// node.
     pub fn for_each_node<F>(&self, f: F)
@@ -224,10 +173,6 @@ macro_rules! impl_fmt {
                                 f.write_str("self")?;
                             } else {
                                 ::std::fmt::$trait::fmt(&target, f)?;
-                            }
-                            for inst in transition.instructs() {
-                                f.write_str("\n        ")?;
-                                write!(f, "{inst}")?;
                             }
                             is_empty = false;
                         }

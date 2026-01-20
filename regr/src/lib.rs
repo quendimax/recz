@@ -1,4 +1,4 @@
-pub mod algo;
+//pub mod algo;
 
 mod arena;
 pub use arena::Arena;
@@ -23,5 +23,5 @@ pub use tag::{Tag, TagBank};
 mod transition;
 pub use transition::Transition;
 
-mod translator;
-pub use translator::Translator;
+//mod translator;
+//pub use translator::Translator;

@@ -1,10 +1,6 @@
 use pretty_assertions::assert_eq;
 use redt::{RangeU8, range};
-use regr::{
-    Arena, Epsilon, Graph,
-    Inst::{InvalidateTag, WritePos},
-    Transition,
-};
+use regr::{Arena, Epsilon, Graph, Inst::*, Transition};
 
 type Chunk = u64;
 
@@ -18,7 +14,7 @@ where
 {
     let mut arena = Arena::new();
     let gr = Graph::new_in(&mut arena);
-    let tr = gr.node().connect(gr.node());
+    let tr = gr.node().connect(gr.node(), Nop);
     f(tr)
 }
 
@@ -28,7 +24,7 @@ where
 {
     let mut arena = Arena::new();
     let gr = Graph::new_in(&mut arena);
-    let tr = gr.node().connect(gr.node());
+    let tr = gr.node().connect(gr.node(), Nop);
     let mut sym = 0u8;
     for chunk in chunks {
         let mut mask = 1u64;
@@ -49,7 +45,7 @@ where
 {
     let mut arena = Arena::new();
     let gr = Graph::new_in(&mut arena);
-    let tr = gr.node().connect(gr.node());
+    let tr = gr.node().connect(gr.node(), Nop);
     for sym in symbols {
         tr.merge(*sym);
     }
@@ -62,7 +58,7 @@ where
 {
     let mut arena = Arena::new();
     let gr = Graph::new_in(&mut arena);
-    let tr = gr.node().connect(gr.node());
+    let tr = gr.node().connect(gr.node(), Nop);
     f(tr)
 }
 
@@ -73,7 +69,7 @@ fn tr_new() {
     let mut arena_2 = Arena::new();
     let gr_1 = Graph::new_in(&mut arena_1);
     let gr_2 = Graph::new_in(&mut arena_2);
-    gr_1.node().connect(gr_2.node());
+    gr_1.node().connect(gr_2.node(), Nop);
 }
 
 #[test]
@@ -159,35 +155,6 @@ fn tr_ranges() {
 }
 
 #[test]
-fn tr_instructs_for() {
-    let t0 = 0;
-    let t1 = 1;
-    let r0 = 0;
-    let r1 = 1;
-    let mut arena = Arena::new();
-    let gr = Graph::new_in(&mut arena);
-    let tr_a = gr.node().connect(gr.node());
-    tr_a.merge(0);
-    tr_a.merge_instruct(WritePos(t0, r0), None);
-    tr_a.merge_instruct(InvalidateTag(t0), None);
-
-    let tr_b = gr.node().connect(gr.node());
-    tr_b.merge(1);
-    tr_b.merge_instruct(WritePos(t1, r1), None);
-    tr_b.merge(tr_a);
-
-    assert_eq!(
-        tr_b.instructs_for(0).collect::<Vec<_>>(),
-        &[WritePos(t0, r0), InvalidateTag(t0)]
-    );
-    assert_eq!(
-        tr_b.instructs().collect::<Vec<_>>(),
-        &[WritePos(t0, r0), WritePos(t1, r1), InvalidateTag(r0)]
-    );
-    assert_eq!(tr_b.instructs_for(2).collect::<Vec<_>>(), &[]);
-}
-
-#[test]
 fn tr_contains_symbol() {
     handle_tr_from_symbols(b"\x00bcde\xFF", |tr| {
         assert_eq!(tr.contains(0), true);
@@ -222,15 +189,15 @@ fn tr_contains_range() {
 fn tr_contains_transition() {
     let mut arena = Arena::new();
     let gr = Graph::new_in(&mut arena);
-    let tr_a = gr.node().connect(gr.node());
+    let tr_a = gr.node().connect(gr.node(), Nop);
     tr_a.merge(b'a');
     tr_a.merge(b'c');
     tr_a.merge(b'e');
-    let tr_b = gr.node().connect(gr.node());
+    let tr_b = gr.node().connect(gr.node(), Nop);
     tr_b.merge(b'b');
     tr_b.merge(b'd');
     tr_b.merge(b'f');
-    let tr_c = gr.node().connect(gr.node());
+    let tr_c = gr.node().connect(gr.node(), Nop);
     tr_c.merge(b'a');
     tr_c.merge(b'b');
     tr_c.merge(b'c');
@@ -296,15 +263,15 @@ fn tr_intersects_range() {
 fn tr_intersects_transition() {
     let mut arena = Arena::new();
     let gr = Graph::new_in(&mut arena);
-    let tr_a = gr.node().connect(gr.node());
+    let tr_a = gr.node().connect(gr.node(), Nop);
     tr_a.merge(b'a');
     tr_a.merge(b'c');
     tr_a.merge(b'e');
-    let tr_b = gr.node().connect(gr.node());
+    let tr_b = gr.node().connect(gr.node(), Nop);
     tr_b.merge(b'b');
     tr_b.merge(b'd');
     tr_b.merge(b'f');
-    let tr_c = gr.node().connect(gr.node());
+    let tr_c = gr.node().connect(gr.node(), Nop);
     tr_c.merge(b'a');
     tr_c.merge(b'b');
     tr_c.merge(b'c');
@@ -336,7 +303,7 @@ fn tr_merge_range() {
         let range = range.into();
         let mut arena = Arena::new();
         let gr = Graph::new_in(&mut arena);
-        let tr = gr.node().connect(gr.node());
+        let tr = gr.node().connect(gr.node(), Nop);
         tr.merge(range);
         let mut range: Option<RangeU8> = None;
         for next_range in tr.ranges() {
@@ -360,22 +327,18 @@ fn tr_merge_range() {
 
 #[test]
 fn tr_merge_transition() {
-    let t0 = 0;
-    let t1 = 1;
-    let r0 = 0;
-    let r1 = 1;
     let mut arena = Arena::new();
     let gr = Graph::new_in(&mut arena);
-    let tr_a = gr.node().connect(gr.node());
+    let tr_a = gr.node().connect(gr.node(), Nop);
     tr_a.merge(b'a');
     tr_a.merge(b'b');
     tr_a.merge(b'c');
-    let tr_b = gr.node().connect(gr.node());
+    let tr_b = gr.node().connect(gr.node(), Nop);
     tr_b.merge(b'b');
     tr_b.merge(b'c');
     tr_b.merge(b'd');
     tr_b.merge(b'e');
-    let tr_c = gr.node().connect(gr.node());
+    let tr_c = gr.node().connect(gr.node(), Nop);
     tr_c.merge(b'a');
     tr_c.merge(b'b');
     tr_c.merge(b'c');
@@ -384,88 +347,21 @@ fn tr_merge_transition() {
     #[allow(clippy::needless_borrows_for_generic_args)]
     tr_a.merge(&tr_b);
     assert_eq!(tr_a, tr_c);
-
-    tr_a.merge_instructs([WritePos(t0, r0), WritePos(t1, r1)], None);
-    let tr_d = gr.node().connect(gr.node());
-    tr_d.merge_instruct(WritePos(t0, r0), None);
-    tr_d.merge(tr_a);
-    assert_eq!(tr_a, tr_d);
 }
 
 #[test]
-fn tr_merge_instruct() {
+fn tr_instruct() {
     let t0 = 0;
-    let t1 = 1;
     let r0 = 0;
-    let r1 = 1;
     let mut arena = Arena::new();
     let gr = Graph::new_in(&mut arena);
-    let tr_a = gr.node().connect(gr.node());
+    let tr_a = gr.node().connect(gr.node(), WritePos(t0, r0));
     tr_a.merge(b'a');
     tr_a.merge(b'b');
     tr_a.merge(b'c');
-    tr_a.merge_instruct(WritePos(t0, r0), None);
-    tr_a.merge_instruct(WritePos(t1, r1), None);
     tr_a.merge(b'e');
-    assert_eq!(
-        tr_a.instructs().collect::<Vec<_>>(),
-        &[WritePos(t0, r0), WritePos(t1, r1)]
-    );
 
-    let tr_b = gr.node().connect(gr.node());
-    tr_b.merge(b'b');
-    tr_b.merge(b'c');
-    tr_b.merge(b'd');
-    tr_b.merge(b'e');
-    tr_b.merge_instruct(WritePos(t0, r0), None);
-    tr_b.merge_instruct(WritePos(t0, r0), None);
-    tr_b.merge_instruct(WritePos(t1, r1), None);
-    assert_eq!(
-        tr_b.instructs().collect::<Vec<_>>(),
-        &[WritePos(t0, r0), WritePos(t1, r1)]
-    );
-    assert_eq!(
-        tr_a.instructs().collect::<Vec<_>>(),
-        tr_b.instructs().collect::<Vec<_>>(),
-    );
-    assert_ne!(tr_a, tr_b);
-}
-
-#[test]
-fn tr_merge_instructs() {
-    let t0 = 0;
-    let t1 = 1;
-    let r0 = 0;
-    let r1 = 1;
-    let mut arena = Arena::new();
-    let gr = Graph::new_in(&mut arena);
-    let tr_a = gr.node().connect(gr.node());
-    tr_a.merge(b'a');
-    tr_a.merge(b'b');
-    tr_a.merge(b'c');
-    tr_a.merge_instructs([WritePos(t0, r0), WritePos(t1, r1)], None);
-    tr_a.merge_instructs([WritePos(t0, r0), WritePos(t1, r1)], None);
-    tr_a.merge(b'e');
-    assert_eq!(
-        tr_a.instructs().collect::<Vec<_>>(),
-        &[WritePos(t0, r0), WritePos(t1, r1)]
-    );
-
-    let tr_b = gr.node().connect(gr.node());
-    tr_b.merge(b'b');
-    tr_b.merge(b'c');
-    tr_b.merge(b'd');
-    tr_b.merge(b'e');
-    tr_b.merge_instructs([WritePos(t0, r0), WritePos(t0, r0), WritePos(t1, r1)], None);
-    assert_eq!(
-        tr_b.instructs().collect::<Vec<_>>(),
-        &[WritePos(t0, r0), WritePos(t1, r1)]
-    );
-    assert_eq!(
-        tr_a.instructs().collect::<Vec<_>>(),
-        tr_b.instructs().collect::<Vec<_>>(),
-    );
-    assert_ne!(tr_a, tr_b);
+    assert_eq!(format!("{tr_a}"), "['a'-'c' | 'e'] / `wrpos t0/r0`");
 }
 
 #[test]
