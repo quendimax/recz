@@ -266,6 +266,7 @@ fn encode_entire_range() {
     assert_eq!(Ok(seq), encode_range(0x0..=0x10FFFF));
 }
 
+#[cfg(not(miri))]
 mod prop {
     use super::*;
     use pretty_assertions::assert_eq;
