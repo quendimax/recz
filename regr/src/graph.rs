@@ -118,9 +118,9 @@ impl<'a> Graph<'a> {
             fn visit(&mut self, node: Node<'a>) {
                 self.visited.insert(node);
                 (self.handler)(node);
-                for target in node.targets().keys() {
-                    if !self.visited.contains(target) {
-                        self.visit(*target);
+                for (target, _) in node.targets() {
+                    if !self.visited.contains(&target) {
+                        self.visit(target);
                     }
                 }
             }
@@ -146,7 +146,7 @@ macro_rules! impl_fmt {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 fn recurse<'a>(node: Node<'a>, visited: &mut BTreeSet<Node<'a>>) {
                     visited.insert(node);
-                    for target in node.targets().keys().copied() {
+                    for (target, _) in node.targets() {
                         if !visited.contains(&target) {
                             recurse(target, visited);
                         }
@@ -165,16 +165,18 @@ macro_rules! impl_fmt {
                         let mut is_empty = true;
                         ::std::fmt::$trait::fmt(&node, f)?;
                         f.write_str(" {")?;
-                        for (target, transition) in node.targets().iter() {
-                            f.write_str("\n    ")?;
-                            ::std::fmt::$trait::fmt(transition, f)?;
-                            f.write_str(" -> ")?;
-                            if node == *target {
-                                f.write_str("self")?;
-                            } else {
-                                ::std::fmt::$trait::fmt(&target, f)?;
+                        for (target, transitions) in node.targets() {
+                            for transition in transitions {
+                                f.write_str("\n    ")?;
+                                ::std::fmt::$trait::fmt(&transition, f)?;
+                                f.write_str(" -> ")?;
+                                if node == target {
+                                    f.write_str("self")?;
+                                } else {
+                                    ::std::fmt::$trait::fmt(&target, f)?;
+                                }
+                                is_empty = false;
                             }
-                            is_empty = false;
                         }
                         if !is_empty {
                             f.write_char('\n')?;

@@ -1,9 +1,9 @@
 use crate::arena::Arena;
 use crate::isa::Inst;
-use crate::symbol::Epsilon;
 use crate::transition::Transition;
-use redt::{Map, Set};
-use std::cell::{Cell, RefCell};
+use redt::{Map, MapIter};
+use smallvec::smallvec;
+use std::cell::{Cell, Ref, RefCell};
 use std::fmt::Write;
 use std::ops::Deref;
 
@@ -13,10 +13,12 @@ use std::ops::Deref;
 /// another node via [`Transition`]'s.
 pub struct Node<'a>(&'a NodeInner<'a>);
 
+type TrVec<'a> = smallvec::SmallVec<[Transition<'a>; 1]>;
+
 pub(crate) struct NodeInner<'a> {
     uid: u64,
     is_final: Cell<bool>,
-    targets: RefCell<Map<Node<'a>, Transition<'a>>>,
+    targets: RefCell<Map<Node<'a>, TrVec<'a>>>,
     arena: &'a Arena,
 }
 
@@ -81,67 +83,31 @@ impl<'a> Node<'a> {
             "only nodes of the same graph can be joint"
         );
         let mut targets = self.0.targets.borrow_mut();
-        if let Some(tr) = targets.get(&to) {
-            *tr
+        if let Some(tr_vec) = targets.get_mut(&to) {
+            if let Some(tr) = tr_vec.iter().find(|tr| tr.instruct() == with) {
+                *tr
+            } else {
+                let tr = Transition::new(*self, to, with);
+                tr_vec.push(tr);
+                tr
+            }
         } else {
             let tr = Transition::new(*self, to, with);
-            targets.insert(to, tr);
+            targets.insert(to, smallvec![tr]);
             tr
         }
-    }
-
-    #[allow(clippy::mutable_key_type)]
-    pub fn closure<T>(&self, symbol: T) -> Set<Node<'a>>
-    where
-        Self: ClosureOp<'a, T>,
-    {
-        ClosureOp::closure(self, symbol)
     }
 
     /// Returns an iterator over target nodes, i.e. nodes that this node is
     /// connected to.
     ///
-    /// This iterator walks over pairs (`Node`, `TransitionRef`).
+    /// This iterator walks over pairs ([`Node`], [`Transition`]). Because of
+    /// `Transition` contains only one instruction, it's possible to get the
+    /// same node multiple times.
     #[inline]
-    pub fn targets(&self) -> impl Deref<Target = Map<Node<'a>, Transition<'a>>> {
-        self.0.targets.borrow()
-    }
-
-    /// Calls a function for each target node, i.e. nodes that this node is
-    /// connected to.
-    ///
-    /// This iterator walks over pairs (`Node`, `TransitionRef`).
-    #[inline]
-    pub fn for_each_target(&self, f: impl FnMut(Node<'a>, Transition<'a>)) {
-        let mut f = f;
-        for (target, tr) in self.0.targets.borrow().iter() {
-            f(*target, *tr);
-        }
-    }
-
-    /// Iterates over epsilon target nodes, i.e. nodes that this node is
-    /// connected to with Epsilon transition.
-    pub fn for_each_epsilon_target(&self, f: impl FnMut(Node<'a>)) {
-        let mut f = f;
-        for (target, transition) in self.0.targets.borrow().iter() {
-            if transition.contains(Epsilon) {
-                f(*target);
-            }
-        }
-    }
-
-    /// Collects epsilon target nodes, i.e. nodes that this node is
-    /// connected to with Epsilon transition.
-    pub fn collect_epsilon_targets<B: FromIterator<Node<'a>>>(&self) -> B {
-        let targets = self.0.targets.borrow();
-        let iter = targets.iter().filter_map(|(target, tr)| {
-            if tr.contains(Epsilon) {
-                Some(*target)
-            } else {
-                None
-            }
-        });
-        FromIterator::from_iter(iter)
+    pub fn targets(&self) -> TargetNodeIter<'a> {
+        let lock = self.0.targets.borrow();
+        TargetNodeIter::new(lock)
     }
 }
 
@@ -155,53 +121,6 @@ impl<'a> Node<'a> {
             targets: Default::default(),
             arena,
         })
-    }
-}
-
-pub trait ClosureOp<'a, T> {
-    #[allow(clippy::mutable_key_type)]
-    fn closure(&self, symbol: T) -> Set<Node<'a>>;
-}
-
-impl<'a> ClosureOp<'a, u8> for Node<'a> {
-    #[allow(clippy::mutable_key_type)]
-    fn closure(&self, symbol: u8) -> Set<Node<'a>> {
-        let e_closure = self.closure(Epsilon);
-        e_closure.closure(symbol)
-    }
-}
-
-impl<'a> ClosureOp<'a, u8> for Set<Node<'a>> {
-    #[allow(clippy::mutable_key_type)]
-    fn closure(&self, symbol: u8) -> Set<Node<'a>> {
-        let mut closure = Set::default();
-        for node in self.iter() {
-            for (target_node, transition) in node.targets().iter() {
-                if transition.contains(symbol) {
-                    let e_closure = target_node.closure(Epsilon);
-                    closure.extend(e_closure);
-                }
-            }
-        }
-        closure
-    }
-}
-
-impl<'a> ClosureOp<'a, Epsilon> for Node<'a> {
-    #[allow(clippy::mutable_key_type)]
-    fn closure(&self, _: Epsilon) -> Set<Node<'a>> {
-        let mut closure = Set::default();
-        fn closure_impl<'a>(node: Node<'a>, closure: &mut Set<Node<'a>>) {
-            if closure.contains(&node) {
-                return;
-            }
-            closure.insert(node);
-            node.for_each_epsilon_target(|target_node| {
-                closure_impl(target_node, closure);
-            });
-        }
-        closure_impl(*self, &mut closure);
-        closure
     }
 }
 
@@ -277,3 +196,44 @@ impl_fmt!(std::fmt::Binary);
 impl_fmt!(std::fmt::Octal);
 impl_fmt!(std::fmt::UpperHex);
 impl_fmt!(std::fmt::LowerHex);
+
+/// Iterator over the targets of a node.
+///
+/// Use it as iterator only by reference.
+pub struct TargetNodeIter<'a> {
+    // lock guarantees that the map is not modified while iterating
+    #[allow(unused)]
+    lock: Ref<'a, Map<Node<'a>, TrVec<'a>>>,
+    iter: Cell<MapIter<'a, Node<'a>, TrVec<'a>>>,
+}
+
+impl<'a> TargetNodeIter<'a> {
+    fn new(map: Ref<'a, Map<Node<'a>, TrVec<'a>>>) -> Self {
+        unsafe {
+            let map_ptr = map.deref() as *const Map<Node<'a>, TrVec<'a>>;
+            let iter = (*map_ptr).iter();
+            Self {
+                lock: map,
+                iter: Cell::new(iter),
+            }
+        }
+    }
+
+    /// Iterator over the nodes of the targets of a node.
+    pub fn nodes(self) -> impl Iterator<Item = Node<'a>> {
+        self.map(|(node, _)| node)
+    }
+}
+
+impl<'a> Iterator for TargetNodeIter<'a> {
+    type Item = (Node<'a>, TrVec<'a>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut iter = self.iter.take();
+        let res = iter
+            .next()
+            .map(|(target, tr_vec)| (*target, tr_vec.clone()));
+        self.iter.set(iter);
+        res
+    }
+}
