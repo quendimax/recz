@@ -17,7 +17,7 @@ repository = "https://github.com/quendimax/re"
 [workspace.dependencies]
 arrayvec = "0.7.6"
 assert_matches = "1"
-bumpalo = "3"
+bump-stack = "0.3"
 fnv = "1"
 ordermap = "1"
 ntest = "0.9"

@@ -1,25 +1,30 @@
-use crate::arena::Arena;
+use crate::graph::Graph;
 use crate::isa::Inst;
-use crate::transition::Transition;
+use crate::transition::{TransPtr, Transition};
 use redt::{Map, MapIter};
-use smallvec::smallvec;
+use smallvec::{SmallVec, smallvec};
 use std::cell::{Cell, Ref, RefCell};
 use std::fmt::Write;
 use std::ops::Deref;
+use std::ptr::NonNull;
 
 /// Node for an NFA graph.
 ///
 /// It contains ID (unique within its graph owner). Also it can be connected to
 /// another node via [`Transition`]'s.
-pub struct Node<'a>(&'a NodeInner<'a>);
+pub struct Node<'a>(&'a NodeInner);
 
-type TrVec<'a> = smallvec::SmallVec<[Transition<'a>; 1]>;
+pub(crate) type NodePtr = NonNull<NodeInner>;
+pub(crate) type GraphPtr = NonNull<Graph>;
 
-pub(crate) struct NodeInner<'a> {
+// most node pairs have only one transition
+type TransVec = SmallVec<[TransPtr; 1]>;
+
+pub(crate) struct NodeInner {
     uid: u64,
     is_final: Cell<bool>,
-    targets: RefCell<Map<Node<'a>, TrVec<'a>>>,
-    arena: &'a Arena,
+    targets: RefCell<Map<NodePtr, TransVec>>,
+    graph: GraphPtr,
 }
 
 /// Public API
@@ -65,8 +70,8 @@ impl<'a> Node<'a> {
 
     /// Arena owner of this node.
     #[inline]
-    pub fn arena(&self) -> &'a Arena {
-        self.0.arena
+    pub fn graph(&self) -> &'a Graph {
+        unsafe { self.0.graph.as_ref() }
     }
 
     /// Creates a new empty transition between two nodes. You can fill the
@@ -80,20 +85,23 @@ impl<'a> Node<'a> {
         assert_eq!(
             self.gid(),
             to.gid(),
-            "only nodes of the same graph can be joint"
+            "only nodes belonging to the same graph can be joined"
         );
         let mut targets = self.0.targets.borrow_mut();
-        if let Some(tr_vec) = targets.get_mut(&to) {
-            if let Some(tr) = tr_vec.iter().find(|tr| tr.instruct() == with) {
-                *tr
+        if let Some(tr_vec) = targets.get_mut(&to.as_ptr()) {
+            if let Some(tr_ptr) = tr_vec
+                .iter()
+                .find(|tr| Transition::from(unsafe { tr.as_ref() }).instruct() == with)
+            {
+                Transition::from(unsafe { tr_ptr.as_ref() })
             } else {
-                let tr = Transition::new(*self, to, with);
-                tr_vec.push(tr);
+                let tr = self.graph().transition(with);
+                tr_vec.push(tr.as_ptr());
                 tr
             }
         } else {
-            let tr = Transition::new(*self, to, with);
-            targets.insert(to, smallvec![tr]);
+            let tr = self.graph().transition(with);
+            targets.insert(to.as_ptr(), smallvec![tr.as_ptr()]);
             tr
         }
     }
@@ -113,14 +121,19 @@ impl<'a> Node<'a> {
 
 /// Crate API
 impl<'a> Node<'a> {
-    pub(crate) fn new_in(arena: &'a Arena, gid: u32, nid: u32) -> Node<'a> {
+    #[inline(always)]
+    pub(crate) fn new_inner(graph: &'a Graph, gid: u32, nid: u32) -> NodeInner {
         let uid = ((gid as u64) << Node::ID_BITS) | nid as u64;
-        arena.alloc_node_with(|| NodeInner {
+        NodeInner {
             uid,
             is_final: Cell::new(false),
             targets: Default::default(),
-            arena,
-        })
+            graph: NonNull::from(graph),
+        }
+    }
+
+    pub(crate) fn as_ptr(&self) -> NodePtr {
+        NodePtr::from(self.0)
     }
 }
 
@@ -158,14 +171,8 @@ impl std::hash::Hash for Node<'_> {
     }
 }
 
-impl<'a> std::convert::From<&'a NodeInner<'a>> for Node<'a> {
-    fn from(inner: &'a NodeInner<'a>) -> Self {
-        Self(inner)
-    }
-}
-
-impl<'a> std::convert::From<&'a mut NodeInner<'a>> for Node<'a> {
-    fn from(inner: &'a mut NodeInner<'a>) -> Self {
+impl<'a> std::convert::From<&'a NodeInner> for Node<'a> {
+    fn from(inner: &'a NodeInner) -> Self {
         Self(inner)
     }
 }
@@ -203,14 +210,14 @@ impl_fmt!(std::fmt::LowerHex);
 pub struct TargetNodeIter<'a> {
     // lock guarantees that the map is not modified while iterating
     #[allow(unused)]
-    lock: Ref<'a, Map<Node<'a>, TrVec<'a>>>,
-    iter: Cell<MapIter<'a, Node<'a>, TrVec<'a>>>,
+    lock: Ref<'a, Map<NodePtr, TransVec>>,
+    iter: Cell<MapIter<'a, NodePtr, TransVec>>,
 }
 
 impl<'a> TargetNodeIter<'a> {
-    fn new(map: Ref<'a, Map<Node<'a>, TrVec<'a>>>) -> Self {
+    fn new(map: Ref<'a, Map<NodePtr, TransVec>>) -> Self {
         unsafe {
-            let map_ptr = map.deref() as *const Map<Node<'a>, TrVec<'a>>;
+            let map_ptr = map.deref() as *const Map<NodePtr, TransVec>;
             let iter = (*map_ptr).iter();
             Self {
                 lock: map,
@@ -226,13 +233,19 @@ impl<'a> TargetNodeIter<'a> {
 }
 
 impl<'a> Iterator for TargetNodeIter<'a> {
-    type Item = (Node<'a>, TrVec<'a>);
+    type Item = (Node<'a>, Box<[Transition<'a>]>);
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut iter = self.iter.take();
-        let res = iter
-            .next()
-            .map(|(target, tr_vec)| (*target, tr_vec.clone()));
+        let res = iter.next().map(|(target, tr_vec)| {
+            (
+                Node::from(unsafe { target.as_ref() }),
+                tr_vec
+                    .iter()
+                    .map(|tr| Transition::from(unsafe { tr.as_ref() }))
+                    .collect(),
+            )
+        });
         self.iter.set(iter);
         res
     }

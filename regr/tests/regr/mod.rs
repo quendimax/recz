@@ -1,5 +1,4 @@
 //mod algo;
-mod arena;
 mod graph;
 mod node;
 mod symbol;

@@ -1,8 +1,5 @@
 //pub mod algo;
 
-mod arena;
-pub use arena::Arena;
-
 mod graph;
 pub use graph::Graph;
 

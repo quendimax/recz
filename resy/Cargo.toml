@@ -9,7 +9,6 @@ repository.workspace = true
 [dependencies]
 redt = { path = "../redt" }
 renc = { path = "../renc" }
-smallvec.workspace = true
 static_assertions.workspace = true
 thiserror.workspace = true
 

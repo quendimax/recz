@@ -1,35 +1,36 @@
-use crate::arena::Arena;
-use crate::node::Node;
+use crate::isa::Inst;
+use crate::node::{Node, NodeInner, NodePtr};
 use crate::tag::Tag;
+use crate::transition::{TransInner, Transition};
+use bump_stack::Stack;
 use redt::{Map, Set};
 use std::cell::{Cell, RefCell};
-use std::collections::BTreeSet;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-pub struct Graph<'a> {
+pub struct Graph {
     gid: u32,
-    arena: &'a Arena,
     next_nid: Cell<u32>,
-    start_node: Cell<Option<Node<'a>>>,
+    bump_nodes: Stack<NodeInner>,
+    bump_trans: Stack<TransInner>,
+    start_node: Cell<Option<NodePtr>>,
     tag_bank: RefCell<Map<u32, Tag>>,          // id -> tag
     tag_groups: RefCell<Map<u32, (u32, u32)>>, // label -> (open_tag_id, close_tag_id)
 }
 
 static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(1);
 
-impl<'a> Graph<'a> {
-    pub fn new_in(arena: &'a mut Arena) -> Self {
+impl Graph {
+    pub fn new() -> Self {
         let gid = NEXT_GRAPH_ID.fetch_add(1, Ordering::Relaxed);
         if gid == 0 {
             panic!("graph id overflow");
         }
 
-        arena.bind_graph(gid);
-
         Self {
             gid,
-            arena,
+            bump_nodes: Stack::new(),
+            bump_trans: Stack::new(),
             next_nid: Cell::new(0),
             start_node: Cell::new(None),
             tag_bank: RefCell::new(Map::default()),
@@ -44,37 +45,45 @@ impl<'a> Graph<'a> {
     }
 
     /// Creates a new node.
-    pub fn node(&self) -> Node<'a> {
+    pub fn node(&self) -> Node<'_> {
         let nid = self.next_nid.replace(
             self.next_nid
                 .get()
                 .checked_add(1)
                 .expect("node id overflow"),
         );
-        let node = Node::new_in(self.arena, self.gid, nid);
+        let node_ref = self
+            .bump_nodes
+            .push_with(|| Node::new_inner(self, self.gid, nid));
+
+        let node_ptr = NodePtr::from(node_ref);
+
         if self.start_node.get().is_none() {
-            self.start_node.set(Some(node));
+            self.start_node.set(Some(node_ptr));
         }
-        node
+        Node::from(node_ref)
+    }
+
+    pub fn transition(&self, with: Inst) -> Transition<'_> {
+        let tr_ref = self.bump_trans.push_with(|| Transition::new_inner(with));
+        Transition::from(tr_ref)
     }
 
     /// Returns the start node of the graph. If the graph is empty, creates a
     /// node, and returns it.
     #[inline]
-    pub fn start_node(&self) -> Node<'a> {
-        self.start_node.get().unwrap_or_else(|| self.node())
+    pub fn start_node(&self) -> Node<'_> {
+        if let Some(ptr) = self.start_node.get() {
+            Node::from(unsafe { ptr.as_ref() })
+        } else {
+            self.node()
+        }
     }
 
     /// Returns true if the graph is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.start_node.get().is_none()
-    }
-
-    /// Arena owner of the graph's nodes and transitions.
-    #[inline]
-    pub fn arena(&self) -> &'a Arena {
-        self.arena
     }
 
     pub fn add_tag_group(&self, label: u32, open_tag: Tag, close_tag: Tag) {
@@ -103,48 +112,21 @@ impl<'a> Graph<'a> {
     pub fn tag_groups(&self) -> impl std::iter::Iterator<Item = (u32, (Tag, Tag))> {
         TagGroupIter::new(self)
     }
-
-    /// Visits each node of the graph, i.e. every node reachable from the start
-    /// node.
-    pub fn for_each_node<F>(&self, f: F)
-    where
-        F: FnMut(Node<'a>),
-    {
-        struct Lambda<'a, F: FnMut(Node<'a>)> {
-            visited: Set<Node<'a>>,
-            handler: F,
-        }
-        impl<'a, F: FnMut(Node<'a>)> Lambda<'a, F> {
-            fn visit(&mut self, node: Node<'a>) {
-                self.visited.insert(node);
-                (self.handler)(node);
-                for (target, _) in node.targets() {
-                    if !self.visited.contains(&target) {
-                        self.visit(target);
-                    }
-                }
-            }
-        }
-        Lambda {
-            visited: Set::default(),
-            handler: f,
-        }
-        .visit(self.start_node());
-    }
 }
 
-impl std::ops::Drop for Graph<'_> {
-    fn drop(&mut self) {
-        self.arena.unbind_graph();
+impl std::default::Default for Graph {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 macro_rules! impl_fmt {
     (std::fmt::$trait:ident) => {
-        impl ::std::fmt::$trait for Graph<'_> {
+        impl ::std::fmt::$trait for Graph {
             #[allow(clippy::mutable_key_type)]
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                fn recurse<'a>(node: Node<'a>, visited: &mut BTreeSet<Node<'a>>) {
+                fn recurse<'a>(node: Node<'a>, visited: &mut Set<Node<'a>>) {
                     visited.insert(node);
                     for (target, _) in node.targets() {
                         if !visited.contains(&target) {
@@ -152,37 +134,39 @@ macro_rules! impl_fmt {
                         }
                     }
                 }
-                if let Some(start_node) = self.start_node.get() {
-                    let mut visited = BTreeSet::new();
-                    recurse(start_node, &mut visited);
-                    let mut first = true;
-                    for node in visited.iter().copied() {
-                        if first {
-                            first = false;
-                        } else {
-                            f.write_char('\n')?;
-                        }
-                        let mut is_empty = true;
-                        ::std::fmt::$trait::fmt(&node, f)?;
-                        f.write_str(" {")?;
-                        for (target, transitions) in node.targets() {
-                            for transition in transitions {
-                                f.write_str("\n    ")?;
-                                ::std::fmt::$trait::fmt(&transition, f)?;
-                                f.write_str(" -> ")?;
-                                if node == target {
-                                    f.write_str("self")?;
-                                } else {
-                                    ::std::fmt::$trait::fmt(&target, f)?;
-                                }
-                                is_empty = false;
-                            }
-                        }
-                        if !is_empty {
-                            f.write_char('\n')?;
-                        }
-                        f.write_char('}')?;
+                if self.start_node.get().is_none() {
+                    return Ok(());
+                }
+                let start_node = self.start_node();
+                let mut visited = Set::default();
+                recurse(start_node, &mut visited);
+                let mut first = true;
+                for node in visited.iter().copied() {
+                    if first {
+                        first = false;
+                    } else {
+                        f.write_char('\n')?;
                     }
+                    let mut is_empty = true;
+                    ::std::fmt::$trait::fmt(&node, f)?;
+                    f.write_str(" {")?;
+                    for (target, transitions) in node.targets() {
+                        for transition in transitions {
+                            f.write_str("\n    ")?;
+                            ::std::fmt::$trait::fmt(&transition, f)?;
+                            f.write_str(" -> ")?;
+                            if node == target {
+                                f.write_str("self")?;
+                            } else {
+                                ::std::fmt::$trait::fmt(&target, f)?;
+                            }
+                            is_empty = false;
+                        }
+                    }
+                    if !is_empty {
+                        f.write_char('\n')?;
+                    }
+                    f.write_char('}')?;
                 }
                 Ok(())
             }
@@ -197,14 +181,14 @@ impl_fmt!(std::fmt::Octal);
 impl_fmt!(std::fmt::UpperHex);
 impl_fmt!(std::fmt::LowerHex);
 
-struct TagGroupIter<'a, 'g> {
-    graph: &'g Graph<'a>,
+struct TagGroupIter<'a> {
+    graph: &'a Graph,
     labels: Vec<u32>,
     index: usize,
 }
 
-impl<'a, 'g> TagGroupIter<'a, 'g> {
-    pub fn new(graph: &'g Graph<'a>) -> Self {
+impl<'a> TagGroupIter<'a> {
+    pub fn new(graph: &'a Graph) -> Self {
         Self {
             graph,
             labels: graph
@@ -218,7 +202,7 @@ impl<'a, 'g> TagGroupIter<'a, 'g> {
     }
 }
 
-impl<'a, 'g> Iterator for TagGroupIter<'a, 'g> {
+impl<'a> Iterator for TagGroupIter<'a> {
     type Item = (u32, (Tag, Tag));
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -229,19 +213,5 @@ impl<'a, 'g> Iterator for TagGroupIter<'a, 'g> {
         } else {
             None
         }
-    }
-}
-
-#[cfg(test)]
-mod utest {
-    use super::*;
-
-    #[test]
-    #[should_panic(expected = "graph id overflow")]
-    fn graph_ctor_panic() {
-        NEXT_GRAPH_ID.store(u32::MAX, Ordering::Relaxed);
-        let mut arena = Arena::new();
-        _ = Graph::new_in(&mut arena);
-        _ = Graph::new_in(&mut arena);
     }
 }

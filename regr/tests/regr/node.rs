@@ -1,11 +1,10 @@
 use pretty_assertions::{assert_eq, assert_ne};
 use redt::range;
-use regr::{Arena, Graph, Inst::Nop};
+use regr::{Graph, Inst::Nop};
 
 #[test]
 fn node_copy_and_clone() {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let node = graph.node();
     #[allow(clippy::clone_on_copy)]
     let cloned_node = node.clone();
@@ -20,8 +19,7 @@ fn node_copy_and_clone() {
 
 #[test]
 fn node_id() {
-    let mut arena_0 = Arena::new();
-    let graph_0 = Graph::new_in(&mut arena_0);
+    let graph_0 = Graph::new();
     let a = graph_0.node();
     let b = graph_0.node();
 
@@ -31,8 +29,7 @@ fn node_id() {
     assert_eq!(b.nid(), 1);
     assert_eq!(b.uid(), ((b.gid() as u64) << (u64::BITS / 2)) | 1);
 
-    let mut arena_1 = Arena::new();
-    let graph_1 = Graph::new_in(&mut arena_1);
+    let graph_1 = Graph::new();
     let c = graph_1.node();
     let d = graph_1.node();
 
@@ -47,22 +44,18 @@ fn node_id() {
 
 #[test]
 fn node_partial_eq() {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let node_1 = graph.node();
     assert_ne!(node_1, graph.node());
-    drop(graph);
 
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let node_2 = graph.node();
     assert_ne!(node_1, node_2);
 }
 
 #[test]
 fn node_connect_nfa() {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let node_a = graph.node();
     let node_b = graph.node();
     let node_c = graph.node();
@@ -74,20 +67,17 @@ fn node_connect_nfa() {
 
 #[test]
 fn node_connect_dfa() {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let node_a = graph.node();
     let node_b = graph.node();
     node_a.connect(node_b, Nop).merge(b'a');
 }
 
 #[test]
-#[should_panic(expected = "only nodes of the same graph can be joint")]
+#[should_panic(expected = "only nodes belonging to the same graph can be joined")]
 fn node_connect_panics() {
-    let mut arena_a = Arena::new();
-    let mut arena_b = Arena::new();
-    let graph_a = Graph::new_in(&mut arena_a);
-    let graph_b = Graph::new_in(&mut arena_b);
+    let graph_a = Graph::new();
+    let graph_b = Graph::new();
     let node_a = graph_a.node();
     let node_b = graph_b.node();
     node_a.connect(node_b, Nop);
@@ -95,8 +85,7 @@ fn node_connect_panics() {
 
 #[test]
 fn node_symbol_targets() {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let a = graph.node();
     let b = graph.node();
     let c = graph.node();
@@ -118,8 +107,7 @@ fn node_symbol_targets() {
 #[test]
 #[should_panic]
 fn node_symbol_targets_panic() {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let a = graph.node();
     let b = graph.node();
     a.connect(b, Nop).merge(b'c');
@@ -132,8 +120,7 @@ fn node_symbol_targets_panic() {
 
 #[test]
 fn node_finalize() {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let a = graph.node();
     assert_eq!(format!("{a:?}"), "node(0)");
     a.finalize();
@@ -144,8 +131,7 @@ fn node_finalize() {
 
 #[test]
 fn node_fmt_debug() {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let a = graph.node();
     let b = graph.node();
     let c = graph.node().finalize();

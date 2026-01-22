@@ -1,11 +1,11 @@
 use crate::isa::Inst;
-use crate::node::Node;
 use crate::ops::*;
 use crate::symbol::Epsilon;
 use redt::{ByteIter, Legible, RangeIter, RangeU8, SetU8, Step};
 use std::cell::{Ref, RefCell};
 use std::fmt::Write;
 use std::ops::Deref;
+use std::ptr::NonNull;
 
 /// Transition is a struct that contains symbols that connect two nodes. The
 /// symbols can be bytes and Epsilon.
@@ -14,9 +14,11 @@ use std::ops::Deref;
 ///
 /// Symbols are the corresponding bits in `chunks` bitmap from 4x`Chunk` values.
 /// The 256-th bit is for Epsilon.
-pub struct Transition<'a>(&'a TransitionInner);
+pub struct Transition<'a>(&'a TransInner);
 
-pub(crate) struct TransitionInner {
+pub(crate) type TransPtr = NonNull<TransInner>;
+
+pub(crate) struct TransInner {
     symset: RefCell<SetU8>,
     inst: Inst,
 }
@@ -24,17 +26,17 @@ pub(crate) struct TransitionInner {
 /// Crate API
 impl<'a> Transition<'a> {
     /// Creates a new empty transition.
-    pub(crate) fn new(source: Node<'a>, target: Node<'a>, inst: Inst) -> Self {
-        assert_eq!(
-            source.gid(),
-            target.gid(),
-            "can't connect two nodes from different graphs"
-        );
-        let arena = source.arena();
-        Self(arena.alloc_with(|| TransitionInner {
+    #[inline(always)]
+    pub(crate) fn new_inner(inst: Inst) -> TransInner {
+        TransInner {
             symset: RefCell::new(SetU8::empty()),
             inst,
-        }))
+        }
+    }
+
+    #[inline(always)]
+    pub(crate) fn as_ptr(&self) -> TransPtr {
+        NonNull::from(self.0)
     }
 }
 
@@ -207,6 +209,12 @@ impl Clone for Transition<'_> {
     }
 }
 
+impl<'a> std::convert::From<&'a TransInner> for Transition<'a> {
+    fn from(inner: &'a TransInner) -> Self {
+        Self(inner)
+    }
+}
+
 impl std::cmp::Eq for Transition<'_> {}
 
 impl std::cmp::PartialEq for Transition<'_> {
@@ -289,21 +297,3 @@ impl_fmt!(std::fmt::Binary);
 impl_fmt!(std::fmt::Octal);
 impl_fmt!(std::fmt::LowerHex);
 impl_fmt!(std::fmt::UpperHex);
-
-#[cfg(test)]
-mod utest {
-    use crate::arena::Arena;
-    use crate::graph::Graph;
-
-    use super::*;
-
-    #[test]
-    #[should_panic]
-    fn transition_new() {
-        let mut arena_a = Arena::new();
-        let mut arena_b = Arena::new();
-        let gr_a = Graph::new_in(&mut arena_a);
-        let gr_b = Graph::new_in(&mut arena_b);
-        let _ = Transition::new(gr_a.node(), gr_b.node(), Inst::Nop);
-    }
-}

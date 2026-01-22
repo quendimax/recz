@@ -1,19 +1,17 @@
 use pretty_assertions::assert_eq;
 use redt::RangeU8;
 use redt::lit;
-use regr::{Arena, Graph, Inst::Nop, Tag, TagBank};
+use regr::{Graph, Inst::Nop, Tag, TagBank};
 
 #[test]
 fn graph_node() {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     assert_eq!(graph.node().nid(), 0);
     assert_eq!(graph.node().nid(), 1);
     assert_eq!(graph.node().nid(), 2);
     drop(graph);
 
-    let mut arena = Arena::with_capacity(9);
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     assert_eq!(graph.node().nid(), 0);
     assert_eq!(graph.node().nid(), 1);
     assert_eq!(graph.node().nid(), 2);
@@ -21,14 +19,13 @@ fn graph_node() {
 
 #[test]
 fn graph_start_node() {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     assert_eq!(graph.start_node().nid(), 0);
     assert_eq!(graph.node().nid(), 1);
     assert_eq!(graph.node().nid(), 2);
     drop(graph);
 
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     assert_eq!(graph.node(), graph.start_node());
     assert_eq!(graph.start_node().nid(), 0);
     assert_eq!(graph.node().nid(), 1);
@@ -37,43 +34,8 @@ fn graph_start_node() {
 }
 
 #[test]
-fn graph_arena() {
-    let mut arena = Arena::new();
-    let arena_ptr = &arena as *const Arena;
-    let graph = Graph::new_in(&mut arena);
-    assert_eq!(graph.arena() as *const Arena, arena_ptr);
-}
-
-#[test]
-fn graph_for_each_node() {
-    let mut arena = Arena::with_capacity(1);
-    let graph = Graph::new_in(&mut arena);
-    let a = graph.node();
-    let b = graph.node();
-    let c = graph.node();
-    let d = graph.node();
-
-    a.connect(b, Nop).merge(RangeU8::new(b'a', u8::MAX));
-    a.connect(b, Nop);
-    b.connect(c, Nop);
-    c.connect(d, Nop).merge(b'c');
-    b.connect(a, Nop);
-    d.connect(a, Nop);
-    d.connect(b, Nop);
-    d.connect(c, Nop);
-
-    #[allow(clippy::mutable_key_type)]
-    let mut visited = std::collections::HashSet::new();
-    graph.for_each_node(|node| {
-        visited.insert(node);
-    });
-    assert_eq!(visited.len(), 4);
-}
-
-#[test]
 fn graph_display_fmt_0() {
-    let mut arena = Arena::with_capacity(1);
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let a = graph.node();
     let b = graph.node();
     let c = graph.node();
@@ -111,8 +73,7 @@ fn graph_display_fmt_0() {
 
 #[test]
 fn graph_display_fmt_1() {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let n0 = graph.node();
     let n1 = graph.node();
     let n2 = graph.node();
@@ -149,8 +110,7 @@ fn graph_display_fmt_1() {
 
 #[test]
 fn graph_display_fmt_2() {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let n0 = graph.node();
     let n1 = graph.node();
     let n2 = graph.node();
@@ -174,7 +134,6 @@ fn graph_display_fmt_2() {
             ///    [Epsilon] -> node(2)
             ///    [Epsilon] -> node(5)
             ///}
-            ///node(1) {}
             ///node(2) {
             ///    ['a'] -> node(3)
             ///}
@@ -184,6 +143,7 @@ fn graph_display_fmt_2() {
             ///node(4) {
             ///    [Epsilon] -> node(1)
             ///}
+            ///node(1) {}
             ///node(5) {
             ///    ['c'] -> node(6)
             ///}
@@ -199,8 +159,7 @@ fn graph_display_fmt_2() {
 
 #[test]
 fn graph_display_fmt_3() {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let a = graph.node();
     let b = graph.node();
     let c = graph.node();
@@ -224,8 +183,7 @@ fn graph_display_fmt_3() {
 
 #[test]
 fn graph_tags() {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let mut tag_bank = TagBank::default();
     graph.add_tag_group(0, tag_bank.absolute(), tag_bank.absolute());
     graph.add_tag_group(1, tag_bank.absolute(), tag_bank.absolute());
