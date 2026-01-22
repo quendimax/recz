@@ -1,4 +1,4 @@
-//pub mod algo;
+pub mod algo;
 
 mod graph;
 pub use graph::Graph;

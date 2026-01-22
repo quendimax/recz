@@ -5,8 +5,7 @@ use crate::node::Node;
 use redt::{SetU8, ops::*};
 
 /// Checks if the given graph represents a valid DFA.
-#[allow(clippy::mutable_key_type)]
-pub fn verify_dfa(graph: &Graph<'_>) -> bool {
+pub fn verify_dfa(graph: &Graph) -> bool {
     let mut is_dfa = true;
     algo::visit_nodes(graph.start_node(), |node| {
         if !verify_dfa_node(node) {
@@ -20,20 +19,17 @@ pub fn verify_dfa(graph: &Graph<'_>) -> bool {
 
 /// Checks if the given node meets the requirements of a DFA.
 pub fn verify_dfa_node<'a>(node: Node<'a>) -> bool {
-    let mut has_epsilon = false;
     let mut sym_mask = SetU8::empty();
-    for (_, tr) in node.targets().iter() {
-        if tr.contains(Epsilon) {
-            if !has_epsilon {
-                has_epsilon = true;
+    for (_, transitions) in node.targets() {
+        for tr in transitions {
+            if tr.contains(Epsilon) {
+                return false;
             } else {
-                return false;
+                if sym_mask.intersects(tr.as_set().as_ref()) {
+                    return false;
+                }
+                sym_mask.include(tr.as_set().as_ref());
             }
-        } else {
-            if sym_mask.intersects(tr.as_set().as_ref()) {
-                return false;
-            }
-            sym_mask.include(tr.as_set().as_ref());
         }
     }
     true

@@ -1,5 +1,6 @@
 use crate::node::Node;
 use crate::transition::Transition;
+use bump_stack::Stack;
 use redt::Set;
 
 pub enum VisitResult {
@@ -21,17 +22,17 @@ where
 {
     let mut action = action;
     let mut visited = Set::default();
-    let mut unvisited = Vec::with_capacity(512);
+    let mut unvisited = Stack::new();
     unvisited.push(start_node);
     while let Some(node) = unvisited.pop() {
-        visited.insert(node.nid());
+        visited.insert(node);
         match action(node) {
             Stop => break,
             Continue => continue,
             Recurse => {
-                for (target, _) in node.targets().iter() {
-                    if !visited.contains(&target.nid()) {
-                        unvisited.push(*target);
+                for (target, _) in node.targets() {
+                    if !visited.contains(&target) {
+                        unvisited.push(target);
                     }
                 }
             }
@@ -51,17 +52,19 @@ where
 {
     let mut action = action;
     let mut visited = Set::default();
-    let mut unvisited = Vec::with_capacity(512);
+    let mut unvisited = Stack::new();
     unvisited.push(start_node);
     while let Some(node) = unvisited.pop() {
-        visited.insert(node.nid());
-        for (target, tr) in node.targets().iter() {
-            match action(node, *tr, *target) {
-                Stop => return,
-                Continue => continue,
-                Recurse => {
-                    if !visited.contains(&target.nid()) {
-                        unvisited.push(*target);
+        visited.insert(node);
+        for (target, transitions) in node.targets() {
+            for tr in transitions {
+                match action(node, tr, target) {
+                    Stop => return,
+                    Continue => continue,
+                    Recurse => {
+                        if !visited.contains(&target) {
+                            unvisited.push(target);
+                        }
                     }
                 }
             }
