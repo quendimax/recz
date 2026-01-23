@@ -1,7 +1,6 @@
 use crate::node::Node;
 use crate::transition::Transition;
-use bump_stack::Stack;
-use redt::Set;
+use redt::{Set, Stack};
 
 pub enum VisitResult {
     Stop,

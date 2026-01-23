@@ -7,10 +7,8 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-bump-stack.workspace = true
 redt = { path = "../redt" }
 resy = { path = "../resy" }
-smallvec.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true

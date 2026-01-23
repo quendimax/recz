@@ -1,8 +1,7 @@
 use crate::graph::Graph;
 use crate::isa::Inst;
 use crate::transition::{TransPtr, Transition};
-use redt::{Map, MapIter};
-use smallvec::{SmallVec, smallvec};
+use redt::{Map, MapIter, SmallVec, smallvec};
 use std::cell::{Cell, Ref, RefCell};
 use std::fmt::Write;
 use std::ops::Deref;
