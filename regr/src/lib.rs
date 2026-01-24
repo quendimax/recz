@@ -6,6 +6,9 @@ pub use graph::Graph;
 mod isa;
 pub use isa::Inst;
 
+mod machine;
+pub use machine::Machine;
+
 mod node;
 pub use node::Node;
 

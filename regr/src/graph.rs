@@ -85,6 +85,12 @@ impl Graph {
         self.start_node.get().is_none()
     }
 
+    /// Returns a number of nodes belonging to this graph.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.bump_nodes.len()
+    }
+
     pub fn add_tag_group(&self, label: u32, open_tag: Tag, close_tag: Tag) {
         let open_id = open_tag.id();
         let close_id = close_tag.id();
