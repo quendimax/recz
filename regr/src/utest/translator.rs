@@ -1,7 +1,5 @@
 use super::{Translator, pair};
-use crate::arena::Arena;
 use crate::graph::Graph;
-use crate::tag::TagBank;
 use pretty_assertions::assert_eq;
 use redt::{Range, SetU8, lit, ops::*};
 use resy::Hir;
@@ -9,12 +7,10 @@ use resy::Hir;
 #[test]
 fn translate_literal() {
     fn tr(literal: &[u8]) -> String {
-        let mut arena = Arena::new();
-        let graph = Graph::new_in(&mut arena);
+        let graph = Graph::new();
         let translator = Translator::new(&graph);
         let pair = pair(graph.node(), graph.node());
-        let mut tag = None;
-        translator.translate_literal(literal, pair, &mut tag);
+        translator.translate_literal(literal, pair);
         graph.to_string()
     }
 
@@ -33,10 +29,10 @@ fn translate_literal() {
             ///node(0) {
             ///    ['a'] -> node(2)
             ///}
-            ///node(1) {}
             ///node(2) {
             ///    ['b'] -> node(1)
             ///}
+            ///node(1) {}
         )
     );
 }
@@ -44,12 +40,10 @@ fn translate_literal() {
 #[test]
 fn translate_class() {
     fn tr(set: &SetU8) -> String {
-        let mut arena = Arena::new();
-        let graph = Graph::new_in(&mut arena);
+        let graph = Graph::new();
         let translator = Translator::new(&graph);
         let pair = pair(graph.node(), graph.node());
-        let mut tag = None;
-        translator.translate_class(set, pair, &mut tag);
+        translator.translate_class(set, pair);
         graph.to_string()
     }
 
@@ -71,15 +65,13 @@ fn translate_class() {
 fn translate_repeat() {
     fn tr(repeat: &Hir) -> String {
         assert!(repeat.is_repeat());
-        let mut arena = Arena::new();
-        let graph = Graph::new_in(&mut arena);
+        let graph = Graph::new();
         let mut translator = Translator::new(&graph);
         let pair = pair(graph.node(), graph.node());
         let Hir::Repeat(repeat) = repeat else {
             unreachable!()
         };
-        let mut tag = None;
-        translator.translate_repeat(repeat, pair, &mut tag);
+        translator.translate_repeat(repeat, pair);
         graph.to_string()
     }
 
@@ -92,7 +84,6 @@ fn translate_repeat() {
             ///    [Epsilon] -> node(2)
             ///    [Epsilon] -> node(1)
             ///}
-            ///node(1) {}
             ///node(2) {
             ///    ['a'] -> node(3)
             ///}
@@ -100,6 +91,7 @@ fn translate_repeat() {
             ///    [Epsilon] -> node(1)
             ///    [Epsilon] -> node(2)
             ///}
+            ///node(1) {}
         )
     );
 
@@ -111,7 +103,6 @@ fn translate_repeat() {
             ///node(0) {
             ///    [Epsilon] -> node(2)
             ///}
-            ///node(1) {}
             ///node(2) {
             ///    ['a'] -> node(3)
             ///}
@@ -119,6 +110,7 @@ fn translate_repeat() {
             ///    [Epsilon] -> node(1)
             ///    [Epsilon] -> node(2)
             ///}
+            ///node(1) {}
         )
     );
 
@@ -130,7 +122,6 @@ fn translate_repeat() {
             ///node(0) {
             ///    ['a'] -> node(2)
             ///}
-            ///node(1) {}
             ///node(2) {
             ///    ['a'] -> node(3)
             ///}
@@ -144,6 +135,7 @@ fn translate_repeat() {
             ///    [Epsilon] -> node(1)
             ///    [Epsilon] -> node(4)
             ///}
+            ///node(1) {}
         )
     );
 
@@ -167,13 +159,13 @@ fn translate_repeat() {
             ///node(0) {
             ///    ['a'] -> node(2)
             ///}
-            ///node(1) {}
             ///node(2) {
             ///    ['a'] -> node(3)
             ///}
             ///node(3) {
             ///    ['a'] -> node(1)
             ///}
+            ///node(1) {}
         )
     );
 
@@ -185,7 +177,6 @@ fn translate_repeat() {
             ///node(0) {
             ///    ['a'] -> node(2)
             ///}
-            ///node(1) {}
             ///node(2) {
             ///    [Epsilon] -> node(3)
             ///    [Epsilon] -> node(1)
@@ -209,6 +200,7 @@ fn translate_repeat() {
             ///node(8) {
             ///    [Epsilon] -> node(1)
             ///}
+            ///node(1) {}
         )
     );
 }
@@ -218,29 +210,25 @@ fn translate_repeat() {
 fn translate_repeat_fails() {
     let literal = Hir::literal("a");
     let repeat = Hir::repeat(literal, 3, Some(2));
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let mut translator = Translator::new(&graph);
     let sub = pair(graph.node(), graph.node());
     let Hir::Repeat(repeat) = repeat else {
         unreachable!()
     };
-    let mut tag = None;
-    translator.translate_repeat(&repeat, sub, &mut tag);
+    translator.translate_repeat(&repeat, sub);
 }
 
 #[test]
 fn translate_concat() {
     let concat = Hir::concat([]);
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let translator = Translator::new(&graph);
     let sub = pair(graph.node(), graph.node());
     let Hir::Literal(concat) = concat else {
         unreachable!()
     };
-    let mut tag = None;
-    translator.translate_literal(&concat, sub, &mut tag);
+    translator.translate_literal(&concat, sub);
     assert_eq!(
         graph.to_string(),
         lit!(
@@ -252,28 +240,26 @@ fn translate_concat() {
     );
 
     let concat = Hir::concat([Hir::literal("a"), Hir::literal("b"), Hir::literal("c")]);
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let mut translator = Translator::new(&graph);
     let sub = pair(graph.node(), graph.node());
     let Hir::Concat(concat) = concat else {
         unreachable!()
     };
-    let mut tag = None;
-    translator.translate_concat(&concat, sub, &mut tag);
+    translator.translate_concat(&concat, sub);
     assert_eq!(
         graph.to_string(),
         lit!(
             ///node(0) {
             ///    ['a'] -> node(2)
             ///}
-            ///node(1) {}
             ///node(2) {
             ///    ['b'] -> node(3)
             ///}
             ///node(3) {
             ///    ['c'] -> node(1)
             ///}
+            ///node(1) {}
         )
     );
 }
@@ -281,15 +267,13 @@ fn translate_concat() {
 #[test]
 fn translate_disjunct() {
     let disjunct = Hir::disjunct([Hir::literal("a"), Hir::literal("b"), Hir::literal("c")]);
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let mut translator = Translator::new(&graph);
     let sub = pair(graph.node(), graph.node());
     let Hir::Disjunct(disjunct) = disjunct else {
         unreachable!()
     };
-    let mut tag = None;
-    translator.translate_disjunct(&disjunct, sub, &mut tag);
+    translator.translate_disjunct(&disjunct, sub);
     assert_eq!(
         graph.to_string(),
         lit!(
@@ -298,13 +282,13 @@ fn translate_disjunct() {
             ///    [Epsilon] -> node(4)
             ///    [Epsilon] -> node(6)
             ///}
-            ///node(1) {}
             ///node(2) {
             ///    ['a'] -> node(3)
             ///}
             ///node(3) {
             ///    [Epsilon] -> node(1)
             ///}
+            ///node(1) {}
             ///node(4) {
             ///    ['b'] -> node(5)
             ///}
@@ -319,98 +303,4 @@ fn translate_disjunct() {
             ///}
         )
     );
-}
-
-#[test]
-fn translate_group() {
-    let group = Hir::group(1, Hir::empty());
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
-    let mut translator = Translator::new(&graph);
-    let sub = pair(graph.node(), graph.node());
-    let Hir::Group(group) = group else {
-        unreachable!()
-    };
-    let mut tag = None;
-    translator.translate_group(&group, sub, &mut tag);
-    assert_eq!(
-        graph.to_string(),
-        lit!(
-            ///node(0) {
-            ///    [Epsilon] -> node(2)
-            ///        wrpos t0/r0
-            ///}
-            ///node(1) {}
-            ///node(2) {
-            ///    [Epsilon] -> node(3)
-            ///}
-            ///node(3) {
-            ///    [Epsilon] -> node(1)
-            ///}
-        )
-    );
-    let (open_tag, close_tag) = graph.tag_group(1).unwrap();
-    assert_eq!(open_tag.to_string(), "a-tag(id=0, reg=0)");
-    assert_eq!(close_tag.to_string(), "r-tag(id=1, start_tag=0, offset=0)");
-
-    let group = Hir::group(1, Hir::literal("a"));
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
-    let mut translator = Translator::new(&graph);
-    let sub = pair(graph.node(), graph.node());
-    let Hir::Group(group) = group else {
-        unreachable!()
-    };
-    let mut tag = None;
-    translator.translate_group(&group, sub, &mut tag);
-    assert_eq!(
-        graph.to_string(),
-        lit!(
-            ///node(0) {
-            ///    [Epsilon] -> node(2)
-            ///        wrpos t0/r0
-            ///}
-            ///node(1) {}
-            ///node(2) {
-            ///    ['a'] -> node(3)
-            ///}
-            ///node(3) {
-            ///    [Epsilon] -> node(1)
-            ///}
-        )
-    );
-    let (open_tag, close_tag) = graph.tag_group(1).unwrap();
-    assert_eq!(open_tag.to_string(), "a-tag(id=0, reg=0)");
-    assert_eq!(close_tag.to_string(), "r-tag(id=1, start_tag=0, offset=1)");
-
-    let group = Hir::group(1, Hir::empty());
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
-    let mut translator = Translator::new(&graph);
-    let sub = pair(graph.node(), graph.node());
-    let Hir::Group(group) = group else {
-        unreachable!()
-    };
-    let mut tag_bank = TagBank::new();
-    let abs = tag_bank.absolute();
-    let mut tag = Some(tag_bank.relative(abs, 0));
-    translator.translate_group(&group, sub, &mut tag);
-    assert_eq!(
-        graph.to_string(),
-        lit!(
-            ///node(0) {
-            ///    [Epsilon] -> node(2)
-            ///}
-            ///node(1) {}
-            ///node(2) {
-            ///    [Epsilon] -> node(3)
-            ///}
-            ///node(3) {
-            ///    [Epsilon] -> node(1)
-            ///}
-        )
-    );
-    let (open_tag, close_tag) = graph.tag_group(1).unwrap();
-    assert_eq!(open_tag.to_string(), "r-tag(id=1, start_tag=0, offset=0)");
-    assert_eq!(close_tag.to_string(), "r-tag(id=0, start_tag=0, offset=0)");
 }

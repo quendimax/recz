@@ -18,10 +18,10 @@ mod symbol;
 pub use symbol::Epsilon;
 
 mod tag;
-pub use tag::{Tag, TagBank};
+pub use tag::{Group, Tag};
 
 mod transition;
 pub use transition::Transition;
 
-//mod translator;
-//pub use translator::Translator;
+mod translator;
+pub use translator::Translator;
