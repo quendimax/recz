@@ -1,6 +1,6 @@
 use crate::graph::Graph;
-use crate::isa::Inst::*;
 use crate::node::Node;
+use crate::tag::Inst::*;
 use redt::SetU8;
 use resy::{ConcatHir, DisjunctHir, GroupHir, Hir, RepeatHir};
 use std::cell::Cell;
@@ -67,11 +67,13 @@ impl<'a> Translator<'a> {
 
     // Only this function can create a new tag
     fn translate_group(&mut self, group: &GroupHir, sub: Pair<'a>) {
+        let tag_group = self.graph.tag_group(group.label().to_string());
+
         let first = self.graph.node();
-        sub.first.connect(first, Nop);
+        sub.first.connect(first, tag_group.open_tag().write_inst());
 
         let last = self.graph.node();
-        last.connect(sub.last, Nop);
+        last.connect(sub.last, tag_group.close_tag().write_inst());
 
         self.translate_hir(group.inner(), pair(first, last));
     }

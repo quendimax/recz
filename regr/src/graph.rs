@@ -1,5 +1,5 @@
-use crate::isa::Inst;
 use crate::node::{Node, NodeInner, NodePtr};
+use crate::tag::{Group, Inst, Tag};
 use crate::transition::{TransInner, Transition};
 use redt::{Set, Stack};
 use std::cell::Cell;
@@ -9,9 +9,10 @@ use std::sync::atomic::{AtomicU32, Ordering};
 pub struct Graph {
     gid: u32,
     next_nid: Cell<u32>,
+    start_node: Cell<Option<NodePtr>>,
     bump_nodes: Stack<NodeInner>,
     bump_trans: Stack<TransInner>,
-    start_node: Cell<Option<NodePtr>>,
+    bump_groups: Stack<Group>,
 }
 
 static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(1);
@@ -25,10 +26,11 @@ impl Graph {
 
         Self {
             gid,
-            bump_nodes: Stack::new(),
-            bump_trans: Stack::new(),
             next_nid: Cell::new(0),
             start_node: Cell::new(None),
+            bump_nodes: Stack::new(),
+            bump_trans: Stack::new(),
+            bump_groups: Stack::new(),
         }
     }
 
@@ -58,9 +60,18 @@ impl Graph {
         Node::from(node_ref)
     }
 
-    pub fn transition(&self, with: Inst) -> Transition<'_> {
+    /// Creates a new transition.
+    pub(crate) fn transition(&self, with: Inst) -> Transition<'_> {
         let tr_ref = self.bump_trans.push_with(|| Transition::new_inner(with));
         Transition::from(tr_ref)
+    }
+
+    /// Creates a new tag group.
+    pub fn tag_group(&self, label: impl Into<String>) -> &Group {
+        let open_tag = Tag::new(self.bump_groups.len() * 2);
+        let close_tag = Tag::new(self.bump_groups.len() * 2 + 1);
+        self.bump_groups
+            .push_with(|| Group::new(label.into(), open_tag, close_tag))
     }
 
     /// Returns the start node of the graph. If the graph is empty, creates a

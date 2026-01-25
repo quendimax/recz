@@ -1,5 +1,5 @@
 use crate::graph::Graph;
-use crate::isa::Inst;
+use crate::tag::Inst;
 use crate::transition::{TransPtr, Transition};
 use redt::{Map, MapIter, SmallVec, smallvec};
 use std::cell::{Cell, Ref, RefCell};

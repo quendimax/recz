@@ -3,9 +3,6 @@ pub mod algo;
 mod graph;
 pub use graph::Graph;
 
-mod isa;
-pub use isa::Inst;
-
 mod machine;
 pub use machine::Machine;
 
@@ -18,7 +15,7 @@ mod symbol;
 pub use symbol::Epsilon;
 
 mod tag;
-pub use tag::{Group, Tag};
+pub use tag::{Group, Inst, Tag};
 
 mod transition;
 pub use transition::Transition;

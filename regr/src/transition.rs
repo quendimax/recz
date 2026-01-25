@@ -1,6 +1,6 @@
-use crate::isa::Inst;
 use crate::ops::*;
 use crate::symbol::Epsilon;
+use crate::tag::Inst;
 use redt::{ByteIter, Legible, RangeIter, RangeU8, SetU8, Step};
 use std::cell::{Ref, RefCell};
 use std::fmt::Write;

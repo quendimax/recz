@@ -333,16 +333,15 @@ fn tr_merge_transition() {
 
 #[test]
 fn tr_instruct() {
-    let t0 = 0;
-    let r0 = 0;
     let gr = Graph::new();
-    let tr_a = gr.node().connect(gr.node(), WritePos(t0, r0));
+    let group = gr.tag_group("group name");
+    let tr_a = gr.node().connect(gr.node(), group.open_tag().write_inst());
     tr_a.merge(b'a');
     tr_a.merge(b'b');
     tr_a.merge(b'c');
     tr_a.merge(b'e');
 
-    assert_eq!(format!("{tr_a}"), "['a'-'c' | 'e'] / `wrpos t0/r0`");
+    assert_eq!(format!("{tr_a}"), "['a'-'c' | 'e'] / `wrpos t0`");
 }
 
 #[test]
