@@ -85,8 +85,8 @@ macro_rules! impl_fmt {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
                     Inst::Nop => f.write_str("nop"),
-                    Inst::WritePos(tag) => write!(f, "wrpos {tag}"),
-                    Inst::InvalidTag(tag) => write!(f, "invld {tag}"),
+                    Inst::WritePos(tag) => write!(f, "+{tag}"),
+                    Inst::InvalidTag(tag) => write!(f, "-{tag}"),
                 }
             }
         }

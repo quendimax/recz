@@ -1,11 +1,10 @@
 use pretty_assertions::assert_eq;
 use redt::lit;
-use regr::{Arena, Graph, Translator};
+use regr::{Graph, Translator};
 use resy::{Parser, enc::Utf8Encoder};
 
 fn parse(pattern: &str) -> String {
-    let mut arena = Arena::new();
-    let graph = Graph::new_in(&mut arena);
+    let graph = Graph::new();
     let parser = Parser::new(Utf8Encoder);
     let hir = parser.parse(pattern).unwrap();
     let mut translator = Translator::new(&graph);
@@ -23,13 +22,13 @@ fn translate_literal() {
             ///node(0) {
             ///    ['s'] -> node(2)
             ///}
-            ///node(1) {}
             ///node(2) {
             ///    ['u'] -> node(3)
             ///}
             ///node(3) {
             ///    ['n'] -> node(1)
             ///}
+            ///node(1) {}
         )
     );
 }
@@ -43,13 +42,13 @@ fn translate_class() {
             ///    [Epsilon] -> node(2)
             ///    [Epsilon] -> node(4)
             ///}
-            ///node(1) {}
             ///node(2) {
             ///    ['a'-'c'] -> node(3)
             ///}
             ///node(3) {
             ///    [Epsilon] -> node(1)
             ///}
+            ///node(1) {}
             ///node(4) {
             ///    ['e'] -> node(5)
             ///}
@@ -66,30 +65,30 @@ fn translate_class() {
             ///    [Epsilon] -> node(4)
             ///    [Epsilon] -> node(7)
             ///}
-            ///node(1) {}
             ///node(2) {
             ///    ['a'-7Fh] -> node(3)
             ///}
             ///node(3) {
             ///    [Epsilon] -> node(1)
             ///}
+            ///node(1) {}
             ///node(4) {
             ///    [C2h-D0h] -> node(6)
-            ///}
-            ///node(5) {
-            ///    [Epsilon] -> node(1)
             ///}
             ///node(6) {
             ///    [80h-BFh] -> node(5)
             ///}
+            ///node(5) {
+            ///    [Epsilon] -> node(1)
+            ///}
             ///node(7) {
             ///    [D1h] -> node(9)
             ///}
-            ///node(8) {
-            ///    [Epsilon] -> node(1)
-            ///}
             ///node(9) {
             ///    [80h-8Fh] -> node(8)
+            ///}
+            ///node(8) {
+            ///    [Epsilon] -> node(1)
             ///}
         )
     );
@@ -101,78 +100,75 @@ fn translate_group_0() {
         parse("(?<1>)"),
         lit!(
             ///node(0) {
-            ///    [Epsilon] -> node(2)
-            ///        wrpos t0/r0
+            ///    [Epsilon] / +t0 -> node(2)
             ///}
-            ///node(1) {}
             ///node(2) {
             ///    [Epsilon] -> node(3)
             ///}
             ///node(3) {
-            ///    [Epsilon] -> node(1)
+            ///    [Epsilon] / +t1 -> node(1)
             ///}
+            ///node(1) {}
         )
     );
     assert_eq!(
         parse("(?<1>a)b(?<2>c)"),
         lit!(
             ///node(0) {
-            ///    [Epsilon] -> node(3)
-            ///        wrpos t0/r0
-            ///}
-            ///node(1) {}
-            ///node(2) {
-            ///    ['b'] -> node(5)
+            ///    [Epsilon] / +t0 -> node(3)
             ///}
             ///node(3) {
             ///    ['a'] -> node(4)
             ///}
             ///node(4) {
-            ///    [Epsilon] -> node(2)
+            ///    [Epsilon] / +t1 -> node(2)
+            ///}
+            ///node(2) {
+            ///    ['b'] -> node(5)
             ///}
             ///node(5) {
-            ///    [Epsilon] -> node(6)
+            ///    [Epsilon] / +t2 -> node(6)
             ///}
             ///node(6) {
             ///    ['c'] -> node(7)
             ///}
             ///node(7) {
-            ///    [Epsilon] -> node(1)
+            ///    [Epsilon] / +t3 -> node(1)
             ///}
+            ///node(1) {}
         )
     );
     assert_eq!(
         parse("(?<1>)(?<2>)(?<234>)"),
         lit!(
             ///node(0) {
-            ///    [Epsilon] -> node(3)
-            ///        wrpos t0/r0
-            ///}
-            ///node(1) {}
-            ///node(2) {
-            ///    [Epsilon] -> node(6)
+            ///    [Epsilon] / +t0 -> node(3)
             ///}
             ///node(3) {
             ///    [Epsilon] -> node(4)
             ///}
             ///node(4) {
-            ///    [Epsilon] -> node(2)
+            ///    [Epsilon] / +t1 -> node(2)
             ///}
-            ///node(5) {
-            ///    [Epsilon] -> node(8)
+            ///node(2) {
+            ///    [Epsilon] / +t2 -> node(6)
             ///}
             ///node(6) {
             ///    [Epsilon] -> node(7)
             ///}
             ///node(7) {
-            ///    [Epsilon] -> node(5)
+            ///    [Epsilon] / +t3 -> node(5)
+            ///}
+            ///node(5) {
+            ///    [Epsilon] / +t4 -> node(8)
             ///}
             ///node(8) {
             ///    [Epsilon] -> node(9)
             ///}
             ///node(9) {
-            ///    [Epsilon] -> node(1)
+            ///    [Epsilon] / +t5 -> node(1)
             ///}
+            ///node(1) {}
         )
     );
 }
@@ -183,23 +179,17 @@ fn translate_group_1() {
         parse("(?<1>)(a|bc)(?<2>)"),
         lit!(
             ///node(0) {
-            ///    [Epsilon] -> node(3)
-            ///        wrpos t0/r0
-            ///}
-            ///node(1) {}
-            ///node(2) {
-            ///    [Epsilon] -> node(6)
-            ///    [Epsilon] -> node(8)
+            ///    [Epsilon] / +t0 -> node(3)
             ///}
             ///node(3) {
             ///    [Epsilon] -> node(4)
             ///}
             ///node(4) {
-            ///    [Epsilon] -> node(2)
+            ///    [Epsilon] / +t1 -> node(2)
             ///}
-            ///node(5) {
-            ///    [Epsilon] -> node(11)
-            ///        wrpos t5/r1
+            ///node(2) {
+            ///    [Epsilon] -> node(6)
+            ///    [Epsilon] -> node(8)
             ///}
             ///node(6) {
             ///    ['a'] -> node(7)
@@ -207,20 +197,24 @@ fn translate_group_1() {
             ///node(7) {
             ///    [Epsilon] -> node(5)
             ///}
-            ///node(8) {
-            ///    ['b'] -> node(10)
-            ///}
-            ///node(9) {
-            ///    [Epsilon] -> node(5)
-            ///}
-            ///node(10) {
-            ///    ['c'] -> node(9)
+            ///node(5) {
+            ///    [Epsilon] / +t2 -> node(11)
             ///}
             ///node(11) {
             ///    [Epsilon] -> node(12)
             ///}
             ///node(12) {
-            ///    [Epsilon] -> node(1)
+            ///    [Epsilon] / +t3 -> node(1)
+            ///}
+            ///node(1) {}
+            ///node(8) {
+            ///    ['b'] -> node(10)
+            ///}
+            ///node(10) {
+            ///    ['c'] -> node(9)
+            ///}
+            ///node(9) {
+            ///    [Epsilon] -> node(5)
             ///}
         )
     );
@@ -228,22 +222,17 @@ fn translate_group_1() {
         parse("(?<1>)(a|b)(?<2>)"),
         lit!(
             ///node(0) {
-            ///    [Epsilon] -> node(3)
-            ///        wrpos t0/r0
-            ///}
-            ///node(1) {}
-            ///node(2) {
-            ///    [Epsilon] -> node(6)
-            ///    [Epsilon] -> node(8)
+            ///    [Epsilon] / +t0 -> node(3)
             ///}
             ///node(3) {
             ///    [Epsilon] -> node(4)
             ///}
             ///node(4) {
-            ///    [Epsilon] -> node(2)
+            ///    [Epsilon] / +t1 -> node(2)
             ///}
-            ///node(5) {
-            ///    [Epsilon] -> node(10)
+            ///node(2) {
+            ///    [Epsilon] -> node(6)
+            ///    [Epsilon] -> node(8)
             ///}
             ///node(6) {
             ///    ['a'] -> node(7)
@@ -251,17 +240,21 @@ fn translate_group_1() {
             ///node(7) {
             ///    [Epsilon] -> node(5)
             ///}
-            ///node(8) {
-            ///    ['b'] -> node(9)
-            ///}
-            ///node(9) {
-            ///    [Epsilon] -> node(5)
+            ///node(5) {
+            ///    [Epsilon] / +t2 -> node(10)
             ///}
             ///node(10) {
             ///    [Epsilon] -> node(11)
             ///}
             ///node(11) {
-            ///    [Epsilon] -> node(1)
+            ///    [Epsilon] / +t3 -> node(1)
+            ///}
+            ///node(1) {}
+            ///node(8) {
+            ///    ['b'] -> node(9)
+            ///}
+            ///node(9) {
+            ///    [Epsilon] -> node(5)
             ///}
         )
     );
@@ -273,48 +266,47 @@ fn translate_group_2() {
         parse("(?<1>)((?<2>a)|b(?<3>a))"),
         lit!(
             ///node(0) {
-            ///    [Epsilon] -> node(3)
-            ///        wrpos t0/r0
-            ///}
-            ///node(1) {}
-            ///node(2) {
-            ///    [Epsilon] -> node(5)
-            ///    [Epsilon] -> node(9)
+            ///    [Epsilon] / +t0 -> node(3)
             ///}
             ///node(3) {
             ///    [Epsilon] -> node(4)
             ///}
             ///node(4) {
-            ///    [Epsilon] -> node(2)
+            ///    [Epsilon] / +t1 -> node(2)
+            ///}
+            ///node(2) {
+            ///    [Epsilon] -> node(5)
+            ///    [Epsilon] -> node(9)
             ///}
             ///node(5) {
-            ///    [Epsilon] -> node(7)
-            ///}
-            ///node(6) {
-            ///    [Epsilon] -> node(1)
-            ///        invd t6
+            ///    [Epsilon] / +t2 -> node(7)
             ///}
             ///node(7) {
             ///    ['a'] -> node(8)
             ///}
             ///node(8) {
-            ///    [Epsilon] -> node(6)
+            ///    [Epsilon] / +t3 -> node(6)
             ///}
+            ///node(6) {
+            ///    [Epsilon] / -t4 -> node(1)
+            ///    [Epsilon] / -t5 -> node(1)
+            ///}
+            ///node(1) {}
             ///node(9) {
             ///    ['b'] -> node(11)
             ///}
-            ///node(10) {
-            ///    [Epsilon] -> node(1)
-            ///        invd t3
-            ///}
             ///node(11) {
-            ///    [Epsilon] -> node(12)
+            ///    [Epsilon] / +t4 -> node(12)
             ///}
             ///node(12) {
             ///    ['a'] -> node(13)
             ///}
             ///node(13) {
-            ///    [Epsilon] -> node(10)
+            ///    [Epsilon] / +t5 -> node(10)
+            ///}
+            ///node(10) {
+            ///    [Epsilon] / -t2 -> node(1)
+            ///    [Epsilon] / -t3 -> node(1)
             ///}
         )
     );
@@ -322,77 +314,78 @@ fn translate_group_2() {
         parse("(?<1>((?<2>a((?<3>d)|(?<5>e)))|b(?<4>a)))"),
         lit!(
             ///node(0) {
-            ///    [Epsilon] -> node(2)
-            ///        wrpos t0/r0
+            ///    [Epsilon] / +t0 -> node(2)
             ///}
-            ///node(1) {}
             ///node(2) {
             ///    [Epsilon] -> node(4)
             ///    [Epsilon] -> node(17)
             ///}
-            ///node(3) {
-            ///    [Epsilon] -> node(1)
-            ///}
             ///node(4) {
-            ///    [Epsilon] -> node(6)
-            ///}
-            ///node(5) {
-            ///    [Epsilon] -> node(3)
-            ///        invd t11
+            ///    [Epsilon] / +t2 -> node(6)
             ///}
             ///node(6) {
             ///    ['a'] -> node(8)
-            ///}
-            ///node(7) {
-            ///    [Epsilon] -> node(5)
             ///}
             ///node(8) {
             ///    [Epsilon] -> node(9)
             ///    [Epsilon] -> node(13)
             ///}
             ///node(9) {
-            ///    [Epsilon] -> node(11)
-            ///}
-            ///node(10) {
-            ///    [Epsilon] -> node(7)
-            ///        invd t7
+            ///    [Epsilon] / +t4 -> node(11)
             ///}
             ///node(11) {
             ///    ['d'] -> node(12)
             ///}
             ///node(12) {
-            ///    [Epsilon] -> node(10)
+            ///    [Epsilon] / +t5 -> node(10)
             ///}
+            ///node(10) {
+            ///    [Epsilon] / -t6 -> node(7)
+            ///    [Epsilon] / -t7 -> node(7)
+            ///}
+            ///node(7) {
+            ///    [Epsilon] / +t3 -> node(5)
+            ///}
+            ///node(5) {
+            ///    [Epsilon] / -t8 -> node(3)
+            ///    [Epsilon] / -t9 -> node(3)
+            ///}
+            ///node(3) {
+            ///    [Epsilon] / +t1 -> node(1)
+            ///}
+            ///node(1) {}
             ///node(13) {
-            ///    [Epsilon] -> node(15)
-            ///}
-            ///node(14) {
-            ///    [Epsilon] -> node(7)
-            ///        invd t4
+            ///    [Epsilon] / +t6 -> node(15)
             ///}
             ///node(15) {
             ///    ['e'] -> node(16)
             ///}
             ///node(16) {
-            ///    [Epsilon] -> node(14)
+            ///    [Epsilon] / +t7 -> node(14)
+            ///}
+            ///node(14) {
+            ///    [Epsilon] / -t4 -> node(7)
+            ///    [Epsilon] / -t5 -> node(7)
             ///}
             ///node(17) {
             ///    ['b'] -> node(19)
             ///}
-            ///node(18) {
-            ///    [Epsilon] -> node(3)
-            ///        invd t2
-            ///        invd t4
-            ///        invd t7
-            ///}
             ///node(19) {
-            ///    [Epsilon] -> node(20)
+            ///    [Epsilon] / +t8 -> node(20)
             ///}
             ///node(20) {
             ///    ['a'] -> node(21)
             ///}
             ///node(21) {
-            ///    [Epsilon] -> node(18)
+            ///    [Epsilon] / +t9 -> node(18)
+            ///}
+            ///node(18) {
+            ///    [Epsilon] / -t4 -> node(3)
+            ///    [Epsilon] / -t5 -> node(3)
+            ///    [Epsilon] / -t6 -> node(3)
+            ///    [Epsilon] / -t7 -> node(3)
+            ///    [Epsilon] / -t2 -> node(3)
+            ///    [Epsilon] / -t3 -> node(3)
             ///}
         )
     );
@@ -404,43 +397,41 @@ fn translate_group_3() {
         parse("(?<1>a)(?<2>b)*(?<3>c)"),
         lit!(
             ///node(0) {
-            ///    [Epsilon] -> node(3)
-            ///        wrpos t0/r0
-            ///}
-            ///node(1) {}
-            ///node(2) {
-            ///    [Epsilon] -> node(6)
-            ///    [Epsilon] -> node(5)
+            ///    [Epsilon] / +t0 -> node(3)
             ///}
             ///node(3) {
             ///    ['a'] -> node(4)
             ///}
             ///node(4) {
-            ///    [Epsilon] -> node(2)
+            ///    [Epsilon] / +t1 -> node(2)
             ///}
-            ///node(5) {
-            ///    [Epsilon] -> node(10)
+            ///node(2) {
+            ///    [Epsilon] -> node(6)
+            ///    [Epsilon] -> node(5)
             ///}
             ///node(6) {
-            ///    [Epsilon] -> node(8)
-            ///        wrpos t3/r1
-            ///}
-            ///node(7) {
-            ///    [Epsilon] -> node(5)
-            ///    [Epsilon] -> node(6)
+            ///    [Epsilon] / +t2 -> node(8)
             ///}
             ///node(8) {
             ///    ['b'] -> node(9)
             ///}
             ///node(9) {
-            ///    [Epsilon] -> node(7)
+            ///    [Epsilon] / +t3 -> node(7)
+            ///}
+            ///node(7) {
+            ///    [Epsilon] -> node(5)
+            ///    [Epsilon] -> node(6)
+            ///}
+            ///node(5) {
+            ///    [Epsilon] / +t4 -> node(10)
             ///}
             ///node(10) {
             ///    ['c'] -> node(11)
             ///}
             ///node(11) {
-            ///    [Epsilon] -> node(1)
+            ///    [Epsilon] / +t5 -> node(1)
             ///}
+            ///node(1) {}
         )
     );
 }

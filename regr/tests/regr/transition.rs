@@ -341,7 +341,7 @@ fn tr_instruct() {
     tr_a.merge(b'c');
     tr_a.merge(b'e');
 
-    assert_eq!(format!("{tr_a}"), "['a'-'c' | 'e'] / wrpos t0");
+    assert_eq!(format!("{tr_a}"), "['a'-'c' | 'e'] / +t0");
 }
 
 #[test]

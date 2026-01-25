@@ -243,9 +243,9 @@ impl<'a> Translator<'a> {
             }
         }
         let mut tags = Tags::default();
-        branches.iter().for_each(|(_, branch_tags)| {
+        for (_, branch_tags) in &branches {
             tags.extend(branch_tags);
-        });
+        }
         tags
     }
 }
