@@ -257,9 +257,8 @@ impl std::fmt::Display for Transition<'_> {
 
         // instruction
         if self.0.inst != Inst::Nop {
-            f.write_str(" / `")?;
+            f.write_str(" / ")?;
             std::fmt::Display::fmt(&self.0.inst, f)?;
-            f.write_char('`')?;
         }
         Ok(())
     }

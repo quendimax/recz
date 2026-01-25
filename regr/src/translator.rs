@@ -228,13 +228,18 @@ impl<'a> Translator<'a> {
             let branch_tags = self.translate_hir(hir, pair(first, last));
             branches.push((last, branch_tags));
         }
-        for (last_node, _) in &branches {
-            for (other_last_node, other_tags) in &branches {
-                if last_node != other_last_node {
+        for (last, _) in &branches {
+            let mut is_connected = false;
+            for (other_last, other_tags) in &branches {
+                if last != other_last {
                     for tag in other_tags {
-                        last_node.connect(sub.last, tag.invalidate_inst());
+                        last.connect(sub.last, tag.invalidate_inst());
+                        is_connected = true;
                     }
                 }
+            }
+            if !is_connected {
+                last.connect(sub.last, Nop);
             }
         }
         let mut tags = Tags::default();
