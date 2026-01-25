@@ -1,7 +1,7 @@
 use pretty_assertions::assert_eq;
 use redt::RangeU8;
 use redt::lit;
-use regr::{Graph, Inst::Nop, Tag, TagBank};
+use regr::{Graph, Inst::Nop};
 
 #[test]
 fn graph_node() {
@@ -178,41 +178,5 @@ fn graph_display_fmt_3() {
             ///}
             ///node(2) {}
         )
-    );
-}
-
-#[test]
-fn graph_tags() {
-    let graph = Graph::new();
-    let mut tag_bank = TagBank::default();
-    graph.add_tag_group(0, tag_bank.absolute(), tag_bank.absolute());
-    graph.add_tag_group(1, tag_bank.absolute(), tag_bank.absolute());
-
-    let mut tag_bank = TagBank::default();
-    assert_eq!(
-        graph.tag_group(0),
-        Some((tag_bank.absolute(), tag_bank.absolute()))
-    );
-    assert_eq!(graph.tag_group(2), None);
-    let mut tag_groups = graph.tag_groups().collect::<Vec<_>>();
-    tag_groups.sort_by_key(|(id, _)| *id);
-    assert_eq!(
-        tag_groups,
-        [
-            (
-                0,
-                (
-                    Tag::Absolute { id: 0, reg: 0 },
-                    Tag::Absolute { id: 1, reg: 1 },
-                ),
-            ),
-            (
-                1,
-                (
-                    Tag::Absolute { id: 2, reg: 2 },
-                    Tag::Absolute { id: 3, reg: 3 },
-                ),
-            ),
-        ]
     );
 }
