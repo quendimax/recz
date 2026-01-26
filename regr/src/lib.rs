@@ -3,9 +3,6 @@ pub mod algo;
 mod graph;
 pub use graph::Graph;
 
-mod machine;
-pub use machine::Machine;
-
 mod node;
 pub use node::Node;
 

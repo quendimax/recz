@@ -67,7 +67,7 @@ impl Group {
 
 /// Instruction represents the actions that can be performed during a transition
 /// step.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Inst {
     /// Non instruction
     Nop,
