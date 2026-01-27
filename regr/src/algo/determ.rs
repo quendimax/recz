@@ -2,7 +2,6 @@ use crate::graph::Graph;
 use crate::node::Node;
 use crate::tag::Inst;
 use redt::{Map, Set};
-use std::ops::Deref;
 use std::rc::Rc;
 
 pub fn determinate(nfa: &Graph) -> Graph {
@@ -12,16 +11,42 @@ pub fn determinate(nfa: &Graph) -> Graph {
     dfa
 }
 
-type Closure<'a> = Set<Node<'a>>;
-type InstMap<'a> = Map<Node<'a>, Set<Inst>>;
+struct Closure<'a> {
+    nodes: Set<Node<'a>>,
+    inst_map: Map<Node<'a>, Set<Inst>>,
+}
+
+impl Closure<'_> {
+    fn new() -> Self {
+        Self {
+            nodes: Set::new(),
+            inst_map: Map::new(),
+        }
+    }
+}
+
+impl std::hash::Hash for Closure<'_> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.nodes.hash(state);
+    }
+}
+
+impl PartialEq for Closure<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.nodes == other.nodes
+    }
+}
+
+impl Eq for Closure<'_> {}
+
 type InstSet = Set<Inst>;
 
 struct Determinator<'n, 'd> {
     nfa: &'n Graph,
     dfa: &'d Graph,
     conv_table: Map<Rc<Closure<'n>>, Node<'d>>,
-    e_close_table: Map<Node<'n>, (Rc<Closure<'n>>, Rc<InstMap<'n>>)>,
-    close_table: Map<(Node<'d>, u8), (Rc<Closure<'n>>, Rc<InstMap<'n>>)>,
+    e_close_table: Map<Node<'n>, Rc<Closure<'n>>>,
+    close_table: Map<(Node<'d>, u8), (Rc<Closure<'n>>, Rc<InstSet>)>,
 }
 
 impl<'n, 'd> Determinator<'n, 'd> {
@@ -43,25 +68,26 @@ impl<'n, 'd> Determinator<'n, 'd> {
             return;
         }
 
-        let (nfa_closure, inst_map) = self.e_close(self.nfa.start_node());
+        let nfa_closure = self.e_close(self.nfa.start_node());
         let dfa_node = self.dfa.node();
         self.conv_table.insert(Rc::clone(&nfa_closure), dfa_node);
 
         let mut stack = Vec::with_capacity(self.nfa.len());
-        stack.push((nfa_closure, dfa_node, inst_map));
-        while let Some((nfa_closure, dfa_node, inst_map)) = stack.pop() {
+        stack.push((nfa_closure, dfa_node));
+        while let Some((nfa_closure, dfa_node)) = stack.pop() {
             for sym in 0.. {
-                let (sym_closure, new_inst_map) =
-                    self.close(Rc::clone(&nfa_closure), dfa_node, sym);
+                let (sym_closure, insts) = self.close(Rc::clone(&nfa_closure), dfa_node, sym);
                 let new_dfa_node = self
                     .conv_table
                     .entry(Rc::clone(&sym_closure))
                     .or_insert_with(|| {
                         let new_dfa_node = self.dfa.node();
-                        stack.push((Rc::clone(&sym_closure), new_dfa_node, new_inst_map));
+                        stack.push((Rc::clone(&sym_closure), new_dfa_node));
                         new_dfa_node
                     });
-                for inst in inst_map
+                for inst in insts.iter() {
+                    dfa_node.connect(*new_dfa_node, *inst).merge(sym);
+                }
             }
         }
     }
@@ -71,60 +97,73 @@ impl<'n, 'd> Determinator<'n, 'd> {
         nfa_closure: Rc<Closure<'n>>,
         dfa_node: Node<'d>,
         symbol: u8,
-    ) -> (Rc<Closure<'n>>, Rc<InstMap<'n>>) {
-        if let Some((closure, inst_map)) = self.close_table.get(&(dfa_node, symbol)) {
-            return (Rc::clone(closure), Rc::clone(inst_map));
+    ) -> (Rc<Closure<'n>>, Rc<Set<Inst>>) {
+        if let Some((s_closure, insts)) = self.close_table.get(&(dfa_node, symbol)) {
+            return (Rc::clone(s_closure), Rc::clone(insts));
         }
 
-        let mut symbol_closure = Closure::default();
-        let mut inst_map = InstMap::default();
-        for node in nfa_closure.iter() {
+        let mut insts = Set::<Inst>::default();
+        let mut s_closure = Closure::new();
+        for node in nfa_closure.nodes.iter() {
             for (target, transitions) in node.targets() {
-                let instructs = inst_map.entry(target).or_insert_with(Set::<Inst>::default);
                 for tr in transitions {
                     if tr.contains(symbol) {
-                        instructs.insert(tr.instruct());
-                        symbol_closure.insert(target);
+                        s_closure.nodes.insert(target);
+                        if let Some(inst_set) = s_closure.inst_map.get(node) {
+                            insts.extend(inst_set);
+                        }
+
+                        let e_s_closure = self.e_close(target);
+                        s_closure.nodes.extend(e_s_closure.nodes.iter());
+                        for (node, inst_set) in &e_s_closure.inst_map {
+                            s_closure
+                                .inst_map
+                                .entry(*node)
+                                .or_default()
+                                .extend(inst_set);
+                        }
                     }
                 }
             }
         }
-        let symbol_closure = Rc::new(symbol_closure);
-        let inst_map = Rc::new(inst_map);
+        let s_closure = Rc::new(s_closure);
+        let insts = Rc::new(insts);
         self.close_table.insert(
             (dfa_node, symbol),
-            (Rc::clone(&symbol_closure), Rc::clone(&inst_map)),
+            (Rc::clone(&s_closure), Rc::clone(&insts)),
         );
-        (symbol_closure, inst_map)
+        (s_closure, insts)
     }
 
-    fn e_close(&mut self, node: Node<'n>) -> (Rc<Closure<'n>>, Rc<InstMap<'n>>) {
-        if let Some((e_closure, inst_map)) = self.e_close_table.get(&node) {
-            return (Rc::clone(e_closure), Rc::clone(inst_map));
+    fn e_close(&mut self, node: Node<'n>) -> Rc<Closure<'n>> {
+        if let Some(e_closure) = self.e_close_table.get(&node) {
+            return Rc::clone(e_closure);
         }
-        let mut inst_map = InstMap::<'n>::default();
-        let mut e_closure = Closure::<'n>::with_capacity(self.nfa.len());
+        let mut e_closure = Closure::<'n>::new();
         let mut unvisited = Vec::with_capacity(self.nfa.len());
         unvisited.push(node);
         while let Some(node) = unvisited.pop() {
-            e_closure.insert(node);
+            e_closure.nodes.insert(node);
             for (target, transitions) in node.targets() {
                 for tr in transitions {
                     if tr.is_epsilon() {
-                        if !e_closure.contains(&target) {
+                        if !e_closure.nodes.contains(&target) {
                             unvisited.push(target);
                         }
-                        let instructs = inst_map.entry(target).or_insert_with(Set::<Inst>::default);
+                        let instructs = e_closure.inst_map.entry(target).or_default();
                         instructs.insert(tr.instruct());
                     }
                 }
             }
         }
-        let e_closure = Rc::new(e_closure);
-        let inst_map = Rc::new(inst_map);
 
-        self.e_close_table
-            .insert(node, (Rc::clone(&e_closure), Rc::clone(&inst_map)));
-        (e_closure, inst_map)
+        let e_closure = Rc::new(e_closure);
+        self.e_close_table.insert(node, Rc::clone(&e_closure));
+
+        e_closure
     }
 }
+
+#[cfg(test)]
+#[path = "utest/determ.rs"]
+mod utest;
