@@ -22,6 +22,7 @@ type TransVec = SmallVec<[TransPtr; 1]>;
 pub(crate) struct NodeInner {
     uid: u64,
     is_final: Cell<bool>,
+    sources: RefCell<Map<NodePtr, TransVec>>,
     targets: RefCell<Map<NodePtr, TransVec>>,
     graph: GraphPtr,
 }
@@ -86,21 +87,26 @@ impl<'a> Node<'a> {
             to.gid(),
             "only nodes belonging to the same graph can be joined"
         );
-        let mut targets = self.0.targets.borrow_mut();
-        if let Some(tr_vec) = targets.get_mut(&to.as_ptr()) {
-            if let Some(tr_ptr) = tr_vec
+        let mut self_targets = self.0.targets.borrow_mut();
+        let mut to_sources = to.0.sources.borrow_mut();
+        if let Some(self_tr_vec) = self_targets.get_mut(&to.as_ptr()) {
+            let to_tr_vec = to_sources.get_mut(&self.as_ptr()).unwrap();
+            if let Some(tr_ptr) = self_tr_vec
                 .iter()
                 .find(|tr| Transition::from(unsafe { tr.as_ref() }).instruct() == with)
             {
+                debug_assert!(to_tr_vec.contains(tr_ptr));
                 Transition::from(unsafe { tr_ptr.as_ref() })
             } else {
                 let tr = self.graph().transition(with);
-                tr_vec.push(tr.as_ptr());
+                self_tr_vec.push(tr.as_ptr());
+                to_tr_vec.push(tr.as_ptr());
                 tr
             }
         } else {
             let tr = self.graph().transition(with);
-            targets.insert(to.as_ptr(), smallvec![tr.as_ptr()]);
+            self_targets.insert(to.as_ptr(), smallvec![tr.as_ptr()]);
+            to_sources.insert(self.as_ptr(), smallvec![tr.as_ptr()]);
             tr
         }
     }
@@ -126,6 +132,7 @@ impl<'a> Node<'a> {
         NodeInner {
             uid,
             is_final: Cell::new(false),
+            sources: Default::default(),
             targets: Default::default(),
             graph: NonNull::from(graph),
         }

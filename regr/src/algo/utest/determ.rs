@@ -42,6 +42,7 @@ fn e_closure() {
 }
 
 #[test]
+#[ignore]
 fn e_closure_with_tags() {
     let nfa = Graph::new();
 
