@@ -66,17 +66,18 @@ impl<'a> Translator<'a> {
 
     // Only this function can create a new tag
     fn translate_group(&mut self, group: &GroupHir, sub: Pair<'a>) -> Tags {
-        let tag_group = self.graph.tag_group(group.label().to_string());
+        let open_tag = self.graph.tag();
+        let close_tag = self.graph.tag();
 
         let first = self.graph.node();
-        sub.first.connect(first, tag_group.open_tag().write_inst());
+        sub.first.connect(first, open_tag.pos_inst());
 
         let last = self.graph.node();
-        last.connect(sub.last, tag_group.close_tag().write_inst());
+        last.connect(sub.last, close_tag.pos_inst());
 
         let mut tags = self.translate_hir(group.inner(), pair(first, last));
-        tags.insert(tag_group.open_tag());
-        tags.insert(tag_group.close_tag());
+        tags.insert(open_tag);
+        tags.insert(close_tag);
         tags
     }
 
@@ -233,7 +234,7 @@ impl<'a> Translator<'a> {
             for (other_last, other_tags) in &branches {
                 if last != other_last {
                     for tag in other_tags {
-                        last.connect(sub.last, tag.invalidate_inst());
+                        last.connect(sub.last, tag.neg_inst());
                         is_connected = true;
                     }
                 }

@@ -54,21 +54,19 @@ fn e_closure_with_tags() {
     let f = nfa.node();
     let g = nfa.node();
 
-    let group = nfa.tag_group("1");
-    let group2 = nfa.tag_group("2");
-    let t0 = group.open_tag();
-    let t1 = group.close_tag();
-    let t2 = group2.open_tag();
-    let t3 = group2.close_tag();
+    let t0 = nfa.tag();
+    let t1 = nfa.tag();
+    let t2 = nfa.tag();
+    let t3 = nfa.tag();
 
-    q.connect(a, t0.write_inst());
-    a.connect(b, t1.write_inst());
-    a.connect(c, t2.write_inst());
+    q.connect(a, t0.pos_inst());
+    a.connect(b, t1.pos_inst());
+    a.connect(c, t2.pos_inst());
     b.connect(d, Nop).merge(1);
     c.connect(e, Nop).merge(2);
-    d.connect(f, t2.invalidate_inst());
-    e.connect(f, t1.invalidate_inst());
-    f.connect(g, t3.write_inst());
+    d.connect(f, t2.neg_inst());
+    e.connect(f, t1.neg_inst());
+    f.connect(g, t3.pos_inst());
 
     let dfa = Graph::new();
 
@@ -78,9 +76,9 @@ fn e_closure_with_tags() {
     assert_eq!(
         e_closure.inst_map,
         map! {
-            a => set![t0.write_inst()],
-            b => set![t1.write_inst(), t0.write_inst()],
-            c => set![t2.write_inst(), t0.write_inst()],
+            a => set![t0.pos_inst()],
+            b => set![t1.pos_inst(), t0.pos_inst()],
+            c => set![t2.pos_inst(), t0.pos_inst()],
         }
     );
 

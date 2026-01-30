@@ -11,12 +11,12 @@ impl Tag {
         self.0
     }
 
-    pub fn write_inst(&self) -> Inst {
-        Inst::WritePos(*self)
+    pub fn pos_inst(&self) -> Inst {
+        Inst::PositiveTag(*self)
     }
 
-    pub fn invalidate_inst(&self) -> Inst {
-        Inst::InvalidTag(*self)
+    pub fn neg_inst(&self) -> Inst {
+        Inst::NegativeTag(*self)
     }
 }
 
@@ -42,15 +42,6 @@ pub struct Group {
 
 impl Group {
     #[inline]
-    pub(crate) fn new(label: String, open_tag: Tag, close_tag: Tag) -> Self {
-        Self {
-            label,
-            open_tag,
-            close_tag,
-        }
-    }
-
-    #[inline]
     pub fn open_tag(&self) -> Tag {
         self.open_tag
     }
@@ -73,10 +64,10 @@ pub enum Inst {
     Nop,
 
     /// Store the current position for the corresponding tag.
-    WritePos(Tag),
+    PositiveTag(Tag),
 
     /// Invalidate the specified tag
-    InvalidTag(Tag),
+    NegativeTag(Tag),
 }
 
 macro_rules! impl_fmt {
@@ -85,8 +76,8 @@ macro_rules! impl_fmt {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
                     Inst::Nop => f.write_str("nop"),
-                    Inst::WritePos(tag) => write!(f, "+{tag}"),
-                    Inst::InvalidTag(tag) => write!(f, "-{tag}"),
+                    Inst::PositiveTag(tag) => write!(f, "+{tag}"),
+                    Inst::NegativeTag(tag) => write!(f, "-{tag}"),
                 }
             }
         }

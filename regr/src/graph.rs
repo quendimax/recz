@@ -1,5 +1,5 @@
 use crate::node::{Node, NodeInner, NodePtr};
-use crate::tag::{Group, Inst, Tag};
+use crate::tag::{Inst, Tag};
 use crate::transition::{TransInner, Transition};
 use redt::{Set, Stack};
 use std::cell::Cell;
@@ -12,7 +12,7 @@ pub struct Graph {
     start_node: Cell<Option<NodePtr>>,
     bump_nodes: Stack<NodeInner>,
     bump_trans: Stack<TransInner>,
-    bump_groups: Stack<Group>,
+    tag_id: Cell<usize>,
 }
 
 static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(1);
@@ -30,7 +30,7 @@ impl Graph {
             start_node: Cell::new(None),
             bump_nodes: Stack::new(),
             bump_trans: Stack::new(),
-            bump_groups: Stack::new(),
+            tag_id: Cell::new(0),
         }
     }
 
@@ -66,12 +66,10 @@ impl Graph {
         Transition::from(tr_ref)
     }
 
-    /// Creates a new tag group.
-    pub fn tag_group(&self, label: impl Into<String>) -> &Group {
-        let open_tag = Tag::new(self.bump_groups.len() * 2);
-        let close_tag = Tag::new(self.bump_groups.len() * 2 + 1);
-        self.bump_groups
-            .push_with(|| Group::new(label.into(), open_tag, close_tag))
+    pub fn tag(&self) -> Tag {
+        let id = self.tag_id.get();
+        self.tag_id.set(id + 1);
+        Tag::new(id)
     }
 
     /// Returns the start node of the graph. If the graph is empty, creates a
