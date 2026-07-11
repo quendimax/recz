@@ -1,7 +1,8 @@
 use crate::node::{Node, NodeInner, NodePtr};
 use crate::tag::{Inst, Tag};
 use crate::transition::{TransInner, Transition};
-use redt::{Set, Stack};
+use bumpish::BumpVec;
+use redt::Set;
 use std::cell::Cell;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -10,8 +11,8 @@ pub struct Graph {
     gid: u32,
     next_nid: Cell<u32>,
     start_node: Cell<Option<NodePtr>>,
-    bump_nodes: Stack<NodeInner>,
-    bump_trans: Stack<TransInner>,
+    bump_nodes: BumpVec<NodeInner, 0>,
+    bump_trans: BumpVec<TransInner, 0>,
     tag_id: Cell<usize>,
 }
 
@@ -28,8 +29,8 @@ impl Graph {
             gid,
             next_nid: Cell::new(0),
             start_node: Cell::new(None),
-            bump_nodes: Stack::new(),
-            bump_trans: Stack::new(),
+            bump_nodes: BumpVec::new(),
+            bump_trans: BumpVec::new(),
             tag_id: Cell::new(0),
         }
     }
@@ -48,9 +49,7 @@ impl Graph {
                 .checked_add(1)
                 .expect("node id overflow"),
         );
-        let node_ref = self
-            .bump_nodes
-            .push_with(|| Node::new_inner(self, self.gid, nid));
+        let node_ref = self.bump_nodes.push(Node::new_inner(self, self.gid, nid));
 
         let node_ptr = NodePtr::from(node_ref);
 
@@ -62,7 +61,7 @@ impl Graph {
 
     /// Creates a new transition.
     pub(crate) fn transition(&self, with: Inst) -> Transition<'_> {
-        let tr_ref = self.bump_trans.push_with(|| Transition::new_inner(with));
+        let tr_ref = self.bump_trans.push(Transition::new_inner(with));
         Transition::from(tr_ref)
     }
 

@@ -75,7 +75,7 @@ impl<'a> Translator<'a> {
         let last = self.graph.node();
         last.connect(sub.last, close_tag.pos_inst());
 
-        let mut tags = self.translate_hir(group.inner(), pair(first, last));
+        let tags = self.translate_hir(group.inner(), pair(first, last));
         tags.insert(open_tag);
         tags.insert(close_tag);
         tags

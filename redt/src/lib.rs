@@ -1,5 +1,12 @@
+pub use bumpish::bumpmap as map;
+pub use bumpish::bumpset as set;
+
+pub use bumpish::bumpordmap as ordmap;
+pub use bumpish::bumpordset as ordset;
+
 mod collections;
-pub use collections::{Map, MapIter, Set, SetIter, SmallVec, Stack, smallvec};
+pub use collections::{Map, MapIter, Set, SetIter};
+pub use collections::{OrdMap, OrdMapIter, OrdSet, OrdSetIter};
 
 mod legible;
 pub use legible::Legible;

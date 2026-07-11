@@ -7,10 +7,8 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-bump-stack.workspace = true
+bumpish.workspace = true
 num-traits.workspace = true
-ordermap.workspace = true
-smallvec.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true

@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Tag(usize);
 
 impl Tag {
@@ -58,7 +58,7 @@ impl Group {
 
 /// Instruction represents the actions that can be performed during a transition
 /// step.
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Inst {
     /// Non instruction
     Nop,

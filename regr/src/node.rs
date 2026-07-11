@@ -1,7 +1,8 @@
 use crate::graph::Graph;
 use crate::tag::Inst;
 use crate::transition::{TransPtr, Transition};
-use redt::{Map, MapIter, SmallVec, smallvec};
+use redt::{Map, MapIter};
+use smallvec::{SmallVec, smallvec};
 use std::cell::{Cell, Ref, RefCell};
 use std::fmt::Write;
 use std::ops::Deref;
@@ -217,7 +218,7 @@ pub struct TargetNodeIter<'a> {
     // lock guarantees that the map is not modified while iterating
     #[allow(unused)]
     lock: Ref<'a, Map<NodePtr, TransVec>>,
-    iter: Cell<MapIter<'a, NodePtr, TransVec>>,
+    iter: MapIter<'a, NodePtr, TransVec>,
 }
 
 impl<'a> TargetNodeIter<'a> {
@@ -225,10 +226,7 @@ impl<'a> TargetNodeIter<'a> {
         unsafe {
             let map_ptr = map.deref() as *const Map<NodePtr, TransVec>;
             let iter = (*map_ptr).iter();
-            Self {
-                lock: map,
-                iter: Cell::new(iter),
-            }
+            Self { lock: map, iter }
         }
     }
 
@@ -242,17 +240,13 @@ impl<'a> Iterator for TargetNodeIter<'a> {
     type Item = (Node<'a>, Box<[Transition<'a>]>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut iter = self.iter.take();
-        let res = iter.next().map(|(target, tr_vec)| {
-            (
-                Node::from(unsafe { target.as_ref() }),
-                tr_vec
-                    .iter()
-                    .map(|tr| Transition::from(unsafe { tr.as_ref() }))
-                    .collect(),
-            )
-        });
-        self.iter.set(iter);
-        res
+        self.iter.next().map(|(target, tr_vec)| {
+            let node = Node::from(unsafe { target.as_ref() });
+            let tr = tr_vec
+                .iter()
+                .map(|tr| Transition::from(unsafe { tr.as_ref() }))
+                .collect();
+            (node, tr)
+        })
     }
 }
