@@ -1,8 +1,8 @@
 use crate::node::{Node, NodeInner, NodePtr};
-use crate::tag::{Inst, Tag};
+use crate::tag::Group;
 use crate::transition::{TransInner, Transition};
 use bumpish::BumpVec;
-use redt::Set;
+use redt::{Map, Set};
 use std::cell::Cell;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -13,7 +13,7 @@ pub struct Graph {
     start_node: Cell<Option<NodePtr>>,
     bump_nodes: BumpVec<NodeInner, 0>,
     bump_trans: BumpVec<TransInner, 0>,
-    tag_id: Cell<usize>,
+    groups: Map<String, Group>,
 }
 
 static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(1);
@@ -31,7 +31,7 @@ impl Graph {
             start_node: Cell::new(None),
             bump_nodes: BumpVec::new(),
             bump_trans: BumpVec::new(),
-            tag_id: Cell::new(0),
+            groups: Map::new(),
         }
     }
 
@@ -60,15 +60,21 @@ impl Graph {
     }
 
     /// Creates a new transition.
-    pub(crate) fn transition(&self, with: Inst) -> Transition<'_> {
-        let tr_ref = self.bump_trans.push(Transition::new_inner(with));
+    pub(crate) fn transition(&self) -> Transition<'_> {
+        let tr_ref = self.bump_trans.push(Transition::new_inner());
         Transition::from(tr_ref)
     }
 
-    pub fn tag(&self) -> Tag {
-        let id = self.tag_id.get();
-        self.tag_id.set(id + 1);
-        Tag::new(id)
+    /// Creates a new group with the given label, or returns an existing group
+    /// with the same label.
+    pub fn group(&self, label: &str) -> &Group {
+        let Ok(id) = self.groups.len().try_into() else {
+            panic!()
+        };
+        let group = Group::new(id, label.to_string());
+        self.groups
+            .insert(label.to_string(), group)
+            .expect("group label already exists")
     }
 
     /// Returns the start node of the graph. If the graph is empty, creates a

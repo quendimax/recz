@@ -1,7 +1,8 @@
 use crate::ops::*;
 use crate::symbol::Epsilon;
-use crate::tag::Inst;
+use crate::tag::Tag;
 use redt::{ByteIter, Legible, RangeIter, RangeU8, SetU8, Step};
+use smallvec::SmallVec;
 use std::cell::{Ref, RefCell};
 use std::fmt::Write;
 use std::ops::Deref;
@@ -20,17 +21,17 @@ pub(crate) type TransPtr = NonNull<TransInner>;
 
 pub(crate) struct TransInner {
     symset: RefCell<SetU8>,
-    inst: Inst,
+    tags: RefCell<SmallVec<[Tag; 4]>>,
 }
 
 /// Crate API
 impl<'a> Transition<'a> {
     /// Creates a new empty transition.
     #[inline(always)]
-    pub(crate) fn new_inner(inst: Inst) -> TransInner {
+    pub(crate) fn new_inner() -> TransInner {
         TransInner {
             symset: RefCell::new(SetU8::empty()),
-            inst,
+            tags: RefCell::new(SmallVec::new()),
         }
     }
 
@@ -67,13 +68,18 @@ impl<'a> Transition<'a> {
     }
 
     /// Returns a clone of the symbol set in this transition instance.
-    pub fn as_set(&self) -> Ref<'_, SetU8> {
+    pub fn symbol_set(&self) -> Ref<'_, SetU8> {
         self.0.symset.borrow()
     }
 
     #[inline]
-    pub fn instruct(self) -> Inst {
-        self.0.inst
+    pub fn tags(&self) -> Ref<'_, [Tag]> {
+        let tags_ref = self.0.tags.borrow();
+        Ref::map(tags_ref, |tags| tags.as_slice())
+    }
+
+    pub fn put_tag(&self, tag: Tag) {
+        self.0.tags.borrow_mut().push(tag);
     }
 
     /// Merges the `other` object into this transition.
@@ -255,10 +261,12 @@ impl std::fmt::Display for Transition<'_> {
         }
         f.write_char(']')?;
 
-        // instruction
-        if self.0.inst != Inst::Nop {
+        // tags
+        if !self.0.tags.borrow().is_empty() {
             f.write_str(" / ")?;
-            std::fmt::Display::fmt(&self.0.inst, f)?;
+            for tag in self.tags().iter() {
+                std::fmt::Display::fmt(tag, f)?;
+            }
         }
         Ok(())
     }

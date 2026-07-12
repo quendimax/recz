@@ -1,7 +1,7 @@
 use pretty_assertions::assert_eq;
 use redt::RangeU8;
 use redt::lit;
-use regr::{Graph, Inst::Nop};
+use regr::Graph;
 
 #[test]
 fn graph_node() {
@@ -41,14 +41,14 @@ fn graph_display_fmt_0() {
     let c = graph.node();
     let d = graph.node();
 
-    a.connect(b, Nop).merge(RangeU8::new(b'a', u8::MAX));
-    a.connect(b, Nop);
-    b.connect(c, Nop);
-    c.connect(d, Nop).merge(b'c');
-    b.connect(a, Nop);
-    d.connect(a, Nop);
-    d.connect(b, Nop);
-    d.connect(c, Nop);
+    a.connect(b).merge(RangeU8::new(b'a', u8::MAX));
+    a.connect(b);
+    b.connect(c);
+    c.connect(d).merge(b'c');
+    b.connect(a);
+    d.connect(a);
+    d.connect(b);
+    d.connect(c);
     assert_eq!(
         graph.to_string(),
         lit!(
@@ -79,13 +79,13 @@ fn graph_display_fmt_1() {
     let n2 = graph.node();
     let n3 = graph.node();
     let n4 = graph.node();
-    n0.connect(n1, Nop).merge(RangeU8::from(b'a'..=b'b'));
-    n0.connect(n1, Nop).merge(RangeU8::from(b'd'..=b'z'));
-    n1.connect(n2, Nop);
-    n1.connect(n4, Nop);
-    n2.connect(n3, Nop).merge(b'a');
-    n3.connect(n4, Nop);
-    n3.connect(n2, Nop);
+    n0.connect(n1).merge(RangeU8::from(b'a'..=b'b'));
+    n0.connect(n1).merge(RangeU8::from(b'd'..=b'z'));
+    n1.connect(n2);
+    n1.connect(n4);
+    n2.connect(n3).merge(b'a');
+    n3.connect(n4);
+    n3.connect(n2);
     assert_eq!(
         graph.to_string(),
         lit!(
@@ -119,14 +119,14 @@ fn graph_display_fmt_2() {
     let n5 = graph.node();
     let n6 = graph.node();
     let n7 = graph.node();
-    n0.connect(n2, Nop);
-    n0.connect(n5, Nop);
-    n2.connect(n3, Nop).merge(b'a');
-    n3.connect(n4, Nop).merge(b'b');
-    n4.connect(n1, Nop);
-    n5.connect(n6, Nop).merge(b'c');
-    n6.connect(n7, Nop).merge(b'd');
-    n7.connect(n1, Nop);
+    n0.connect(n2);
+    n0.connect(n5);
+    n2.connect(n3).merge(b'a');
+    n3.connect(n4).merge(b'b');
+    n4.connect(n1);
+    n5.connect(n6).merge(b'c');
+    n6.connect(n7).merge(b'd');
+    n7.connect(n1);
     assert_eq!(
         graph.to_string(),
         lit!(
@@ -163,9 +163,9 @@ fn graph_display_fmt_3() {
     let a = graph.node();
     let b = graph.node();
     let c = graph.node();
-    a.connect(b, Nop).merge(1);
-    b.connect(b, Nop).merge(3);
-    b.connect(c, Nop).merge(1);
+    a.connect(b).merge(1);
+    b.connect(b).merge(3);
+    b.connect(c).merge(1);
     assert_eq!(
         format!("{graph:?}"),
         lit!(

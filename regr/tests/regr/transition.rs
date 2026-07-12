@@ -1,6 +1,6 @@
 use pretty_assertions::assert_eq;
 use redt::{RangeU8, range};
-use regr::{Epsilon, Graph, Inst::*, Transition};
+use regr::{Epsilon, Graph, Transition};
 
 type Chunk = u64;
 
@@ -13,7 +13,7 @@ where
     F: Fn(Transition<'_>) -> R,
 {
     let gr = Graph::new();
-    let tr = gr.node().connect(gr.node(), Nop);
+    let tr = gr.node().connect(gr.node());
     f(tr)
 }
 
@@ -22,7 +22,7 @@ where
     F: Fn(Transition<'_>) -> R,
 {
     let gr = Graph::new();
-    let tr = gr.node().connect(gr.node(), Nop);
+    let tr = gr.node().connect(gr.node());
     let mut sym = 0u8;
     for chunk in chunks {
         let mut mask = 1u64;
@@ -42,7 +42,7 @@ where
     F: Fn(Transition<'_>) -> R,
 {
     let gr = Graph::new();
-    let tr = gr.node().connect(gr.node(), Nop);
+    let tr = gr.node().connect(gr.node());
     for sym in symbols {
         tr.merge(*sym);
     }
@@ -54,7 +54,7 @@ where
     F: Fn(Transition<'_>) -> R,
 {
     let gr = Graph::new();
-    let tr = gr.node().connect(gr.node(), Nop);
+    let tr = gr.node().connect(gr.node());
     f(tr)
 }
 
@@ -174,15 +174,15 @@ fn tr_contains_range() {
 #[test]
 fn tr_contains_transition() {
     let gr = Graph::new();
-    let tr_a = gr.node().connect(gr.node(), Nop);
+    let tr_a = gr.node().connect(gr.node());
     tr_a.merge(b'a');
     tr_a.merge(b'c');
     tr_a.merge(b'e');
-    let tr_b = gr.node().connect(gr.node(), Nop);
+    let tr_b = gr.node().connect(gr.node());
     tr_b.merge(b'b');
     tr_b.merge(b'd');
     tr_b.merge(b'f');
-    let tr_c = gr.node().connect(gr.node(), Nop);
+    let tr_c = gr.node().connect(gr.node());
     tr_c.merge(b'a');
     tr_c.merge(b'b');
     tr_c.merge(b'c');
@@ -247,15 +247,15 @@ fn tr_intersects_range() {
 #[test]
 fn tr_intersects_transition() {
     let gr = Graph::new();
-    let tr_a = gr.node().connect(gr.node(), Nop);
+    let tr_a = gr.node().connect(gr.node());
     tr_a.merge(b'a');
     tr_a.merge(b'c');
     tr_a.merge(b'e');
-    let tr_b = gr.node().connect(gr.node(), Nop);
+    let tr_b = gr.node().connect(gr.node());
     tr_b.merge(b'b');
     tr_b.merge(b'd');
     tr_b.merge(b'f');
-    let tr_c = gr.node().connect(gr.node(), Nop);
+    let tr_c = gr.node().connect(gr.node());
     tr_c.merge(b'a');
     tr_c.merge(b'b');
     tr_c.merge(b'c');
@@ -286,7 +286,7 @@ fn tr_merge_range() {
     fn check(range: impl Into<RangeU8>) -> Option<RangeU8> {
         let range = range.into();
         let gr = Graph::new();
-        let tr = gr.node().connect(gr.node(), Nop);
+        let tr = gr.node().connect(gr.node());
         tr.merge(range);
         let mut range: Option<RangeU8> = None;
         for next_range in tr.ranges() {
@@ -311,16 +311,16 @@ fn tr_merge_range() {
 #[test]
 fn tr_merge_transition() {
     let gr = Graph::new();
-    let tr_a = gr.node().connect(gr.node(), Nop);
+    let tr_a = gr.node().connect(gr.node());
     tr_a.merge(b'a');
     tr_a.merge(b'b');
     tr_a.merge(b'c');
-    let tr_b = gr.node().connect(gr.node(), Nop);
+    let tr_b = gr.node().connect(gr.node());
     tr_b.merge(b'b');
     tr_b.merge(b'c');
     tr_b.merge(b'd');
     tr_b.merge(b'e');
-    let tr_c = gr.node().connect(gr.node(), Nop);
+    let tr_c = gr.node().connect(gr.node());
     tr_c.merge(b'a');
     tr_c.merge(b'b');
     tr_c.merge(b'c');
@@ -334,8 +334,9 @@ fn tr_merge_transition() {
 #[test]
 fn tr_instruct() {
     let gr = Graph::new();
-    let tag = gr.tag();
-    let tr_a = gr.node().connect(gr.node(), tag.pos_inst());
+    let tag = gr.group("1").open_tag();
+    let tr_a = gr.node().connect(gr.node());
+    tr_a.put_tag(tag);
     tr_a.merge(b'a');
     tr_a.merge(b'b');
     tr_a.merge(b'c');

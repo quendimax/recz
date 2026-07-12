@@ -1,6 +1,6 @@
 use crate::graph::Graph;
 use crate::node::Node;
-use crate::tag::{Inst::*, Tag};
+use crate::tag::Tag;
 use redt::{Set, SetU8};
 use resy::{ConcatHir, DisjunctHir, GroupHir, Hir, RepeatHir};
 
@@ -43,41 +43,40 @@ impl<'a> Translator<'a> {
 
     fn translate_literal(&self, literal: &[u8], sub: Pair<'a>) -> Tags {
         if literal.is_empty() {
-            sub.first.connect(sub.last, Nop);
+            sub.first.connect(sub.last);
             return Tags::default();
         }
         let mut first = sub.first;
         for byte in &literal[..literal.len() - 1] {
             let next = self.graph.node();
-            first.connect(next, Nop).merge(*byte);
+            first.connect(next).merge(*byte);
             first = next;
         }
         let last_byte = literal.last().unwrap();
-        first.connect(sub.last, Nop).merge(*last_byte);
+        first.connect(sub.last).merge(*last_byte);
         Tags::default()
     }
 
     fn translate_class(&self, class: &SetU8, sub: Pair<'a>) -> Tags {
         for range in class.ranges() {
-            sub.first.connect(sub.last, Nop).merge(range);
+            sub.first.connect(sub.last).merge(range);
         }
         Tags::default()
     }
 
     // Only this function can create a new tag
     fn translate_group(&mut self, group: &GroupHir, sub: Pair<'a>) -> Tags {
-        let open_tag = self.graph.tag();
-        let close_tag = self.graph.tag();
+        let tag_group = self.graph.group(group.label());
 
         let first = self.graph.node();
-        sub.first.connect(first, open_tag.pos_inst());
+        sub.first.connect(first).put_tag(tag_group.open_tag());
 
         let last = self.graph.node();
-        last.connect(sub.last, close_tag.pos_inst());
+        last.connect(sub.last).put_tag(tag_group.close_tag());
 
         let tags = self.translate_hir(group.inner(), pair(first, last));
-        tags.insert(open_tag);
-        tags.insert(close_tag);
+        tags.insert(tag_group.open_tag());
+        tags.insert(tag_group.close_tag());
         tags
     }
 
@@ -93,10 +92,10 @@ impl<'a> Translator<'a> {
             (0, None) => {
                 let first = self.graph.node();
                 let last = self.graph.node();
-                sub.first.connect(first, Nop);
-                last.connect(sub.last, Nop);
-                last.connect(first, Nop);
-                sub.first.connect(sub.last, Nop);
+                sub.first.connect(first);
+                last.connect(sub.last);
+                last.connect(first);
+                sub.first.connect(sub.last);
                 self.translate_hir(repeat.inner(), pair(first, last))
             }
             //
@@ -107,9 +106,9 @@ impl<'a> Translator<'a> {
             (1, None) => {
                 let first = self.graph.node();
                 let last = self.graph.node();
-                sub.first.connect(first, Nop);
-                last.connect(sub.last, Nop);
-                last.connect(first, Nop);
+                sub.first.connect(first);
+                last.connect(sub.last);
+                last.connect(first);
                 self.translate_hir(repeat.inner(), pair(first, last))
             }
             //
@@ -131,9 +130,9 @@ impl<'a> Translator<'a> {
                 let last = self.graph.node();
                 let new_tags = self.translate_hir(repeat.inner(), pair(first, last));
                 tags.extend(new_tags);
-                sub.first.connect(first, Nop);
-                last.connect(sub.last, Nop);
-                last.connect(first, Nop);
+                sub.first.connect(first);
+                last.connect(sub.last);
+                last.connect(first);
                 tags
             }
             //
@@ -142,7 +141,7 @@ impl<'a> Translator<'a> {
             (n, Some(m)) if n == m => {
                 let mut tags = Tags::default();
                 if n == 0 {
-                    sub.first.connect(sub.last, Nop);
+                    sub.first.connect(sub.last);
                     tags
                 } else {
                     let mut first = sub.first;
@@ -175,16 +174,16 @@ impl<'a> Translator<'a> {
                 }
                 for _ in n..m {
                     let mid_one = self.graph.node();
-                    first.connect(mid_one, Nop);
+                    first.connect(mid_one);
                     let mid_two = self.graph.node();
                     let new_tags = self.translate_hir(repeat.inner(), pair(mid_one, mid_two));
                     tags.extend(new_tags);
                     let last = self.graph.node();
-                    mid_two.connect(last, Nop);
-                    first.connect(sub.last, Nop);
+                    mid_two.connect(last);
+                    first.connect(sub.last);
                     first = last;
                 }
-                first.connect(sub.last, Nop);
+                first.connect(sub.last);
                 tags
             }
             (n, Some(m)) => {
@@ -197,7 +196,7 @@ impl<'a> Translator<'a> {
         let mut tags = Tags::default();
         let items = concat.items();
         if items.is_empty() {
-            sub.first.connect(sub.last, Nop);
+            sub.first.connect(sub.last);
             return tags;
         }
         let mut first = sub.first;
@@ -225,7 +224,7 @@ impl<'a> Translator<'a> {
         for hir in disjunct.alternatives() {
             let first = self.graph.node();
             let last = self.graph.node();
-            sub.first.connect(first, Nop);
+            sub.first.connect(first);
             let branch_tags = self.translate_hir(hir, pair(first, last));
             branches.push((last, branch_tags));
         }
@@ -234,13 +233,13 @@ impl<'a> Translator<'a> {
             for (other_last, other_tags) in &branches {
                 if last != other_last {
                     for tag in other_tags {
-                        last.connect(sub.last, tag.neg_inst());
+                        last.connect(sub.last).put_tag(tag.opposite());
                         is_connected = true;
                     }
                 }
             }
             if !is_connected {
-                last.connect(sub.last, Nop);
+                last.connect(sub.last);
             }
         }
         let mut tags = Tags::default();

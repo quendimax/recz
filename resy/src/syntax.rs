@@ -261,7 +261,7 @@ impl<'s, 'c, C: Encoder, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
                 self.lexer.expect(tok::char('>'))?;
                 let hir = self.parse_disjunct()?;
                 self.lexer.expect(tok::r_paren)?;
-                Ok(Hir::group(num, hir))
+                Ok(Hir::group(&num.to_string(), hir))
             } else {
                 let span = l_angle.span().end..self.lexer.end_pos();
                 let spell = self.lexer.slice(span.clone());

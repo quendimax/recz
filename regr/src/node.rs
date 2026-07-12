@@ -1,5 +1,4 @@
 use crate::graph::Graph;
-use crate::tag::Inst;
 use crate::transition::{TransPtr, Transition};
 use redt::{Map, MapIter};
 use smallvec::{SmallVec, smallvec};
@@ -82,7 +81,7 @@ impl<'a> Node<'a> {
     /// transition use [`nop`].
     ///
     /// [`nop`]: crate::isa::Inst::Nop
-    pub fn connect(&self, to: Node<'a>, with: Inst) -> Transition<'a> {
+    pub fn connect(&self, to: Node<'a>) -> Transition<'a> {
         assert_eq!(
             self.gid(),
             to.gid(),
@@ -92,20 +91,12 @@ impl<'a> Node<'a> {
         let mut to_sources = to.0.sources.borrow_mut();
         if let Some(self_tr_vec) = self_targets.get_mut(&to.as_ptr()) {
             let to_tr_vec = to_sources.get_mut(&self.as_ptr()).unwrap();
-            if let Some(tr_ptr) = self_tr_vec
-                .iter()
-                .find(|tr| Transition::from(unsafe { tr.as_ref() }).instruct() == with)
-            {
-                debug_assert!(to_tr_vec.contains(tr_ptr));
-                Transition::from(unsafe { tr_ptr.as_ref() })
-            } else {
-                let tr = self.graph().transition(with);
-                self_tr_vec.push(tr.as_ptr());
-                to_tr_vec.push(tr.as_ptr());
-                tr
-            }
+            let tr = self.graph().transition();
+            self_tr_vec.push(tr.as_ptr());
+            to_tr_vec.push(tr.as_ptr());
+            tr
         } else {
-            let tr = self.graph().transition(with);
+            let tr = self.graph().transition();
             self_targets.insert(to.as_ptr(), smallvec![tr.as_ptr()]);
             to_sources.insert(self.as_ptr(), smallvec![tr.as_ptr()]);
             tr

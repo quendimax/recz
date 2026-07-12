@@ -1,6 +1,6 @@
 use pretty_assertions::{assert_eq, assert_ne};
 use redt::range;
-use regr::{Graph, Inst::Nop};
+use regr::Graph;
 
 #[test]
 fn node_copy_and_clone() {
@@ -59,10 +59,10 @@ fn node_connect_nfa() {
     let node_a = graph.node();
     let node_b = graph.node();
     let node_c = graph.node();
-    node_a.connect(node_b, Nop).merge(b'a');
-    node_a.connect(node_c, Nop).merge(b'a');
-    node_a.connect(node_c, Nop).merge(b'a');
-    node_c.connect(node_a, Nop);
+    node_a.connect(node_b).merge(b'a');
+    node_a.connect(node_c).merge(b'a');
+    node_a.connect(node_c).merge(b'a');
+    node_c.connect(node_a);
 }
 
 #[test]
@@ -70,7 +70,7 @@ fn node_connect_dfa() {
     let graph = Graph::new();
     let node_a = graph.node();
     let node_b = graph.node();
-    node_a.connect(node_b, Nop).merge(b'a');
+    node_a.connect(node_b).merge(b'a');
 }
 
 #[test]
@@ -80,7 +80,7 @@ fn node_connect_panics() {
     let graph_b = Graph::new();
     let node_a = graph_a.node();
     let node_b = graph_b.node();
-    node_a.connect(node_b, Nop);
+    node_a.connect(node_b);
 }
 
 #[test]
@@ -91,14 +91,14 @@ fn node_symbol_targets() {
     let c = graph.node();
     let d = graph.node();
 
-    a.connect(b, Nop).merge(range(b'a', u8::MAX));
-    a.connect(b, Nop);
-    b.connect(c, Nop);
-    c.connect(d, Nop).merge(b'c');
-    b.connect(a, Nop);
-    d.connect(a, Nop);
-    d.connect(b, Nop);
-    d.connect(c, Nop);
+    a.connect(b).merge(range(b'a', u8::MAX));
+    a.connect(b);
+    b.connect(c);
+    c.connect(d).merge(b'c');
+    b.connect(a);
+    d.connect(a);
+    d.connect(b);
+    d.connect(c);
 
     assert_eq!(a.targets().nodes().collect::<Vec<_>>(), vec![b]);
     assert_eq!(c.targets().nodes().collect::<Vec<_>>(), vec![d]);
@@ -110,11 +110,11 @@ fn node_symbol_targets_panic() {
     let graph = Graph::new();
     let a = graph.node();
     let b = graph.node();
-    a.connect(b, Nop).merge(b'c');
+    a.connect(b).merge(b'c');
 
     // expected that _node_tr is (Node, Transition), and it locks writing to node a
     for _ in a.targets() {
-        a.connect(b, Nop).merge(b'a');
+        a.connect(b).merge(b'a');
     }
 }
 

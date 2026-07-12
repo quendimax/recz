@@ -12,7 +12,7 @@ mod symbol;
 pub use symbol::Epsilon;
 
 mod tag;
-pub use tag::{Group, Inst, Tag};
+pub use tag::{Group, Tag};
 
 mod transition;
 pub use transition::Transition;
