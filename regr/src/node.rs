@@ -1,10 +1,9 @@
 use crate::graph::Graph;
 use crate::transition::{TransPtr, Transition};
-use redt::{Map, MapIter};
-use smallvec::{SmallVec, smallvec};
-use std::cell::{Cell, Ref, RefCell};
+use redt::Map;
+use std::cell::Cell;
 use std::fmt::Write;
-use std::ops::Deref;
+use std::iter::Iterator;
 use std::ptr::NonNull;
 
 /// Node for an NFA graph.
@@ -16,14 +15,11 @@ pub struct Node<'a>(&'a NodeInner);
 pub(crate) type NodePtr = NonNull<NodeInner>;
 pub(crate) type GraphPtr = NonNull<Graph>;
 
-// most node pairs have only one transition
-type TransVec = SmallVec<[TransPtr; 1]>;
-
 pub(crate) struct NodeInner {
     uid: u64,
     is_final: Cell<bool>,
-    sources: RefCell<Map<NodePtr, TransVec>>,
-    targets: RefCell<Map<NodePtr, TransVec>>,
+    sources: Map<NodePtr, TransPtr>,
+    targets: Map<NodePtr, TransPtr>,
     graph: GraphPtr,
 }
 
@@ -87,32 +83,40 @@ impl<'a> Node<'a> {
             to.gid(),
             "only nodes belonging to the same graph can be joined"
         );
-        let mut self_targets = self.0.targets.borrow_mut();
-        let mut to_sources = to.0.sources.borrow_mut();
-        if let Some(self_tr_vec) = self_targets.get_mut(&to.as_ptr()) {
-            let to_tr_vec = to_sources.get_mut(&self.as_ptr()).unwrap();
-            let tr = self.graph().transition();
-            self_tr_vec.push(tr.as_ptr());
-            to_tr_vec.push(tr.as_ptr());
-            tr
+        if let Some(tr) = self.0.targets.get(&to.as_ptr()) {
+            Transition::from(unsafe { tr.as_ref() })
         } else {
             let tr = self.graph().transition();
-            self_targets.insert(to.as_ptr(), smallvec![tr.as_ptr()]);
-            to_sources.insert(self.as_ptr(), smallvec![tr.as_ptr()]);
+            self.0.targets.insert(to.as_ptr(), tr.as_ptr());
+            to.0.sources.insert(self.as_ptr(), tr.as_ptr());
             tr
         }
     }
 
-    /// Returns an iterator over target nodes, i.e. nodes that this node is
-    /// connected to.
+    /// Returns an iterator over target nodes, i.e. nodes that this node has
+    /// transitions to.
     ///
-    /// This iterator walks over pairs ([`Node`], [`Transition`]). Because of
-    /// `Transition` contains only one instruction, it's possible to get the
-    /// same node multiple times.
+    /// This iterator walks over pairs `(Transition<'a>, Node<'a>)`.
     #[inline]
-    pub fn targets(&self) -> TargetNodeIter<'a> {
-        let lock = self.0.targets.borrow();
-        TargetNodeIter::new(lock)
+    pub fn targets(&self) -> impl Iterator<Item = (Transition<'a>, Node<'a>)> {
+        self.0.targets.iter().map(|(to, tr)| {
+            let node = Node::from(unsafe { to.as_ref() });
+            let tr = Transition::from(unsafe { tr.as_ref() });
+            (tr, node)
+        })
+    }
+
+    /// Returns an iterator over target nodes, i.e. nodes that this node has
+    /// transitions to.
+    ///
+    /// This iterator walks over pairs `(Node<'a>, Transition<'a>)`.
+    #[inline]
+    pub fn sources(&self) -> impl Iterator<Item = (Node<'a>, Transition<'a>)> {
+        self.0.sources.iter().map(|(to, tr)| {
+            let node = Node::from(unsafe { to.as_ref() });
+            let tr = Transition::from(unsafe { tr.as_ref() });
+            (node, tr)
+        })
     }
 }
 
@@ -201,43 +205,3 @@ impl_fmt!(std::fmt::Binary);
 impl_fmt!(std::fmt::Octal);
 impl_fmt!(std::fmt::UpperHex);
 impl_fmt!(std::fmt::LowerHex);
-
-/// Iterator over the targets of a node.
-///
-/// Use it as iterator only by reference.
-pub struct TargetNodeIter<'a> {
-    // lock guarantees that the map is not modified while iterating
-    #[allow(unused)]
-    lock: Ref<'a, Map<NodePtr, TransVec>>,
-    iter: MapIter<'a, NodePtr, TransVec>,
-}
-
-impl<'a> TargetNodeIter<'a> {
-    fn new(map: Ref<'a, Map<NodePtr, TransVec>>) -> Self {
-        unsafe {
-            let map_ptr = map.deref() as *const Map<NodePtr, TransVec>;
-            let iter = (*map_ptr).iter();
-            Self { lock: map, iter }
-        }
-    }
-
-    /// Iterator over the nodes of the targets of a node.
-    pub fn nodes(self) -> impl Iterator<Item = Node<'a>> {
-        self.map(|(node, _)| node)
-    }
-}
-
-impl<'a> Iterator for TargetNodeIter<'a> {
-    type Item = (Node<'a>, Box<[Transition<'a>]>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|(target, tr_vec)| {
-            let node = Node::from(unsafe { target.as_ref() });
-            let tr = tr_vec
-                .iter()
-                .map(|tr| Transition::from(unsafe { tr.as_ref() }))
-                .collect();
-            (node, tr)
-        })
-    }
-}

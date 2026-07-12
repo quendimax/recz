@@ -1,10 +1,10 @@
 use crate::ops::*;
 use crate::symbol::Epsilon;
 use crate::tag::Tag;
-use redt::{ByteIter, Legible, RangeIter, RangeU8, SetU8, Step};
-use smallvec::SmallVec;
+use redt::{ByteIter, Legible, RangeIter, RangeU8, Set, SetU8, Step};
 use std::cell::{Ref, RefCell};
 use std::fmt::Write;
+use std::iter::Iterator;
 use std::ops::Deref;
 use std::ptr::NonNull;
 
@@ -21,7 +21,7 @@ pub(crate) type TransPtr = NonNull<TransInner>;
 
 pub(crate) struct TransInner {
     symset: RefCell<SetU8>,
-    tags: RefCell<SmallVec<[Tag; 4]>>,
+    tags: Set<Tag>,
 }
 
 /// Crate API
@@ -31,7 +31,7 @@ impl<'a> Transition<'a> {
     pub(crate) fn new_inner() -> TransInner {
         TransInner {
             symset: RefCell::new(SetU8::empty()),
-            tags: RefCell::new(SmallVec::new()),
+            tags: Set::new(),
         }
     }
 
@@ -73,13 +73,12 @@ impl<'a> Transition<'a> {
     }
 
     #[inline]
-    pub fn tags(&self) -> Ref<'_, [Tag]> {
-        let tags_ref = self.0.tags.borrow();
-        Ref::map(tags_ref, |tags| tags.as_slice())
+    pub fn tags(&self) -> impl Iterator<Item = Tag> {
+        self.0.tags.iter().copied()
     }
 
     pub fn put_tag(&self, tag: Tag) {
-        self.0.tags.borrow_mut().push(tag);
+        self.0.tags.insert(tag);
     }
 
     /// Merges the `other` object into this transition.
@@ -236,9 +235,7 @@ impl std::fmt::Display for Transition<'_> {
         f.write_char('[')?;
         let mut iter = self.ranges();
         let mut range = iter.next();
-        let mut has_symbols = false;
         while let Some(cur_range) = range {
-            has_symbols = true;
             if let Some(next_range) = iter.next() {
                 if cur_range.last().steps_between(next_range.start()) == 1 {
                     range = Some(RangeU8::new(cur_range.start(), next_range.last()));
@@ -254,18 +251,21 @@ impl std::fmt::Display for Transition<'_> {
             }
         }
         if self.contains(Epsilon) {
-            if has_symbols {
-                f.write_str(" | ")?;
-            }
             f.write_str("Epsilon")?;
         }
         f.write_char(']')?;
 
         // tags
-        if !self.0.tags.borrow().is_empty() {
+        if !self.0.tags.is_empty() {
             f.write_str(" / ")?;
-            for tag in self.tags().iter() {
-                std::fmt::Display::fmt(tag, f)?;
+            let mut first_tag = true;
+            for tag in self.tags() {
+                if first_tag {
+                    first_tag = false;
+                } else {
+                    f.write_char(',')?;
+                }
+                std::fmt::Display::fmt(&tag, f)?;
             }
         }
         Ok(())

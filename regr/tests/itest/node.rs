@@ -100,19 +100,23 @@ fn node_symbol_targets() {
     d.connect(b);
     d.connect(c);
 
-    assert_eq!(a.targets().nodes().collect::<Vec<_>>(), vec![b]);
-    assert_eq!(c.targets().nodes().collect::<Vec<_>>(), vec![d]);
+    assert_eq!(
+        a.targets().map(|(_, node)| node).collect::<Vec<_>>(),
+        vec![b]
+    );
+    assert_eq!(
+        c.targets().map(|(_, node)| node).collect::<Vec<_>>(),
+        vec![d]
+    );
 }
 
 #[test]
-#[should_panic]
-fn node_symbol_targets_panic() {
+fn node_modify_tr_during_iteration() {
     let graph = Graph::new();
     let a = graph.node();
     let b = graph.node();
     a.connect(b).merge(b'c');
 
-    // expected that _node_tr is (Node, Transition), and it locks writing to node a
     for _ in a.targets() {
         a.connect(b).merge(b'a');
     }

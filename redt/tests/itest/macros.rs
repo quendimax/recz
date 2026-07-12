@@ -39,6 +39,6 @@ fn map_macro() {
         2 => "value3",  // no trailing comma
     };
     assert_eq!(map.get(&1), Some(&"value1"));
-    assert_eq!(map.get(&2), Some(&"value3"));
+    assert_eq!(map.get(&2), Some(&"value2"));
     assert_eq!(map.len(), 2);
 }

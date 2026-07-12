@@ -65,6 +65,9 @@ impl<'a> Translator<'a> {
     }
 
     // Only this function can create a new tag
+    //
+    // (○)──ε/+t0─→(○)...(○)──ε/-t0─→(○)
+    //
     fn translate_group(&mut self, group: &GroupHir, sub: Pair<'a>) -> Tags {
         let tag_group = self.graph.group(group.label());
 

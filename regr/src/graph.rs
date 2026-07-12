@@ -60,6 +60,8 @@ impl Graph {
     }
 
     /// Creates a new transition.
+    ///
+    /// This method is not available for external use. Use [`Node::connect`] instead.
     pub(crate) fn transition(&self) -> Transition<'_> {
         let tr_ref = self.bump_trans.push(Transition::new_inner());
         Transition::from(tr_ref)
@@ -115,7 +117,7 @@ macro_rules! impl_fmt {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 fn recurse<'a>(node: Node<'a>, visited: &mut Set<Node<'a>>) {
                     visited.insert(node);
-                    for (target, _) in node.targets() {
+                    for (_tr, target) in node.targets() {
                         if !visited.contains(&target) {
                             recurse(target, visited);
                         }
@@ -137,18 +139,16 @@ macro_rules! impl_fmt {
                     let mut is_empty = true;
                     ::std::fmt::$trait::fmt(&node, f)?;
                     f.write_str(" {")?;
-                    for (target, transitions) in node.targets() {
-                        for transition in transitions {
-                            f.write_str("\n    ")?;
-                            ::std::fmt::$trait::fmt(&transition, f)?;
-                            f.write_str(" -> ")?;
-                            if node == target {
-                                f.write_str("self")?;
-                            } else {
-                                ::std::fmt::$trait::fmt(&target, f)?;
-                            }
-                            is_empty = false;
+                    for (tr, target) in node.targets() {
+                        f.write_str("\n    ")?;
+                        ::std::fmt::$trait::fmt(&tr, f)?;
+                        f.write_str(" -> ")?;
+                        if node == target {
+                            f.write_str("self")?;
+                        } else {
+                            ::std::fmt::$trait::fmt(&target, f)?;
                         }
+                        is_empty = false;
                     }
                     if !is_empty {
                         f.write_char('\n')?;

@@ -1,15 +1,20 @@
 /// Represents a tag used for marking groups in regexps.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Tag {
+    /// A tag used to mark the start of a group.
     Open(u32),
+    /// A tag used to mark the end of a group.
     Close(u32),
+    /// A tag used to mark a group's tags for deletion.
+    Delete(u32),
 }
 
 impl Tag {
     pub fn opposite(&self) -> Tag {
         match self {
-            Self::Open(group_id) => Self::Close(*group_id),
-            Self::Close(group_id) => Self::Open(*group_id),
+            Self::Open(group_id) => Self::Delete(*group_id),
+            Self::Close(group_id) => Self::Delete(*group_id),
+            Self::Delete(group_id) => Self::Delete(*group_id),
         }
     }
 
@@ -17,6 +22,7 @@ impl Tag {
         match self {
             Self::Open(group_id) => write!(f, "+t{group_id}"),
             Self::Close(group_id) => write!(f, "-t{group_id}"),
+            Self::Delete(group_id) => write!(f, "~t{group_id}"),
         }
     }
 }
