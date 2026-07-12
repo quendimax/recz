@@ -10,7 +10,9 @@ pub enum Tag {
 }
 
 impl Tag {
-    pub fn opposite(&self) -> Tag {
+    /// Returns a tag that is a marker for deletion of the group associated with
+    /// this tag.
+    pub fn deleter(&self) -> Tag {
         match self {
             Self::Open(group_id) => Self::Delete(*group_id),
             Self::Close(group_id) => Self::Delete(*group_id),
@@ -39,22 +41,15 @@ impl std::fmt::Display for Tag {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Group {
     id: u32,
     label: String,
-    open_tag: Tag,
-    close_tag: Tag,
 }
 
 impl Group {
     pub(crate) fn new(id: u32, label: String) -> Self {
-        Self {
-            id,
-            label,
-            open_tag: Tag::Open(id),
-            close_tag: Tag::Close(id),
-        }
+        Self { id, label }
     }
 
     #[inline]
@@ -64,15 +59,24 @@ impl Group {
 
     #[inline]
     pub fn open_tag(&self) -> Tag {
-        self.open_tag
+        Tag::Open(self.id)
     }
 
     #[inline]
     pub fn close_tag(&self) -> Tag {
-        self.close_tag
+        Tag::Close(self.id)
     }
 
     pub fn label(&self) -> &str {
         &self.label
+    }
+}
+
+impl std::fmt::Debug for Group {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Group")
+            .field("id", &self.id)
+            .field("label", &self.label)
+            .finish()
     }
 }

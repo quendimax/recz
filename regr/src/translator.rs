@@ -236,7 +236,7 @@ impl<'a> Translator<'a> {
             for (other_last, other_tags) in &branches {
                 if last != other_last {
                     for tag in other_tags {
-                        last.connect(sub.last).put_tag(tag.opposite());
+                        last.connect(sub.last).put_tag(tag.deleter());
                         is_connected = true;
                     }
                 }
