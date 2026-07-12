@@ -1,0 +1,47 @@
+# recz — project guide for AI agents
+
+## Overview
+
+`recz` is a Rust framework for working with regular expressions.
+
+- **License**: MPL-2.0
+- **Repository**: <https://github.org/quendimax/recz>
+
+---
+
+## Commands
+
+```sh
+# build
+cargo build
+
+# run all tests (unit + integration + doctests)
+cargo test
+
+# run basic tests (unit + integration)
+cargo nextest run
+
+# run doc-tests
+cargo test --doc
+
+# run only the unit tests inside src/
+cargo nextest run --lib
+
+# run integration tests that require std (map, set, vec)
+cargo nextest run --test itest_std
+
+# run the no_std integration tests (ordmap, ordset, vec)
+cargo nextest run --test itest
+
+# check without building
+cargo clippy
+
+# run miri (memory safety checker)
+cargo +nightly miri test
+
+# run code coverage
+cargo llvm-cov
+
+# run code coverage and open the report in the browser
+BROWSER=firefox cargo llvm-cov --open
+```
