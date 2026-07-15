@@ -30,7 +30,7 @@ impl<'a> Transition<'a> {
     #[inline(always)]
     pub(crate) fn new_inner() -> TransInner {
         TransInner {
-            symset: RefCell::new(SetU8::empty()),
+            symset: RefCell::new(SetU8::new()),
             tags: Set::new(),
         }
     }

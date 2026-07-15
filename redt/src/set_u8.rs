@@ -1,4 +1,5 @@
 use crate::{Legible, RangeU8, Step};
+use std::cell::Cell;
 use std::fmt::Write;
 use std::ops::Deref;
 use std::ops::RangeInclusive;
@@ -9,23 +10,17 @@ type Chunk = u64;
 const BITMAP_LEN: usize = (u8::MAX as usize + 1) / Chunk::BITS as usize;
 
 /// A set of symbols that can be used to represent any byte.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SetU8 {
-    chunks: [Chunk; BITMAP_LEN],
+    chunks: [Cell<Chunk>; BITMAP_LEN],
 }
 
 impl SetU8 {
     /// Creates a new empty symbol set.
     #[inline]
-    pub fn new() -> Self {
-        Self::empty()
-    }
-
-    /// Creates a new empty symbol set.
-    #[inline]
-    pub fn empty() -> Self {
+    pub const fn new() -> Self {
         Self {
-            chunks: [0; BITMAP_LEN],
+            chunks: [Cell::new(0), Cell::new(0), Cell::new(0), Cell::new(0)],
         }
     }
 }
@@ -40,7 +35,7 @@ impl std::default::Default for SetU8 {
 
 impl std::convert::From<u8> for SetU8 {
     fn from(value: u8) -> Self {
-        let mut set = Self::empty();
+        let mut set = Self::new();
         set |= value;
         set
     }
@@ -48,7 +43,7 @@ impl std::convert::From<u8> for SetU8 {
 
 impl std::convert::From<std::ops::RangeInclusive<u8>> for SetU8 {
     fn from(value: std::ops::RangeInclusive<u8>) -> Self {
-        let mut set = Self::empty();
+        let mut set = Self::new();
         set |= RangeU8::from(value);
         set
     }
@@ -56,7 +51,7 @@ impl std::convert::From<std::ops::RangeInclusive<u8>> for SetU8 {
 
 impl std::convert::From<RangeU8> for SetU8 {
     fn from(value: RangeU8) -> Self {
-        let mut set = Self::empty();
+        let mut set = Self::new();
         set |= value;
         set
     }
@@ -64,7 +59,7 @@ impl std::convert::From<RangeU8> for SetU8 {
 
 impl std::convert::From<&RangeU8> for SetU8 {
     fn from(value: &RangeU8) -> Self {
-        let mut set = Self::empty();
+        let mut set = Self::new();
         set |= value;
         set
     }
@@ -93,15 +88,22 @@ impl std::convert::AsRef<SetU8> for SetU8 {
     }
 }
 
+impl std::hash::Hash for SetU8 {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.chunks.iter().for_each(|chunk| chunk.get().hash(state));
+    }
+}
+
 macro_rules! impl_ops {
     ($op_assign_trait:ident, $op_assign_fn:ident, $op_trait:ident, $op_fn:ident) => {
         impl ::std::ops::$op_assign_trait<&SetU8> for SetU8 {
             #[inline]
             fn $op_assign_fn(&mut self, rhs: &SetU8) {
-                self.chunks[0].$op_assign_fn(&rhs.chunks[0]);
-                self.chunks[1].$op_assign_fn(&rhs.chunks[1]);
-                self.chunks[2].$op_assign_fn(&rhs.chunks[2]);
-                self.chunks[3].$op_assign_fn(&rhs.chunks[3]);
+                use ::std::ops::$op_trait;
+                self.chunks[0].update(|chunk| chunk.$op_fn(&rhs.chunks[0].get()));
+                self.chunks[1].update(|chunk| chunk.$op_fn(&rhs.chunks[1].get()));
+                self.chunks[2].update(|chunk| chunk.$op_fn(&rhs.chunks[2].get()));
+                self.chunks[3].update(|chunk| chunk.$op_fn(&rhs.chunks[3].get()));
             }
         }
 
@@ -115,37 +117,48 @@ macro_rules! impl_ops {
         impl ::std::ops::$op_assign_trait<&RangeU8> for SetU8 {
             #[inline]
             fn $op_assign_fn(&mut self, range: &RangeU8) {
+                use ::std::ops::$op_trait;
                 let (ls_mask, ms_mask, ls_index, ms_index) = find_masks_indices(*range);
                 unsafe {
                     match ms_index - ls_index {
                         0 => {
                             let mask = ls_mask & ms_mask;
-                            self.chunks.get_unchecked_mut(ls_index).$op_assign_fn(mask);
+                            self.chunks
+                                .get_unchecked_mut(ls_index)
+                                .update(|chunk| chunk.$op_fn(mask));
                         }
                         1 => {
                             self.chunks
                                 .get_unchecked_mut(ls_index)
-                                .$op_assign_fn(ls_mask);
+                                .update(|chunk| chunk.$op_fn(ls_mask));
                             self.chunks
                                 .get_unchecked_mut(ls_index + 1)
-                                .$op_assign_fn(ms_mask);
+                                .update(|chunk| chunk.$op_fn(ms_mask));
                         }
                         2 => {
                             self.chunks
                                 .get_unchecked_mut(ls_index)
-                                .$op_assign_fn(ls_mask);
+                                .update(|chunk| chunk.$op_fn(ls_mask));
                             self.chunks
                                 .get_unchecked_mut(ls_index + 1)
-                                .$op_assign_fn(Chunk::MAX);
+                                .update(|chunk| chunk.$op_fn(Chunk::MAX));
                             self.chunks
                                 .get_unchecked_mut(ls_index + 2)
-                                .$op_assign_fn(ms_mask);
+                                .update(|chunk| chunk.$op_fn(ms_mask));
                         }
                         3 => {
-                            self.chunks.get_unchecked_mut(0).$op_assign_fn(ls_mask);
-                            self.chunks.get_unchecked_mut(1).$op_assign_fn(Chunk::MAX);
-                            self.chunks.get_unchecked_mut(2).$op_assign_fn(Chunk::MAX);
-                            self.chunks.get_unchecked_mut(3).$op_assign_fn(ms_mask);
+                            self.chunks
+                                .get_unchecked_mut(0)
+                                .update(|chunk| chunk.$op_fn(ls_mask));
+                            self.chunks
+                                .get_unchecked_mut(1)
+                                .update(|chunk| chunk.$op_fn(Chunk::MAX));
+                            self.chunks
+                                .get_unchecked_mut(2)
+                                .update(|chunk| chunk.$op_fn(Chunk::MAX));
+                            self.chunks
+                                .get_unchecked_mut(3)
+                                .update(|chunk| chunk.$op_fn(ms_mask));
                         }
                         _ => std::hint::unreachable_unchecked(),
                     };
@@ -163,7 +176,9 @@ macro_rules! impl_ops {
         impl ::std::ops::$op_assign_trait<&u8> for SetU8 {
             #[inline]
             fn $op_assign_fn(&mut self, byte: &u8) {
-                self.chunks[*byte as usize >> 6].$op_assign_fn(1 << (*byte & (u8::MAX >> 2)));
+                use ::std::ops::$op_trait;
+                let bit = 1 << (*byte & (u8::MAX >> 2));
+                self.chunks[*byte as usize >> 6].update(|ch| ch.$op_fn(bit));
             }
         }
 
@@ -220,10 +235,10 @@ impl std::ops::Not for SetU8 {
     fn not(self) -> Self {
         Self {
             chunks: [
-                !self.chunks[0],
-                !self.chunks[1],
-                !self.chunks[2],
-                !self.chunks[3],
+                Cell::new(!self.chunks[0].get()),
+                Cell::new(!self.chunks[1].get()),
+                Cell::new(!self.chunks[2].get()),
+                Cell::new(!self.chunks[3].get()),
             ],
         }
     }
@@ -232,7 +247,7 @@ impl std::ops::Not for SetU8 {
 impl crate::ops::Containable<u8> for SetU8 {
     #[inline]
     fn contains(&self, byte: u8) -> bool {
-        self.chunks[byte as usize >> 6] & (1 << (byte & (u8::MAX >> 2))) != 0
+        self.chunks[byte as usize >> 6].get() & (1 << (byte & (u8::MAX >> 2))) != 0
     }
 }
 
@@ -243,22 +258,22 @@ impl crate::ops::Containable<RangeU8> for SetU8 {
             match ms_index - ls_index {
                 0 => {
                     let mask = ls_mask & ms_mask;
-                    *self.chunks.get_unchecked(ls_index) & mask == mask
+                    self.chunks.get_unchecked(ls_index).get() & mask == mask
                 }
                 1 => {
-                    *self.chunks.get_unchecked(ls_index) & ls_mask == ls_mask
-                        && *self.chunks.get_unchecked(ls_index + 1) & ms_mask == ms_mask
+                    self.chunks.get_unchecked(ls_index).get() & ls_mask == ls_mask
+                        && self.chunks.get_unchecked(ls_index + 1).get() & ms_mask == ms_mask
                 }
                 2 => {
-                    *self.chunks.get_unchecked(ls_index) & ls_mask == ls_mask
-                        && *self.chunks.get_unchecked(ls_index + 1) == Chunk::MAX
-                        && *self.chunks.get_unchecked(ls_index + 2) & ms_mask == ms_mask
+                    self.chunks.get_unchecked(ls_index).get() & ls_mask == ls_mask
+                        && self.chunks.get_unchecked(ls_index + 1).get() == Chunk::MAX
+                        && self.chunks.get_unchecked(ls_index + 2).get() & ms_mask == ms_mask
                 }
                 3 => {
-                    *self.chunks.get_unchecked(0) & ls_mask == ls_mask
-                        && *self.chunks.get_unchecked(1) == Chunk::MAX
-                        && *self.chunks.get_unchecked(2) == Chunk::MAX
-                        && *self.chunks.get_unchecked(3) & ms_mask == ms_mask
+                    self.chunks.get_unchecked(0).get() & ls_mask == ls_mask
+                        && self.chunks.get_unchecked(1).get() == Chunk::MAX
+                        && self.chunks.get_unchecked(2).get() == Chunk::MAX
+                        && self.chunks.get_unchecked(3).get() & ms_mask == ms_mask
                 }
                 _ => std::hint::unreachable_unchecked(),
             }
@@ -269,10 +284,10 @@ impl crate::ops::Containable<RangeU8> for SetU8 {
 impl crate::ops::Containable<&SetU8> for SetU8 {
     #[inline]
     fn contains(&self, rhs: &SetU8) -> bool {
-        self.chunks[0] & rhs.chunks[0] == rhs.chunks[0]
-            && self.chunks[1] & rhs.chunks[1] == rhs.chunks[1]
-            && self.chunks[2] & rhs.chunks[2] == rhs.chunks[2]
-            && self.chunks[3] & rhs.chunks[3] == rhs.chunks[3]
+        self.chunks[0].get() & rhs.chunks[0].get() == rhs.chunks[0].get()
+            && self.chunks[1].get() & rhs.chunks[1].get() == rhs.chunks[1].get()
+            && self.chunks[2].get() & rhs.chunks[2].get() == rhs.chunks[2].get()
+            && self.chunks[3].get() & rhs.chunks[3].get() == rhs.chunks[3].get()
     }
 }
 
@@ -286,7 +301,7 @@ impl crate::ops::Containable for SetU8 {
 impl crate::ops::Intersectable<u8> for SetU8 {
     #[inline]
     fn intersects(&self, byte: u8) -> bool {
-        self.chunks[byte as usize >> 6] & (1 << (byte & (u8::MAX >> 2))) != 0
+        self.chunks[byte as usize >> 6].get() & (1 << (byte & (u8::MAX >> 2))) != 0
     }
 }
 
@@ -297,22 +312,22 @@ impl crate::ops::Intersectable<RangeU8> for SetU8 {
             match ms_index - ls_index {
                 0 => {
                     let mask = ls_mask & ms_mask;
-                    *self.chunks.get_unchecked(ls_index) & mask != 0
+                    self.chunks.get_unchecked(ls_index).get() & mask != 0
                 }
                 1 => {
-                    *self.chunks.get_unchecked(ls_index) & ls_mask != 0
-                        || *self.chunks.get_unchecked(ls_index + 1) & ms_mask != 0
+                    self.chunks.get_unchecked(ls_index).get() & ls_mask != 0
+                        || self.chunks.get_unchecked(ls_index + 1).get() & ms_mask != 0
                 }
                 2 => {
-                    *self.chunks.get_unchecked(ls_index) & ls_mask != 0
-                        || *self.chunks.get_unchecked(ls_index + 1) != 0
-                        || *self.chunks.get_unchecked(ls_index + 2) & ms_mask != 0
+                    self.chunks.get_unchecked(ls_index).get() & ls_mask != 0
+                        || self.chunks.get_unchecked(ls_index + 1).get() != 0
+                        || self.chunks.get_unchecked(ls_index + 2).get() & ms_mask != 0
                 }
                 3 => {
-                    *self.chunks.get_unchecked(0) & ls_mask != 0
-                        || *self.chunks.get_unchecked(1) != 0
-                        || *self.chunks.get_unchecked(2) != 0
-                        || *self.chunks.get_unchecked(3) & ms_mask != 0
+                    self.chunks.get_unchecked(0).get() & ls_mask != 0
+                        || self.chunks.get_unchecked(1).get() != 0
+                        || self.chunks.get_unchecked(2).get() != 0
+                        || self.chunks.get_unchecked(3).get() & ms_mask != 0
                 }
                 _ => std::hint::unreachable_unchecked(),
             }
@@ -323,10 +338,10 @@ impl crate::ops::Intersectable<RangeU8> for SetU8 {
 impl crate::ops::Intersectable<&SetU8> for SetU8 {
     #[inline]
     fn intersects(&self, rhs: &SetU8) -> bool {
-        self.chunks[0] & rhs.chunks[0] != 0
-            || self.chunks[1] & rhs.chunks[1] != 0
-            || self.chunks[2] & rhs.chunks[2] != 0
-            || self.chunks[3] & rhs.chunks[3] != 0
+        self.chunks[0].get() & rhs.chunks[0].get() != 0
+            || self.chunks[1].get() & rhs.chunks[1].get() != 0
+            || self.chunks[2].get() & rhs.chunks[2].get() != 0
+            || self.chunks[3].get() & rhs.chunks[3].get() != 0
     }
 }
 
@@ -380,7 +395,7 @@ impl crate::ops::Includable for SetU8 {
 impl crate::ops::Excludable<u8> for SetU8 {
     #[inline]
     fn exclude(&mut self, byte: u8) -> &mut Self {
-        self.chunks[byte as usize >> 6] &= !(1 << (byte & (u8::MAX >> 2)));
+        self.chunks[byte as usize >> 6].update(|ch| ch & !(1 << (byte & (u8::MAX >> 2))));
         self
     }
 }
@@ -392,22 +407,38 @@ impl crate::ops::Excludable<RangeU8> for SetU8 {
         unsafe {
             match ms_index - ls_index {
                 0 => {
-                    *self.chunks.get_unchecked_mut(ls_index) &= !(ls_mask & ms_mask);
+                    self.chunks
+                        .get_unchecked_mut(ls_index)
+                        .update(|ch| ch & !(ls_mask & ms_mask));
                 }
                 1 => {
-                    *self.chunks.get_unchecked_mut(ls_index) &= !ls_mask;
-                    *self.chunks.get_unchecked_mut(ls_index + 1) &= !ms_mask;
+                    self.chunks
+                        .get_unchecked_mut(ls_index)
+                        .update(|ch| ch & !ls_mask);
+                    self.chunks
+                        .get_unchecked_mut(ls_index + 1)
+                        .update(|ch| ch & !ms_mask);
                 }
                 2 => {
-                    *self.chunks.get_unchecked_mut(ls_index) &= !ls_mask;
-                    *self.chunks.get_unchecked_mut(ls_index + 1) &= !Chunk::MAX;
-                    *self.chunks.get_unchecked_mut(ls_index + 2) &= !ms_mask;
+                    self.chunks
+                        .get_unchecked_mut(ls_index)
+                        .update(|ch| ch & !ls_mask);
+                    self.chunks
+                        .get_unchecked_mut(ls_index + 1)
+                        .update(|ch| ch & !Chunk::MAX);
+                    self.chunks
+                        .get_unchecked_mut(ls_index + 2)
+                        .update(|ch| ch & !ms_mask);
                 }
                 3 => {
-                    *self.chunks.get_unchecked_mut(0) &= !ls_mask;
-                    *self.chunks.get_unchecked_mut(1) &= !Chunk::MAX;
-                    *self.chunks.get_unchecked_mut(2) &= !Chunk::MAX;
-                    *self.chunks.get_unchecked_mut(3) &= !ms_mask;
+                    self.chunks.get_unchecked_mut(0).update(|ch| ch & !ls_mask);
+                    self.chunks
+                        .get_unchecked_mut(1)
+                        .update(|ch| ch & !Chunk::MAX);
+                    self.chunks
+                        .get_unchecked_mut(2)
+                        .update(|ch| ch & !Chunk::MAX);
+                    self.chunks.get_unchecked_mut(3).update(|ch| ch & !ms_mask);
                 }
                 _ => std::hint::unreachable_unchecked(),
             }
@@ -443,7 +474,7 @@ impl SetU8 {
     /// Checks if the set is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.chunks.iter().all(|&chunk| chunk == 0)
+        self.chunks.iter().all(|chunk| chunk.get() == 0)
     }
 
     /// Returns an iterator over the bytes in the set.
@@ -492,7 +523,7 @@ where
     T: Deref<Target = SetU8>,
 {
     pub fn new(set: T) -> Self {
-        let chunk = set.chunks[0];
+        let chunk = set.chunks[0].get();
         Self {
             set,
             chunk,
@@ -519,7 +550,7 @@ where
             }
             if self.shift < SHIFT_OVERFLOW - 64 {
                 self.shift += 64;
-                self.chunk = self.set.chunks[self.shift as usize >> 6];
+                self.chunk = self.set.chunks[self.shift as usize >> 6].get();
                 continue;
             }
             break;
@@ -539,7 +570,7 @@ where
     T: Deref<Target = SetU8>,
 {
     pub fn new(set: T) -> Self {
-        let chunk = set.chunks[0];
+        let chunk = set.chunks[0].get();
         Self {
             set,
             chunk,
@@ -573,7 +604,7 @@ where
 
             if self.shift < SHIFT_OVERFLOW - 64 {
                 self.shift += 64;
-                self.chunk = self.set.chunks[self.shift as usize >> 6];
+                self.chunk = self.set.chunks[self.shift as usize >> 6].get();
                 continue;
             }
             break;
