@@ -13,8 +13,6 @@ fn pair<'a>(first: Node<'a>, last: Node<'a>) -> Pair<'a> {
     Pair { first, last }
 }
 
-type Tags = Set<Tag>;
-
 /// Translator for translating a HIR into a NFA.
 pub struct Translator<'a> {
     graph: &'a Graph,
@@ -30,7 +28,7 @@ impl<'a> Translator<'a> {
         _ = self.translate_hir(hir, pair(start_hode, end_node));
     }
 
-    fn translate_hir(&mut self, hir: &Hir, sub: Pair<'a>) -> Tags {
+    fn translate_hir(&mut self, hir: &Hir, sub: Pair<'a>) -> Set<Tag> {
         match hir {
             Hir::Literal(literal) => self.translate_literal(literal, sub),
             Hir::Class(class) => self.translate_class(class, sub),
@@ -41,10 +39,10 @@ impl<'a> Translator<'a> {
         }
     }
 
-    fn translate_literal(&self, literal: &[u8], sub: Pair<'a>) -> Tags {
+    fn translate_literal(&self, literal: &[u8], sub: Pair<'a>) -> Set<Tag> {
         if literal.is_empty() {
             sub.first.connect(sub.last);
-            return Tags::default();
+            return Set::default();
         }
         let mut first = sub.first;
         for byte in &literal[..literal.len() - 1] {
@@ -54,21 +52,21 @@ impl<'a> Translator<'a> {
         }
         let last_byte = literal.last().unwrap();
         first.connect(sub.last).merge(*last_byte);
-        Tags::default()
+        Set::default()
     }
 
-    fn translate_class(&self, class: &SetU8, sub: Pair<'a>) -> Tags {
+    fn translate_class(&self, class: &SetU8, sub: Pair<'a>) -> Set<Tag> {
         for range in class.ranges() {
             sub.first.connect(sub.last).merge(range);
         }
-        Tags::default()
+        Set::default()
     }
 
     // Only this function can create a new tag
     //
     // (○)──ε/+t0─→(○)...(○)──ε/-t0─→(○)
     //
-    fn translate_group(&mut self, group: &GroupHir, sub: Pair<'a>) -> Tags {
+    fn translate_group(&mut self, group: &GroupHir, sub: Pair<'a>) -> Set<Tag> {
         let tag_group = self.graph.group(group.label());
 
         let first = self.graph.node();
@@ -83,7 +81,7 @@ impl<'a> Translator<'a> {
         tags
     }
 
-    fn translate_repeat(&mut self, repeat: &RepeatHir, mut sub: Pair<'a>) -> Tags {
+    fn translate_repeat(&mut self, repeat: &RepeatHir, mut sub: Pair<'a>) -> Set<Tag> {
         match repeat.iter_hint() {
             // Kleene star
             //          ╭────ε────╮
@@ -120,7 +118,7 @@ impl<'a> Translator<'a> {
             // (1)──'a'──...──'a'─→(n)──ε─→(n+1)──'a'─→(n+2)──ε─→(n+3)
             //
             (n, None) => {
-                let mut tags = Tags::default();
+                let mut tags = Set::default();
                 let mut first = sub.first;
                 for _ in 1..n {
                     let last = self.graph.node();
@@ -142,7 +140,7 @@ impl<'a> Translator<'a> {
             // (0)──'a'──(1)──'a'──...──'a'─→(n)
             //
             (n, Some(m)) if n == m => {
-                let mut tags = Tags::default();
+                let mut tags = Set::default();
                 if n == 0 {
                     sub.first.connect(sub.last);
                     tags
@@ -167,7 +165,7 @@ impl<'a> Translator<'a> {
             //                   ╰────────────────────────────────ε───────────────────────────────╯
             //
             (n, Some(m)) if n < m => {
-                let mut tags = Tags::default();
+                let mut tags = Set::default();
                 let mut first = sub.first;
                 for _ in 0..n {
                     let last = self.graph.node();
@@ -195,8 +193,8 @@ impl<'a> Translator<'a> {
         }
     }
 
-    fn translate_concat(&mut self, concat: &ConcatHir, sub: Pair<'a>) -> Tags {
-        let mut tags = Tags::default();
+    fn translate_concat(&mut self, concat: &ConcatHir, sub: Pair<'a>) -> Set<Tag> {
+        let mut tags = Set::default();
         let items = concat.items();
         if items.is_empty() {
             sub.first.connect(sub.last);
@@ -222,7 +220,7 @@ impl<'a> Translator<'a> {
     ///  │                          ↑
     ///  ╰───ε──→(○)──'c'─→(○)──ε───╯
     /// ```
-    fn translate_disjunct(&mut self, disjunct: &DisjunctHir, sub: Pair<'a>) -> Tags {
+    fn translate_disjunct(&mut self, disjunct: &DisjunctHir, sub: Pair<'a>) -> Set<Tag> {
         let mut branches = Vec::new();
         for hir in disjunct.alternatives() {
             let first = self.graph.node();
@@ -245,7 +243,7 @@ impl<'a> Translator<'a> {
                 last.connect(sub.last);
             }
         }
-        let mut tags = Tags::default();
+        let mut tags = Set::default();
         for (_, branch_tags) in &branches {
             tags.extend(branch_tags);
         }
