@@ -1,27 +1,435 @@
 use crate::{Legible, RangeU8, Step};
 use std::cell::Cell;
 use std::fmt::Write;
-use std::ops::Deref;
-use std::ops::RangeInclusive;
 
 type Chunk = u64;
+
+/// Number of bits that are needed to represent how many separate bits the chunk
+/// can hold. E.g. for 64-bit chunks, this is 6.
+const LOG2_CHUNK_BITS: u32 = Chunk::BITS.trailing_zeros();
 
 /// Quantity of `Chunk` values in the `chunks` member for symbols' bits.
 const BITMAP_LEN: usize = (u8::MAX as usize + 1) / Chunk::BITS as usize;
 
+/// Width of the bitmap in bits.
+const BITMAP_WIDTH: u32 = {
+    let width = Chunk::BITS * BITMAP_LEN as u32;
+    assert!(width == 256);
+    width
+};
+
+/// Returns the index of the chunk that contains the given byte.
+const fn chunk_index(byte: u8) -> usize {
+    byte as usize >> LOG2_CHUNK_BITS
+}
+
+/// Returns the mask for the given byte within its chunk.
+const fn chunk_mask(byte: u8) -> Chunk {
+    1 << (byte & (u8::MAX >> (u8::BITS - LOG2_CHUNK_BITS)))
+}
+
 /// A set of symbols that can be used to represent any byte.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SetU8 {
-    chunks: [Cell<Chunk>; BITMAP_LEN],
+    bitmap: [Cell<Chunk>; BITMAP_LEN],
 }
 
 impl SetU8 {
-    /// Creates a new empty symbol set.
+    /// Creates a new empty byte set.
+    ///
+    /// Because of the set uses a fixed-size bitmap under the hood, the capacity
+    /// is always 256.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    /// let set = SetU8::new();
+    /// assert_eq!(set.len(), 0);
+    /// assert_eq!(set.capacity(), 256);
+    /// ```
     #[inline]
     pub const fn new() -> Self {
         Self {
-            chunks: [Cell::new(0), Cell::new(0), Cell::new(0), Cell::new(0)],
+            bitmap: [Cell::new(0), Cell::new(0), Cell::new(0), Cell::new(0)],
         }
+    }
+
+    /// Returns the number of bytes in the set.
+    pub fn len(&self) -> usize {
+        self.bitmap
+            .iter()
+            .fold(0, |acc, ch| acc + ch.get().count_ones()) as usize
+    }
+
+    /// Checks if the set is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.bitmap.iter().all(|chunk| chunk.get() == 0)
+    }
+
+    /// Returns the capacity of the set, which is always 256, for every possible
+    /// byte value, because the set uses a fixed-size bitmap under the hood.
+    pub const fn capacity(&self) -> usize {
+        BITMAP_WIDTH as usize
+    }
+
+    /// Clears the set, removing all bytes.
+    pub fn clear(&self) {
+        self.bitmap.iter().for_each(|ch| ch.set(0));
+    }
+
+    /// Inserts a byte into the set.
+    ///
+    /// Returns whether the value was newly inserted. That is:
+    /// - If the set did not previously contain the byte, `true` is returned.
+    /// - If the set already contained the byte, `false` is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use redt::SetU8;
+    /// let set = SetU8::new();
+    ///
+    /// assert_eq!(set.insert(2), true);
+    /// assert_eq!(set.insert(2), false);
+    /// assert_eq!(set.len(), 1);
+    /// ```
+    pub fn insert(&self, byte: u8) -> bool {
+        let chunk_index = chunk_index(byte);
+        let chunk_mask = chunk_mask(byte);
+        let old_chunk = self.bitmap[chunk_index].get();
+        self.bitmap[chunk_index].set(old_chunk | chunk_mask);
+        old_chunk & chunk_mask == 0
+    }
+
+    /// Inserts a byte into the set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use redt::SetU8;
+    /// let set = SetU8::new();
+    ///
+    /// set.insert(2);
+    /// set.insert(4);
+    /// assert_eq!(set.len(), 2);
+    /// ```
+    pub fn insert_byte(&self, byte: u8) {
+        self.bitmap[chunk_index(byte)].update(|chunk| chunk | chunk_mask(byte));
+    }
+
+    /// Inserts bytes into the set. The bytes are taken from the value that
+    /// implements [`Into<SetU8>`] trait.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use redt::SetU8;
+    /// let set = SetU8::new();
+    ///
+    /// set.insert_bytes([2, 4]);
+    /// assert_eq!(set.len(), 2);
+    /// ```
+    pub fn insert_bytes(&self, bytes: impl Into<SetU8>) {
+        let bytes = bytes.into();
+        for i in 0..BITMAP_LEN {
+            self.bitmap[i].update(|ch| ch | bytes.bitmap[i].get());
+        }
+    }
+
+    /// If the set contains a specified byte, removes it from the set. Returns
+    /// whether such a byte was present.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    ///
+    /// let set = SetU8::new();
+    ///
+    /// set.insert(2);
+    /// assert_eq!(set.remove(2), true);
+    /// assert_eq!(set.remove(2), false);
+    /// ```
+    pub fn remove(&self, value: &u8) -> bool {
+        let byte = *value;
+        let chunk_index = chunk_index(byte);
+        let chunk_mask = chunk_mask(byte);
+        let old_chunk = self.bitmap[chunk_index].get();
+        self.bitmap[chunk_index].set(old_chunk & !chunk_mask);
+        old_chunk & chunk_mask != 0
+    }
+
+    /// Removes all specified bytes from the set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    ///
+    /// let set = SetU8::from([1, 2, 3, 4]);
+    /// set.remove_bytes([2, 3]);
+    /// let v = set.iter().collect::<Vec<_>>();
+    /// assert_eq!(v, [1, 4]);
+    /// ```
+    pub fn remove_bytes(&self, bytes: impl Into<SetU8>) {
+        let bytes = bytes.into();
+        for i in 0..BITMAP_LEN {
+            self.bitmap[i].update(|ch| ch & !bytes.bitmap[i].get());
+        }
+    }
+
+    /// Removes and returns the element in the set, if any, that is equal to
+    /// the value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    ///
+    /// let set = SetU8::from([1, 2, 3]);
+    /// assert_eq!(set.take(&2), Some(2));
+    /// assert_eq!(set.take(&2), None);
+    /// ```
+    pub fn take(&self, value: &u8) -> Option<u8> {
+        let byte = *value;
+        let chunk_index = chunk_index(byte);
+        let chunk_mask = chunk_mask(byte);
+        let old_chunk = self.bitmap[chunk_index].get();
+        if old_chunk & chunk_mask != 0 {
+            self.bitmap[chunk_index].set(old_chunk & !chunk_mask);
+            Some(byte)
+        } else {
+            None
+        }
+    }
+
+    /// Returns the first element in the set, if any. This element is always the
+    /// minimum of all elements in the set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    ///
+    /// let set = SetU8::new();
+    /// assert_eq!(set.first(), None);
+    /// set.insert(1);
+    /// assert_eq!(set.first(), Some(1));
+    /// set.insert(2);
+    /// assert_eq!(set.first(), Some(1));
+    /// ```
+    pub fn first(&self) -> Option<u8> {
+        let mut chunk = self.bitmap[0].get();
+        let mut shift: u32 = 0;
+        while shift < BITMAP_WIDTH {
+            if chunk != 0 {
+                let trailing_zeros = chunk.trailing_zeros();
+                let symbol = trailing_zeros + shift;
+                return Some(symbol as u8);
+            }
+            if shift < BITMAP_WIDTH - Chunk::BITS {
+                shift += Chunk::BITS;
+                chunk = self.bitmap[chunk_index(shift as u8)].get();
+                continue;
+            }
+            break;
+        }
+        None
+    }
+
+    /// Returns the last byte in the set, if any. This element is always the
+    /// minimum of all elements in the set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    ///
+    /// let set = SetU8::new();
+    /// assert_eq!(set.last(), None);
+    /// set.insert(2);
+    /// assert_eq!(set.last(), Some(2));
+    /// set.insert(1);
+    /// assert_eq!(set.last(), Some(2));
+    /// ```
+    pub fn last(&self) -> Option<u8> {
+        let mut shift: u32 = BITMAP_WIDTH - Chunk::BITS;
+        let mut chunk = self.bitmap[chunk_index(shift as u8)].get();
+        loop {
+            if chunk != 0 {
+                let leading_zeros = chunk.leading_zeros();
+                let byte = Chunk::BITS - 1 - leading_zeros + shift;
+                debug_assert!(byte <= u8::MAX as u32 + 1);
+                return Some(byte as u8);
+            }
+
+            if shift != 0 {
+                shift -= Chunk::BITS;
+                chunk = self.bitmap[chunk_index(shift as u8)].get();
+                continue;
+            }
+            break;
+        }
+        None
+    }
+
+    /// Returns `true` if the set contains an element equal to the value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    ///
+    /// let set = SetU8::from([1, 2, 3]);
+    /// assert_eq!(set.contains(1), true);
+    /// assert_eq!(set.contains(4), false);
+    /// ```
+    pub fn contains(&self, byte: u8) -> bool {
+        self.bitmap[chunk_index(byte)].get() & chunk_mask(byte) != 0
+    }
+
+    /// Returns `true` if the set contains all specified bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    ///
+    /// let set = SetU8::from([1, 2, 3]);
+    /// assert_eq!(set.contains_bytes([1, 2]), true);
+    /// assert_eq!(set.contains_bytes([1, 2, 5]), false);
+    /// ```
+    pub fn contains_bytes(&self, bytes: impl Into<SetU8>) -> bool {
+        let bytes = bytes.into();
+        for i in 0..BITMAP_LEN {
+            if self.bitmap[i].get() & bytes.bitmap[i].get() != bytes.bitmap[i].get() {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Creates a new set representing the bytes that are in `self` but not in `other`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    ///
+    /// let a = SetU8::new();
+    /// a.insert(1);
+    /// a.insert(2);
+    ///
+    /// let b = SetU8::new();
+    /// b.insert(2);
+    /// b.insert(3);
+    ///
+    /// let diff: Vec<_> = a.difference(&b).iter().collect();
+    /// assert_eq!(diff, [1]);
+    /// ```
+    pub fn difference(&self, other: &Self) -> Self {
+        let result = Self::new();
+        for i in 0..BITMAP_LEN {
+            result.bitmap[i].set(self.bitmap[i].get() & !other.bitmap[i].get());
+        }
+        result
+    }
+
+    /// Creates a new set representing the symmetric difference of `self` and
+    /// `other`, i.e., the elements that are in `self` or in `other` but not in
+    /// both.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    ///
+    /// let a = SetU8::new();
+    /// a.insert(1);
+    /// a.insert(2);
+    ///
+    /// let b = SetU8::new();
+    /// b.insert(2);
+    /// b.insert(3);
+    ///
+    /// let sym_diff: Vec<_> = a.symmetric_difference(&b).iter().collect();
+    /// assert_eq!(sym_diff, [1, 3]);
+    /// ```
+    pub fn symmetric_difference(&self, other: &Self) -> Self {
+        let result = Self::new();
+        for i in 0..BITMAP_LEN {
+            result.bitmap[i].set(self.bitmap[i].get() ^ other.bitmap[i].get());
+        }
+        result
+    }
+
+    /// Creates a new set representing the intersection of `self` and `other`,
+    /// i.e., the elements that are both in `self` and `other`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    ///
+    /// let a = SetU8::new();
+    /// a.insert(1);
+    /// a.insert(2);
+    ///
+    /// let b = SetU8::new();
+    /// b.insert(2);
+    /// b.insert(3);
+    ///
+    /// let intersection: Vec<_> = a.intersection(&b).iter().collect();
+    /// assert_eq!(intersection, [2]);
+    /// ```
+    pub fn intersection(&self, other: &Self) -> Self {
+        let result = Self::new();
+        for i in 0..BITMAP_LEN {
+            result.bitmap[i].set(self.bitmap[i].get() & other.bitmap[i].get());
+        }
+        result
+    }
+
+    /// Creates a new set representing the union of `self` and `other`, i.e.,
+    /// all the elements in `self` or `other`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    ///
+    /// let a = SetU8::new();
+    /// a.insert(1);
+    ///
+    /// let b = SetU8::new();
+    /// b.insert(2);
+    ///
+    /// let union: Vec<_> = a.union(&b).iter().collect();
+    /// assert_eq!(union, [1, 2]);
+    /// ```
+    pub fn union(&self, other: &Self) -> Self {
+        let result = Self::new();
+        for i in 0..BITMAP_LEN {
+            result.bitmap[i].set(self.bitmap[i].get() | other.bitmap[i].get());
+        }
+        result
+    }
+
+    /// Returns an iterator over the bytes in the set.
+    pub fn iter(&self) -> ByteIter {
+        self.bytes()
+    }
+
+    /// Returns an iterator over the bytes in the set.
+    pub fn bytes(&self) -> ByteIter {
+        ByteIter::new(self.clone())
+    }
+
+    /// Returns an iterator over the inclusive byte ranges in the set.
+    pub fn ranges(&self) -> RangeIter {
+        RangeIter::new(self.clone())
     }
 }
 
@@ -35,41 +443,61 @@ impl std::default::Default for SetU8 {
 
 impl std::convert::From<u8> for SetU8 {
     fn from(value: u8) -> Self {
-        let mut set = Self::new();
-        set |= value;
+        let set = Self::new();
+        set.insert(value);
         set
     }
 }
 
 impl std::convert::From<std::ops::RangeInclusive<u8>> for SetU8 {
     fn from(value: std::ops::RangeInclusive<u8>) -> Self {
-        let mut set = Self::new();
-        set |= RangeU8::from(value);
-        set
+        Self::from(&RangeU8::from(value))
     }
 }
 
 impl std::convert::From<RangeU8> for SetU8 {
     fn from(value: RangeU8) -> Self {
-        let mut set = Self::new();
-        set |= value;
-        set
+        Self::from(&value)
     }
 }
 
 impl std::convert::From<&RangeU8> for SetU8 {
-    fn from(value: &RangeU8) -> Self {
-        let mut set = Self::new();
-        set |= value;
-        set
+    fn from(range: &RangeU8) -> Self {
+        let result = Self::new();
+        let (ls_mask, ms_mask, ls_index, ms_index) = eval_masks_indices(*range);
+        unsafe {
+            match ms_index - ls_index {
+                0 => {
+                    let mask = ls_mask & ms_mask;
+                    result.bitmap.get_unchecked(ls_index).set(mask);
+                }
+                1 => {
+                    result.bitmap.get_unchecked(ls_index).set(ls_mask);
+                    result.bitmap.get_unchecked(ls_index + 1).set(ms_mask);
+                }
+                2 => {
+                    result.bitmap.get_unchecked(ls_index).set(ls_mask);
+                    result.bitmap.get_unchecked(ls_index + 1).set(Chunk::MAX);
+                    result.bitmap.get_unchecked(ls_index + 2).set(ms_mask);
+                }
+                3 => {
+                    result.bitmap.get_unchecked(0).set(ls_mask);
+                    result.bitmap.get_unchecked(1).set(Chunk::MAX);
+                    result.bitmap.get_unchecked(2).set(Chunk::MAX);
+                    result.bitmap.get_unchecked(3).set(ms_mask);
+                }
+                _ => std::hint::unreachable_unchecked(),
+            };
+        };
+        result
     }
 }
 
 impl std::convert::From<&[u8]> for SetU8 {
     fn from(value: &[u8]) -> Self {
-        let mut set = Self::default();
+        let set = Self::default();
         for byte in value {
-            set |= *byte;
+            set.insert(*byte);
         }
         set
     }
@@ -77,7 +505,19 @@ impl std::convert::From<&[u8]> for SetU8 {
 
 impl<const N: usize> std::convert::From<&[u8; N]> for SetU8 {
     fn from(value: &[u8; N]) -> Self {
-        std::convert::From::<&[u8]>::from(&value[..])
+        Self::from(&value[..])
+    }
+}
+
+impl<const N: usize> std::convert::From<[u8; N]> for SetU8 {
+    fn from(value: [u8; N]) -> Self {
+        Self::from(&value[..])
+    }
+}
+
+impl std::convert::From<&SetU8> for SetU8 {
+    fn from(value: &SetU8) -> Self {
+        value.clone()
     }
 }
 
@@ -90,143 +530,48 @@ impl std::convert::AsRef<SetU8> for SetU8 {
 
 impl std::hash::Hash for SetU8 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.chunks.iter().for_each(|chunk| chunk.get().hash(state));
+        self.bitmap.iter().for_each(|chunk| chunk.get().hash(state));
     }
 }
 
 macro_rules! impl_ops {
-    ($op_assign_trait:ident, $op_assign_fn:ident, $op_trait:ident, $op_fn:ident) => {
-        impl ::std::ops::$op_assign_trait<&SetU8> for SetU8 {
-            #[inline]
-            fn $op_assign_fn(&mut self, rhs: &SetU8) {
-                use ::std::ops::$op_trait;
-                self.chunks[0].update(|chunk| chunk.$op_fn(&rhs.chunks[0].get()));
-                self.chunks[1].update(|chunk| chunk.$op_fn(&rhs.chunks[1].get()));
-                self.chunks[2].update(|chunk| chunk.$op_fn(&rhs.chunks[2].get()));
-                self.chunks[3].update(|chunk| chunk.$op_fn(&rhs.chunks[3].get()));
+    ($op_assign_trait:ident, $op_assign_fn:ident, $op_trait:ident, $op_fn:ident for $($rhs_ty:ty),+ $(,)?) => {
+        $(
+            impl ::std::ops::$op_assign_trait<$rhs_ty> for SetU8 {
+                #[inline]
+                fn $op_assign_fn(&mut self, rhs: $rhs_ty) {
+                    use ::std::ops::$op_trait;
+                    let rhs = Self::from(rhs);
+                    for i in 0..BITMAP_LEN {
+                        self.bitmap[i].update(|ch| $op_trait::$op_fn(ch, rhs.bitmap[i].get()));
+                    }
+                }
             }
-        }
 
-        impl ::std::ops::$op_assign_trait<SetU8> for SetU8 {
-            #[inline]
-            fn $op_assign_fn(&mut self, rhs: SetU8) {
-                self.$op_assign_fn(&rhs);
+            impl ::std::ops::$op_trait<$rhs_ty> for SetU8 {
+                type Output = Self;
+
+                #[inline]
+                fn $op_fn(self, rhs: $rhs_ty) -> Self {
+                    use ::std::ops::$op_trait;
+                    let rhs = Self::from(rhs);
+                    let new = Self::new();
+                    for i in 0..BITMAP_LEN {
+                        new.bitmap[i].set($op_trait::$op_fn(self.bitmap[i].get(), rhs.bitmap[i].get()));
+                    }
+                    new
+                }
             }
-        }
-
-        impl ::std::ops::$op_assign_trait<&RangeU8> for SetU8 {
-            #[inline]
-            fn $op_assign_fn(&mut self, range: &RangeU8) {
-                use ::std::ops::$op_trait;
-                let (ls_mask, ms_mask, ls_index, ms_index) = find_masks_indices(*range);
-                unsafe {
-                    match ms_index - ls_index {
-                        0 => {
-                            let mask = ls_mask & ms_mask;
-                            self.chunks
-                                .get_unchecked_mut(ls_index)
-                                .update(|chunk| chunk.$op_fn(mask));
-                        }
-                        1 => {
-                            self.chunks
-                                .get_unchecked_mut(ls_index)
-                                .update(|chunk| chunk.$op_fn(ls_mask));
-                            self.chunks
-                                .get_unchecked_mut(ls_index + 1)
-                                .update(|chunk| chunk.$op_fn(ms_mask));
-                        }
-                        2 => {
-                            self.chunks
-                                .get_unchecked_mut(ls_index)
-                                .update(|chunk| chunk.$op_fn(ls_mask));
-                            self.chunks
-                                .get_unchecked_mut(ls_index + 1)
-                                .update(|chunk| chunk.$op_fn(Chunk::MAX));
-                            self.chunks
-                                .get_unchecked_mut(ls_index + 2)
-                                .update(|chunk| chunk.$op_fn(ms_mask));
-                        }
-                        3 => {
-                            self.chunks
-                                .get_unchecked_mut(0)
-                                .update(|chunk| chunk.$op_fn(ls_mask));
-                            self.chunks
-                                .get_unchecked_mut(1)
-                                .update(|chunk| chunk.$op_fn(Chunk::MAX));
-                            self.chunks
-                                .get_unchecked_mut(2)
-                                .update(|chunk| chunk.$op_fn(Chunk::MAX));
-                            self.chunks
-                                .get_unchecked_mut(3)
-                                .update(|chunk| chunk.$op_fn(ms_mask));
-                        }
-                        _ => std::hint::unreachable_unchecked(),
-                    };
-                };
-            }
-        }
-
-        impl ::std::ops::$op_assign_trait<RangeU8> for SetU8 {
-            #[inline]
-            fn $op_assign_fn(&mut self, rhs: RangeU8) {
-                self.$op_assign_fn(&rhs);
-            }
-        }
-
-        impl ::std::ops::$op_assign_trait<&u8> for SetU8 {
-            #[inline]
-            fn $op_assign_fn(&mut self, byte: &u8) {
-                use ::std::ops::$op_trait;
-                let bit = 1 << (*byte & (u8::MAX >> 2));
-                self.chunks[*byte as usize >> 6].update(|ch| ch.$op_fn(bit));
-            }
-        }
-
-        impl ::std::ops::$op_assign_trait<u8> for SetU8 {
-            #[inline]
-            fn $op_assign_fn(&mut self, byte: u8) {
-                self.$op_assign_fn(&byte);
-            }
-        }
-
-        impl ::std::ops::$op_trait<SetU8> for SetU8 {
-            type Output = Self;
-
-            #[inline]
-            fn $op_fn(self, rhs: SetU8) -> Self {
-                let mut result = self.clone();
-                ::std::ops::$op_assign_trait::$op_assign_fn(&mut result, &rhs);
-                result
-            }
-        }
-
-        impl ::std::ops::$op_trait<RangeU8> for SetU8 {
-            type Output = Self;
-
-            #[inline]
-            fn $op_fn(self, rhs: RangeU8) -> Self {
-                let mut result = self.clone();
-                ::std::ops::$op_assign_trait::$op_assign_fn(&mut result, &rhs);
-                result
-            }
-        }
-
-        impl ::std::ops::$op_trait<u8> for SetU8 {
-            type Output = Self;
-
-            #[inline]
-            fn $op_fn(self, rhs: u8) -> Self {
-                let mut result = self.clone();
-                ::std::ops::$op_assign_trait::$op_assign_fn(&mut result, &rhs);
-                result
-            }
-        }
+        )+
     };
 }
 
-impl_ops!(BitAndAssign, bitand_assign, BitAnd, bitand);
-impl_ops!(BitOrAssign, bitor_assign, BitOr, bitor);
-impl_ops!(BitXorAssign, bitxor_assign, BitXor, bitxor);
+impl_ops!(BitAndAssign, bitand_assign, BitAnd, bitand for
+    u8, RangeU8, &RangeU8, std::ops::RangeInclusive<u8>, SetU8, &SetU8);
+impl_ops!(BitOrAssign, bitor_assign, BitOr, bitor for
+    u8, RangeU8, &RangeU8, std::ops::RangeInclusive<u8>, SetU8, &SetU8);
+impl_ops!(BitXorAssign, bitxor_assign, BitXor, bitxor for
+    u8, RangeU8, &RangeU8, std::ops::RangeInclusive<u8>, SetU8, &SetU8);
 
 impl std::ops::Not for SetU8 {
     type Output = Self;
@@ -234,257 +579,13 @@ impl std::ops::Not for SetU8 {
     #[inline]
     fn not(self) -> Self {
         Self {
-            chunks: [
-                Cell::new(!self.chunks[0].get()),
-                Cell::new(!self.chunks[1].get()),
-                Cell::new(!self.chunks[2].get()),
-                Cell::new(!self.chunks[3].get()),
+            bitmap: [
+                Cell::new(!self.bitmap[0].get()),
+                Cell::new(!self.bitmap[1].get()),
+                Cell::new(!self.bitmap[2].get()),
+                Cell::new(!self.bitmap[3].get()),
             ],
         }
-    }
-}
-
-impl crate::ops::Containable<u8> for SetU8 {
-    #[inline]
-    fn contains(&self, byte: u8) -> bool {
-        self.chunks[byte as usize >> 6].get() & (1 << (byte & (u8::MAX >> 2))) != 0
-    }
-}
-
-impl crate::ops::Containable<RangeU8> for SetU8 {
-    fn contains(&self, range: RangeU8) -> bool {
-        let (ls_mask, ms_mask, ls_index, ms_index) = find_masks_indices(range);
-        unsafe {
-            match ms_index - ls_index {
-                0 => {
-                    let mask = ls_mask & ms_mask;
-                    self.chunks.get_unchecked(ls_index).get() & mask == mask
-                }
-                1 => {
-                    self.chunks.get_unchecked(ls_index).get() & ls_mask == ls_mask
-                        && self.chunks.get_unchecked(ls_index + 1).get() & ms_mask == ms_mask
-                }
-                2 => {
-                    self.chunks.get_unchecked(ls_index).get() & ls_mask == ls_mask
-                        && self.chunks.get_unchecked(ls_index + 1).get() == Chunk::MAX
-                        && self.chunks.get_unchecked(ls_index + 2).get() & ms_mask == ms_mask
-                }
-                3 => {
-                    self.chunks.get_unchecked(0).get() & ls_mask == ls_mask
-                        && self.chunks.get_unchecked(1).get() == Chunk::MAX
-                        && self.chunks.get_unchecked(2).get() == Chunk::MAX
-                        && self.chunks.get_unchecked(3).get() & ms_mask == ms_mask
-                }
-                _ => std::hint::unreachable_unchecked(),
-            }
-        }
-    }
-}
-
-impl crate::ops::Containable<&SetU8> for SetU8 {
-    #[inline]
-    fn contains(&self, rhs: &SetU8) -> bool {
-        self.chunks[0].get() & rhs.chunks[0].get() == rhs.chunks[0].get()
-            && self.chunks[1].get() & rhs.chunks[1].get() == rhs.chunks[1].get()
-            && self.chunks[2].get() & rhs.chunks[2].get() == rhs.chunks[2].get()
-            && self.chunks[3].get() & rhs.chunks[3].get() == rhs.chunks[3].get()
-    }
-}
-
-impl crate::ops::Containable for SetU8 {
-    #[inline]
-    fn contains(&self, rhs: Self) -> bool {
-        self.contains(&rhs)
-    }
-}
-
-impl crate::ops::Intersectable<u8> for SetU8 {
-    #[inline]
-    fn intersects(&self, byte: u8) -> bool {
-        self.chunks[byte as usize >> 6].get() & (1 << (byte & (u8::MAX >> 2))) != 0
-    }
-}
-
-impl crate::ops::Intersectable<RangeU8> for SetU8 {
-    fn intersects(&self, range: RangeU8) -> bool {
-        let (ls_mask, ms_mask, ls_index, ms_index) = find_masks_indices(range);
-        unsafe {
-            match ms_index - ls_index {
-                0 => {
-                    let mask = ls_mask & ms_mask;
-                    self.chunks.get_unchecked(ls_index).get() & mask != 0
-                }
-                1 => {
-                    self.chunks.get_unchecked(ls_index).get() & ls_mask != 0
-                        || self.chunks.get_unchecked(ls_index + 1).get() & ms_mask != 0
-                }
-                2 => {
-                    self.chunks.get_unchecked(ls_index).get() & ls_mask != 0
-                        || self.chunks.get_unchecked(ls_index + 1).get() != 0
-                        || self.chunks.get_unchecked(ls_index + 2).get() & ms_mask != 0
-                }
-                3 => {
-                    self.chunks.get_unchecked(0).get() & ls_mask != 0
-                        || self.chunks.get_unchecked(1).get() != 0
-                        || self.chunks.get_unchecked(2).get() != 0
-                        || self.chunks.get_unchecked(3).get() & ms_mask != 0
-                }
-                _ => std::hint::unreachable_unchecked(),
-            }
-        }
-    }
-}
-
-impl crate::ops::Intersectable<&SetU8> for SetU8 {
-    #[inline]
-    fn intersects(&self, rhs: &SetU8) -> bool {
-        self.chunks[0].get() & rhs.chunks[0].get() != 0
-            || self.chunks[1].get() & rhs.chunks[1].get() != 0
-            || self.chunks[2].get() & rhs.chunks[2].get() != 0
-            || self.chunks[3].get() & rhs.chunks[3].get() != 0
-    }
-}
-
-impl crate::ops::Intersectable for SetU8 {
-    #[inline]
-    fn intersects(&self, rhs: Self) -> bool {
-        self.intersects(&rhs)
-    }
-}
-
-impl crate::ops::Includable<u8> for SetU8 {
-    #[inline]
-    fn include(&mut self, byte: u8) -> &mut Self {
-        *self |= byte;
-        self
-    }
-}
-
-impl crate::ops::Includable<RangeU8> for SetU8 {
-    #[inline]
-    fn include(&mut self, range: RangeU8) -> &mut Self {
-        *self |= range;
-        self
-    }
-}
-
-impl crate::ops::Includable<RangeInclusive<u8>> for SetU8 {
-    #[inline]
-    fn include(&mut self, range: RangeInclusive<u8>) -> &mut Self {
-        *self |= RangeU8::from(range);
-        self
-    }
-}
-
-impl crate::ops::Includable<&SetU8> for SetU8 {
-    #[inline]
-    fn include(&mut self, rhs: &SetU8) -> &mut Self {
-        *self |= rhs;
-        self
-    }
-}
-
-impl crate::ops::Includable for SetU8 {
-    #[inline]
-    fn include(&mut self, rhs: SetU8) -> &mut Self {
-        *self |= rhs;
-        self
-    }
-}
-
-impl crate::ops::Excludable<u8> for SetU8 {
-    #[inline]
-    fn exclude(&mut self, byte: u8) -> &mut Self {
-        self.chunks[byte as usize >> 6].update(|ch| ch & !(1 << (byte & (u8::MAX >> 2))));
-        self
-    }
-}
-
-impl crate::ops::Excludable<RangeU8> for SetU8 {
-    #[inline]
-    fn exclude(&mut self, range: RangeU8) -> &mut Self {
-        let (ls_mask, ms_mask, ls_index, ms_index) = find_masks_indices(range);
-        unsafe {
-            match ms_index - ls_index {
-                0 => {
-                    self.chunks
-                        .get_unchecked_mut(ls_index)
-                        .update(|ch| ch & !(ls_mask & ms_mask));
-                }
-                1 => {
-                    self.chunks
-                        .get_unchecked_mut(ls_index)
-                        .update(|ch| ch & !ls_mask);
-                    self.chunks
-                        .get_unchecked_mut(ls_index + 1)
-                        .update(|ch| ch & !ms_mask);
-                }
-                2 => {
-                    self.chunks
-                        .get_unchecked_mut(ls_index)
-                        .update(|ch| ch & !ls_mask);
-                    self.chunks
-                        .get_unchecked_mut(ls_index + 1)
-                        .update(|ch| ch & !Chunk::MAX);
-                    self.chunks
-                        .get_unchecked_mut(ls_index + 2)
-                        .update(|ch| ch & !ms_mask);
-                }
-                3 => {
-                    self.chunks.get_unchecked_mut(0).update(|ch| ch & !ls_mask);
-                    self.chunks
-                        .get_unchecked_mut(1)
-                        .update(|ch| ch & !Chunk::MAX);
-                    self.chunks
-                        .get_unchecked_mut(2)
-                        .update(|ch| ch & !Chunk::MAX);
-                    self.chunks.get_unchecked_mut(3).update(|ch| ch & !ms_mask);
-                }
-                _ => std::hint::unreachable_unchecked(),
-            }
-        }
-        self
-    }
-}
-
-impl crate::ops::Excludable<RangeInclusive<u8>> for SetU8 {
-    fn exclude(&mut self, rhs: RangeInclusive<u8>) -> &mut Self {
-        self.exclude(RangeU8::from(rhs));
-        self
-    }
-}
-
-impl crate::ops::Excludable<&SetU8> for SetU8 {
-    #[inline]
-    fn exclude(&mut self, rhs: &SetU8) -> &mut Self {
-        *self &= !rhs.clone();
-        self
-    }
-}
-
-impl crate::ops::Excludable for SetU8 {
-    #[inline]
-    fn exclude(&mut self, rhs: SetU8) -> &mut Self {
-        *self &= !rhs;
-        self
-    }
-}
-
-impl SetU8 {
-    /// Checks if the set is empty.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.chunks.iter().all(|chunk| chunk.get() == 0)
-    }
-
-    /// Returns an iterator over the bytes in the set.
-    pub fn bytes(&self) -> impl Iterator<Item = u8> {
-        ByteIter::new(self)
-    }
-
-    /// Returns an iterator over the inclusive byte ranges in the set.
-    pub fn ranges(&self) -> impl Iterator<Item = RangeU8> {
-        RangeIter::new(self)
     }
 }
 
@@ -512,18 +613,15 @@ impl std::fmt::Display for SetU8 {
     }
 }
 
-pub struct ByteIter<T> {
-    set: T,
+pub struct ByteIter {
+    set: SetU8,
     chunk: Chunk,
     shift: u32,
 }
 
-impl<T> ByteIter<T>
-where
-    T: Deref<Target = SetU8>,
-{
-    pub fn new(set: T) -> Self {
-        let chunk = set.chunks[0].get();
+impl ByteIter {
+    pub fn new(set: SetU8) -> Self {
+        let chunk = set.bitmap[0].get();
         Self {
             set,
             chunk,
@@ -532,25 +630,21 @@ where
     }
 }
 
-impl<T> std::iter::Iterator for ByteIter<T>
-where
-    T: Deref<Target = SetU8>,
-{
+impl std::iter::Iterator for ByteIter {
     type Item = u8;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        const SHIFT_OVERFLOW: u32 = (BITMAP_LEN << 6) as u32;
-        while self.shift < SHIFT_OVERFLOW {
+        while self.shift < BITMAP_WIDTH {
             if self.chunk != 0 {
                 let trailing_zeros = self.chunk.trailing_zeros();
                 self.chunk &= self.chunk.wrapping_sub(1);
                 let symbol = trailing_zeros + self.shift;
                 return Some(symbol as u8);
             }
-            if self.shift < SHIFT_OVERFLOW - 64 {
-                self.shift += 64;
-                self.chunk = self.set.chunks[self.shift as usize >> 6].get();
+            if self.shift < BITMAP_WIDTH - Chunk::BITS {
+                self.shift += Chunk::BITS;
+                self.chunk = self.set.bitmap[chunk_index(self.shift as u8)].get();
                 continue;
             }
             break;
@@ -559,18 +653,15 @@ where
     }
 }
 
-pub struct RangeIter<T> {
-    set: T,
+pub struct RangeIter {
+    set: SetU8,
     chunk: Chunk,
     shift: u32,
 }
 
-impl<T> RangeIter<T>
-where
-    T: Deref<Target = SetU8>,
-{
-    pub fn new(set: T) -> Self {
-        let chunk = set.chunks[0].get();
+impl RangeIter {
+    fn new(set: SetU8) -> Self {
+        let chunk = set.bitmap[0].get();
         Self {
             set,
             chunk,
@@ -579,16 +670,12 @@ where
     }
 }
 
-impl<T> std::iter::Iterator for RangeIter<T>
-where
-    T: Deref<Target = SetU8>,
-{
+impl std::iter::Iterator for RangeIter {
     type Item = RangeU8;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        const SHIFT_OVERFLOW: u32 = (BITMAP_LEN << 6) as u32;
-        while self.shift < SHIFT_OVERFLOW {
+        while self.shift < BITMAP_WIDTH {
             if self.chunk != 0 {
                 let trailing_zeros = self.chunk.trailing_zeros();
                 self.chunk |= self.chunk.wrapping_sub(1);
@@ -602,9 +689,9 @@ where
                 return Some(RangeU8::new_unchecked(start as u8, end as u8));
             }
 
-            if self.shift < SHIFT_OVERFLOW - 64 {
-                self.shift += 64;
-                self.chunk = self.set.chunks[self.shift as usize >> 6].get();
+            if self.shift < BITMAP_WIDTH - Chunk::BITS {
+                self.shift += Chunk::BITS;
+                self.chunk = self.set.bitmap[chunk_index(self.shift as u8)].get();
                 continue;
             }
             break;
@@ -613,15 +700,15 @@ where
     }
 }
 
-fn find_masks_indices(range: RangeU8) -> (u64, u64, usize, usize) {
-    let mut ls_mask = 1 << (range.start() & (u8::MAX >> 2));
+fn eval_masks_indices(range: RangeU8) -> (Chunk, Chunk, usize, usize) {
+    let mut ls_mask = chunk_mask(range.start());
     ls_mask = !(ls_mask - 1);
 
-    let mut ms_mask = 1 << (range.last() & (u8::MAX >> 2));
+    let mut ms_mask = chunk_mask(range.last());
     ms_mask |= ms_mask - 1;
 
-    let ls_index = (range.start() >> 6) as usize;
-    let ms_index = (range.last() >> 6) as usize;
+    let ls_index = chunk_index(range.start());
+    let ms_index = chunk_index(range.last());
 
     (ls_mask, ms_mask, ls_index, ms_index)
 }
