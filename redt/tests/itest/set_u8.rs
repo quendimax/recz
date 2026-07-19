@@ -18,6 +18,13 @@ fn set_u8_default_is_empty() {
     assert_eq!(set.capacity(), 256);
 }
 
+#[test]
+fn set_u8_full() {
+    let set = SetU8::full();
+    assert_eq!(set.len(), set.capacity());
+    assert!(!set.is_empty());
+}
+
 // ── From conversions ──────────────────────────────────────────────────────────
 
 #[test]
@@ -624,7 +631,7 @@ fn set_u8_ops_with_range_u8_rhs() {
 fn set_u8_ops_with_range_u8_ref_rhs() {
     let a = SetU8::from([1u8, 2, 3]);
     let r = RangeU8::new(2, 4);
-    let v: Vec<u8> = (a & &r).iter().collect();
+    let v: Vec<u8> = (a & r).iter().collect();
     assert_eq!(v, [2, 3]);
 }
 
@@ -639,7 +646,7 @@ fn set_u8_ops_with_range_inclusive_rhs() {
 fn set_u8_ops_with_set_ref_rhs() {
     let a = SetU8::from([1u8, 2, 3]);
     let b = SetU8::from([2u8, 3, 4]);
-    let v: Vec<u8> = (a | &b).iter().collect();
+    let v: Vec<u8> = (a | b).iter().collect();
     assert_eq!(v, [1, 2, 3, 4]);
 }
 
@@ -690,7 +697,7 @@ fn set_u8_display_mixed_printable_nonprintable_range() {
 
 #[test]
 fn set_u8_display_disjoint_ranges() {
-    let set = SetU8::from([b'a', b'z']);
+    let set = SetU8::from(b"az");
     assert_eq!(format!("{set}"), "['a' | 'z']");
 }
 
@@ -759,4 +766,202 @@ fn set_u8_ord_smaller_first_differing_byte() {
     let a = SetU8::from([1u8, 2]);
     let b = SetU8::from([1u8, 3]);
     assert!(a < b);
+}
+
+// ── full ──────────────────────────────────────────────────────────────────────
+
+#[test]
+fn set_u8_full_has_all_256_bytes() {
+    let set = SetU8::full();
+    assert_eq!(set.len(), 256);
+    assert_eq!(set.capacity(), 256);
+    assert!(!set.is_empty());
+}
+
+#[test]
+fn set_u8_full_contains_boundary_bytes() {
+    let set = SetU8::full();
+    assert!(set.contains(0));
+    assert!(set.contains(127));
+    assert!(set.contains(128));
+    assert!(set.contains(255));
+}
+
+#[test]
+fn set_u8_full_is_complement_of_new() {
+    // !new() should equal full() and vice versa
+    assert_eq!(!SetU8::new(), SetU8::full());
+    assert_eq!(!SetU8::full(), SetU8::new());
+}
+
+#[test]
+fn set_u8_full_iter_covers_all_bytes() {
+    let v: Vec<u8> = SetU8::full().iter().collect();
+    assert_eq!(v.len(), 256);
+    assert_eq!(v[0], 0);
+    assert_eq!(v[255], 255);
+}
+
+#[test]
+fn set_u8_full_ranges_is_single_span() {
+    let v: Vec<RangeU8> = SetU8::full().ranges().collect();
+    // The bitmap iterator splits at chunk boundaries, but every boundary pair
+    // is adjacent (steps_between == 1), so Display merges them. The ranges()
+    // iterator itself still yields per-chunk slices — there are 4 chunks.
+    assert_eq!(v.len(), 4);
+    assert_eq!(v[0], RangeU8::new(0, 63));
+    assert_eq!(v[1], RangeU8::new(64, 127));
+    assert_eq!(v[2], RangeU8::new(128, 191));
+    assert_eq!(v[3], RangeU8::new(192, 255));
+}
+
+#[test]
+fn set_u8_full_display() {
+    // All bytes are adjacent, so Display collapses everything to one range.
+    // 0 = 00h, 255 = FFh.
+    assert_eq!(format!("{}", SetU8::full()), "[00h-FFh]");
+}
+
+// ── is_disjoint ───────────────────────────────────────────────────────────────
+
+#[test]
+fn set_u8_is_disjoint_with_empty() {
+    let a = SetU8::from([1u8, 2, 3]);
+    assert!(a.is_disjoint(&SetU8::new()));
+    assert!(SetU8::new().is_disjoint(&a));
+}
+
+#[test]
+fn set_u8_is_disjoint_empty_with_empty() {
+    assert!(SetU8::new().is_disjoint(&SetU8::new()));
+}
+
+#[test]
+fn set_u8_is_disjoint_no_overlap() {
+    let a = SetU8::from([1u8, 2, 3]);
+    let b = SetU8::from([4u8, 5, 6]);
+    assert!(a.is_disjoint(&b));
+    assert!(b.is_disjoint(&a)); // symmetric
+}
+
+#[test]
+fn set_u8_is_disjoint_with_overlap() {
+    let a = SetU8::from([1u8, 2, 3]);
+    let b = SetU8::from([3u8, 4, 5]);
+    assert!(!a.is_disjoint(&b));
+    assert!(!b.is_disjoint(&a)); // symmetric
+}
+
+#[test]
+fn set_u8_is_disjoint_with_self() {
+    // A non-empty set is never disjoint with itself.
+    let a = SetU8::from([42u8]);
+    assert!(!a.is_disjoint(&a));
+    // An empty set is disjoint with itself.
+    assert!(SetU8::new().is_disjoint(&SetU8::new()));
+}
+
+#[test]
+fn set_u8_is_disjoint_boundary_bytes() {
+    let a = SetU8::from([0u8, 255]);
+    let b = SetU8::from([1u8, 254]);
+    assert!(a.is_disjoint(&b));
+    let c = SetU8::from([0u8]);
+    assert!(!a.is_disjoint(&c));
+}
+
+// ── is_subset ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn set_u8_is_subset_empty_is_subset_of_everything() {
+    let empty = SetU8::new();
+    assert!(empty.is_subset(&SetU8::new()));
+    assert!(empty.is_subset(&SetU8::from([1u8, 2])));
+    assert!(empty.is_subset(&SetU8::full()));
+}
+
+#[test]
+fn set_u8_is_subset_of_itself() {
+    let a = SetU8::from([1u8, 2, 3]);
+    assert!(a.is_subset(&a));
+}
+
+#[test]
+fn set_u8_is_subset_proper_subset() {
+    let a = SetU8::from([1u8, 2]);
+    let b = SetU8::from([1u8, 2, 3]);
+    assert!(a.is_subset(&b));
+    assert!(!b.is_subset(&a)); // b is a strict superset of a
+}
+
+#[test]
+fn set_u8_is_subset_partial_overlap_is_not_subset() {
+    let a = SetU8::from([1u8, 2, 3]);
+    let b = SetU8::from([2u8, 3, 4]);
+    assert!(!a.is_subset(&b)); // 1 is in a but not b
+    assert!(!b.is_subset(&a)); // 4 is in b but not a
+}
+
+#[test]
+fn set_u8_is_subset_of_full() {
+    // Every set is a subset of the full set.
+    assert!(SetU8::new().is_subset(&SetU8::full()));
+    assert!(SetU8::from([0u8, 128, 255]).is_subset(&SetU8::full()));
+    assert!(SetU8::full().is_subset(&SetU8::full()));
+}
+
+#[test]
+fn set_u8_is_subset_full_is_not_subset_of_non_full() {
+    assert!(!SetU8::full().is_subset(&SetU8::from([1u8, 2])));
+}
+
+// ── is_superset ───────────────────────────────────────────────────────────────
+
+#[test]
+fn set_u8_is_superset_of_empty() {
+    // Every set is a superset of the empty set.
+    assert!(SetU8::new().is_superset(&SetU8::new()));
+    assert!(SetU8::from([1u8, 2]).is_superset(&SetU8::new()));
+    assert!(SetU8::full().is_superset(&SetU8::new()));
+}
+
+#[test]
+fn set_u8_is_superset_of_itself() {
+    let a = SetU8::from([1u8, 2, 3]);
+    assert!(a.is_superset(&a));
+}
+
+#[test]
+fn set_u8_is_superset_proper_superset() {
+    let a = SetU8::from([1u8, 2, 3]);
+    let b = SetU8::from([1u8, 2]);
+    assert!(a.is_superset(&b));
+    assert!(!b.is_superset(&a)); // b lacks 3
+}
+
+#[test]
+fn set_u8_is_superset_partial_overlap_is_not_superset() {
+    let a = SetU8::from([1u8, 2, 3]);
+    let b = SetU8::from([2u8, 3, 4]);
+    assert!(!a.is_superset(&b)); // a lacks 4
+    assert!(!b.is_superset(&a)); // b lacks 1
+}
+
+#[test]
+fn set_u8_is_superset_full_is_superset_of_everything() {
+    assert!(SetU8::full().is_superset(&SetU8::new()));
+    assert!(SetU8::full().is_superset(&SetU8::from([0u8, 128, 255])));
+    assert!(SetU8::full().is_superset(&SetU8::full()));
+}
+
+#[test]
+fn set_u8_is_superset_dual_of_is_subset() {
+    // a.is_superset(&b) must always equal b.is_subset(&a)
+    let a = SetU8::from([1u8, 2, 3]);
+    let b = SetU8::from([2u8, 3, 4]);
+    assert_eq!(a.is_superset(&b), b.is_subset(&a));
+    assert_eq!(b.is_superset(&a), a.is_subset(&b));
+
+    let c = SetU8::from([2u8, 3]);
+    assert_eq!(a.is_superset(&c), c.is_subset(&a));
 }

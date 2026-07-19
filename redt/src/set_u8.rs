@@ -55,6 +55,27 @@ impl SetU8 {
         }
     }
 
+    /// Creates a new byte set that contains all possible bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    /// let set = SetU8::full();
+    /// assert_eq!(set.len(), 256);
+    /// assert_eq!(set.capacity(), 256);
+    #[inline]
+    pub fn full() -> Self {
+        Self {
+            bitmap: [
+                Cell::new(Chunk::MAX),
+                Cell::new(Chunk::MAX),
+                Cell::new(Chunk::MAX),
+                Cell::new(Chunk::MAX),
+            ],
+        }
+    }
+
     /// Returns the number of bytes in the set.
     pub fn len(&self) -> usize {
         self.bitmap
@@ -286,6 +307,7 @@ impl SetU8 {
     /// assert_eq!(set.contains(1), true);
     /// assert_eq!(set.contains(4), false);
     /// ```
+    #[must_use]
     pub fn contains(&self, byte: u8) -> bool {
         self.bitmap[chunk_index(byte)].get() & chunk_mask(byte) != 0
     }
@@ -301,6 +323,7 @@ impl SetU8 {
     /// assert_eq!(set.contains_bytes([1, 2]), true);
     /// assert_eq!(set.contains_bytes([1, 2, 5]), false);
     /// ```
+    #[must_use]
     pub fn contains_bytes(&self, bytes: impl Into<SetU8>) -> bool {
         let bytes = bytes.into();
         for i in 0..BITMAP_LEN {
@@ -309,6 +332,88 @@ impl SetU8 {
             }
         }
         true
+    }
+
+    /// Returns `true` if `self` has no elements in common with `other`. This is
+    /// equivalent to checking for an empty intersection.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    ///
+    /// let a = SetU8::from([1, 2, 3]);
+    /// let b = SetU8::new();
+    ///
+    /// assert_eq!(a.is_disjoint(&b), true);
+    /// b.insert(4);
+    /// assert_eq!(a.is_disjoint(&b), true);
+    /// b.insert(1);
+    /// assert_eq!(a.is_disjoint(&b), false);
+    /// ```
+    #[must_use]
+    pub fn is_disjoint(&self, other: &Self) -> bool {
+        for i in 0..BITMAP_LEN {
+            if self.bitmap[i].get() & other.bitmap[i].get() != 0 {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Returns `true` if `self` is a subset of `other`, i.e., all elements in
+    /// `self` are also in `other`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    ///
+    /// let a = SetU8::new();
+    /// a.insert(1);
+    /// a.insert(2);
+    ///
+    /// let b = SetU8::new();
+    /// b.insert(2);
+    /// b.insert(3);
+    ///
+    /// assert_eq!(a.is_subset(&b), false);
+    /// b.insert(1);
+    /// assert_eq!(a.is_subset(&b), true);
+    /// ```
+    #[must_use]
+    pub fn is_subset(&self, other: &Self) -> bool {
+        for i in 0..BITMAP_LEN {
+            if self.bitmap[i].get() & !other.bitmap[i].get() != 0 {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Returns `true` if `self` is a superset of `other`, i.e., all elements in
+    /// `other` are also in `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use redt::SetU8;
+    ///
+    /// let a = SetU8::new();
+    /// a.insert(1);
+    /// a.insert(2);
+    ///
+    /// let b = SetU8::new();
+    /// b.insert(2);
+    /// b.insert(3);
+    ///
+    /// assert_eq!(a.is_superset(&b), false);
+    /// a.insert(3);
+    /// assert_eq!(a.is_superset(&b), true);
+    /// ```
+    #[must_use]
+    pub fn is_superset(&self, other: &Self) -> bool {
+        other.is_subset(self)
     }
 
     /// Creates a new set representing the bytes that are in `self` but not in `other`.
