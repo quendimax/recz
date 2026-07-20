@@ -173,8 +173,8 @@ impl SetU8 {
     /// assert_eq!(set.remove(2), true);
     /// assert_eq!(set.remove(2), false);
     /// ```
-    pub fn remove(&self, value: &u8) -> bool {
-        let byte = *value;
+    pub fn remove(&self, value: u8) -> bool {
+        let byte = value;
         let chunk_index = chunk_index(byte);
         let chunk_mask = chunk_mask(byte);
         let old_chunk = self.bitmap[chunk_index].get();

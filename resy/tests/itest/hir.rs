@@ -1,6 +1,6 @@
 use ntest::assert_panics;
 use pretty_assertions::{assert_eq, assert_str_eq};
-use redt::{SetU8, ops::*};
+use redt::SetU8;
 use resy::Hir;
 
 #[test]
@@ -29,9 +29,9 @@ fn hir_literal() {
 
 #[test]
 fn hir_class() {
-    let mut set = SetU8::new();
-    set.include(0);
-    set.include(27..=39);
+    let set = SetU8::new();
+    set.insert(0);
+    set.insert_bytes(27..=39);
     let class = Hir::class(set);
     assert!(class.is_class());
     assert!(!class.is_literal());

@@ -123,7 +123,7 @@ fn set_u8_len_tracks_mutations() {
     assert_eq!(set.len(), 2);
     set.insert(10); // duplicate
     assert_eq!(set.len(), 2);
-    set.remove(&10);
+    set.remove(10);
     assert_eq!(set.len(), 1);
 }
 
@@ -133,7 +133,7 @@ fn set_u8_is_empty_toggles() {
     assert!(set.is_empty());
     set.insert(0);
     assert!(!set.is_empty());
-    set.remove(&0);
+    set.remove(0);
     assert!(set.is_empty());
 }
 
@@ -220,8 +220,8 @@ fn set_u8_insert_bytes_overlap() {
 #[test]
 fn set_u8_remove_present() {
     let set = SetU8::from([1u8, 2, 3]);
-    assert_eq!(set.remove(&2), true);
-    assert_eq!(set.remove(&2), false);
+    assert_eq!(set.remove(2), true);
+    assert_eq!(set.remove(2), false);
     assert_eq!(set.len(), 2);
     assert!(!set.contains(2));
 }
@@ -229,7 +229,7 @@ fn set_u8_remove_present() {
 #[test]
 fn set_u8_remove_absent() {
     let set = SetU8::from([1u8, 3]);
-    assert_eq!(set.remove(&2), false);
+    assert_eq!(set.remove(2), false);
     assert_eq!(set.len(), 2);
 }
 

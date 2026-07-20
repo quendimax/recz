@@ -1,7 +1,7 @@
 use super::{Translator, pair};
 use crate::graph::Graph;
 use pretty_assertions::assert_eq;
-use redt::{Range, SetU8, lit, ops::*};
+use redt::{Range, SetU8, lit};
 use resy::Hir;
 
 #[test]
@@ -47,9 +47,9 @@ fn translate_class() {
         graph.to_string()
     }
 
-    let mut set = SetU8::new();
-    set.include(Range::new(4, 50));
-    set.include(100);
+    let set = SetU8::new();
+    set.insert_bytes(Range::new(4, 50));
+    set.insert(100);
     assert_eq!(
         tr(&set),
         lit!(

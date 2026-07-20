@@ -1,6 +1,6 @@
 use pretty_assertions::assert_eq;
 use redt::{RangeU8, range};
-use regr::{Epsilon, Graph, Transition};
+use regr::{Graph, Transition};
 
 type Chunk = u64;
 
@@ -28,7 +28,7 @@ where
         let mut mask = 1u64;
         for _ in 0..64 {
             if mask & *chunk != 0 {
-                tr.merge(sym);
+                tr.add_symbol(sym);
             }
             mask <<= 1;
             sym = sym.wrapping_add(1);
@@ -44,7 +44,7 @@ where
     let gr = Graph::new();
     let tr = gr.node().connect(gr.node());
     for sym in symbols {
-        tr.merge(*sym);
+        tr.add_symbol(*sym);
     }
     f(tr)
 }
@@ -67,7 +67,7 @@ fn tr_clone() {
 fn tr_symbols() {
     type Vec = smallvec::SmallVec<[u8; 8]>;
     fn symbols(a: u64, b: u64, c: u64, d: u64) -> Vec {
-        handle_tr_from_chunks(&[a, b, c, d], |tr| tr.symbols().collect::<Vec>())
+        handle_tr_from_chunks(&[a, b, c, d], |tr| tr.symbols().iter().collect::<Vec>())
     }
     fn vec<const N: usize>(buf: [u8; N]) -> Vec {
         Vec::from(&buf as &[u8])
@@ -84,7 +84,7 @@ fn tr_symbols() {
         (0..=255).collect::<Vec>()
     );
 
-    handle_epsilon(|tr| assert_eq!(tr.symbols().next(), None));
+    handle_epsilon(|tr| assert_eq!(tr.symbols().iter().next(), None));
 }
 
 #[test]
@@ -143,31 +143,31 @@ fn tr_ranges() {
 #[test]
 fn tr_contains_symbol() {
     handle_tr_from_symbols(b"\x00bcde\xFF", |tr| {
-        assert_eq!(tr.contains(0), true);
-        assert_eq!(tr.contains(255), true);
-        assert_eq!(tr.contains(b'b'), true);
-        assert_eq!(tr.contains(b'c'), true);
-        assert_eq!(tr.contains(b'f'), false);
-        assert_eq!(tr.contains(254), false);
+        assert_eq!(tr.contains_symbol(0), true);
+        assert_eq!(tr.contains_symbol(255), true);
+        assert_eq!(tr.contains_symbol(b'b'), true);
+        assert_eq!(tr.contains_symbol(b'c'), true);
+        assert_eq!(tr.contains_symbol(b'f'), false);
+        assert_eq!(tr.contains_symbol(254), false);
     });
 }
 
 #[test]
 fn tr_contains_range() {
     handle_tr_from_symbols(&[0, 1, 5, 6, 7, 255], |tr| {
-        assert!(tr.contains(single(0)));
-        assert!(tr.contains(range(0, 1)));
-        assert!(tr.contains(range(5, 7)));
-        assert!(tr.contains(single(255)));
-        assert!(!tr.contains(range(0, 3)));
-        assert!(!tr.contains(range(2, 4)));
-        assert!(!tr.contains(single(254)));
+        assert!(tr.contains_symbols(single(0)));
+        assert!(tr.contains_symbols(range(0, 1)));
+        assert!(tr.contains_symbols(range(5, 7)));
+        assert!(tr.contains_symbols(single(255)));
+        assert!(!tr.contains_symbols(range(0, 3)));
+        assert!(!tr.contains_symbols(range(2, 4)));
+        assert!(!tr.contains_symbols(single(254)));
     });
 
     handle_tr_from_chunks(&[Chunk::MAX, Chunk::MAX, Chunk::MAX, Chunk::MAX], |tr| {
-        assert!(tr.contains(range(0, 100)));
-        assert!(tr.contains(range(0, 160)));
-        assert!(tr.contains(range(0, 255)));
+        assert!(tr.contains_symbols(range(0, 100)));
+        assert!(tr.contains_symbols(range(0, 160)));
+        assert!(tr.contains_symbols(range(0, 255)));
     });
 }
 
@@ -175,110 +175,53 @@ fn tr_contains_range() {
 fn tr_contains_transition() {
     let gr = Graph::new();
     let tr_a = gr.node().connect(gr.node());
-    tr_a.merge(b'a');
-    tr_a.merge(b'c');
-    tr_a.merge(b'e');
+    tr_a.add_symbol(b'a');
+    tr_a.add_symbol(b'c');
+    tr_a.add_symbol(b'e');
     let tr_b = gr.node().connect(gr.node());
-    tr_b.merge(b'b');
-    tr_b.merge(b'd');
-    tr_b.merge(b'f');
+    tr_b.add_symbol(b'b');
+    tr_b.add_symbol(b'd');
+    tr_b.add_symbol(b'f');
     let tr_c = gr.node().connect(gr.node());
-    tr_c.merge(b'a');
-    tr_c.merge(b'b');
-    tr_c.merge(b'c');
-    tr_c.merge(b'd');
-    tr_c.merge(b'e');
-    tr_c.merge(b'f');
-    tr_c.merge(b'g');
-    assert!(tr_a.contains(&tr_a));
-    assert!(tr_b.contains(&tr_b));
-    assert!(tr_c.contains(&tr_c));
-    assert!(tr_c.contains(&tr_a));
-    assert!(tr_c.contains(&tr_a));
-    assert!(!tr_a.contains(&tr_b));
-    assert!(!tr_a.contains(&tr_c));
-    assert!(!tr_b.contains(&tr_a));
-    assert!(!tr_b.contains(&tr_c));
-}
-
-#[test]
-fn tr_contains_epsilon() {
-    handle_tr_from_symbols(b"ace", |tr| {
-        assert!(!tr.contains(Epsilon));
-    });
-}
-
-#[test]
-fn tr_intersects_symbol() {
-    handle_tr_from_symbols(b"\x00bcde\xFF", |tr| {
-        assert_eq!(tr.intersects(0), true);
-        assert_eq!(tr.intersects(255), true);
-        assert_eq!(tr.intersects(b'b'), true);
-        assert_eq!(tr.intersects(b'c'), true);
-        assert_eq!(tr.intersects(b'f'), false);
-        assert_eq!(tr.intersects(254), false);
-    });
-}
-
-#[test]
-fn tr_intersects_range() {
-    handle_tr_from_symbols(b"\x00bcde\xFF", |tr| {
-        assert_eq!(tr.intersects(range(0, 255)), true);
-        assert_eq!(tr.intersects(single(0)), true);
-        assert_eq!(tr.intersects(range(b'a', b'b')), true);
-        assert_eq!(tr.intersects(single(255)), true);
-        assert_eq!(tr.intersects(range(102, 254)), false);
-        assert_eq!(tr.intersects(254), false);
-    });
-
-    handle_tr_from_symbols(&[60], |tr| assert!(tr.intersects(range(0, 120))));
-    handle_tr_from_symbols(&[100], |tr| assert!(tr.intersects(range(0, 120))));
-
-    handle_tr_from_symbols(&[60], |tr| assert!(tr.intersects(range(0, 180))));
-    handle_tr_from_symbols(&[100], |tr| assert!(tr.intersects(range(0, 180))));
-    handle_tr_from_symbols(&[170], |tr| assert!(tr.intersects(range(0, 180))));
-
-    handle_tr_from_symbols(&[60], |tr| assert!(tr.intersects(range(0, 255))));
-    handle_tr_from_symbols(&[100], |tr| assert!(tr.intersects(range(0, 255))));
-    handle_tr_from_symbols(&[170], |tr| assert!(tr.intersects(range(0, 255))));
-    handle_tr_from_symbols(&[230], |tr| assert!(tr.intersects(range(0, 255))));
+    tr_c.add_symbol(b'a');
+    tr_c.add_symbol(b'b');
+    tr_c.add_symbol(b'c');
+    tr_c.add_symbol(b'd');
+    tr_c.add_symbol(b'e');
+    tr_c.add_symbol(b'f');
+    tr_c.add_symbol(b'g');
+    assert!(tr_a.is_superset(tr_a));
+    assert!(tr_b.is_superset(tr_b));
+    assert!(tr_c.is_superset(tr_c));
+    assert!(tr_c.is_superset(tr_a));
+    assert!(tr_c.is_superset(tr_a));
+    assert!(!tr_a.is_superset(tr_b));
+    assert!(!tr_a.is_superset(tr_c));
+    assert!(!tr_b.is_superset(tr_a));
+    assert!(!tr_b.is_superset(tr_c));
 }
 
 #[test]
 fn tr_intersects_transition() {
     let gr = Graph::new();
     let tr_a = gr.node().connect(gr.node());
-    tr_a.merge(b'a');
-    tr_a.merge(b'c');
-    tr_a.merge(b'e');
+    tr_a.add_symbol(b'a');
+    tr_a.add_symbol(b'c');
+    tr_a.add_symbol(b'e');
     let tr_b = gr.node().connect(gr.node());
-    tr_b.merge(b'b');
-    tr_b.merge(b'd');
-    tr_b.merge(b'f');
+    tr_b.add_symbol(b'b');
+    tr_b.add_symbol(b'd');
+    tr_b.add_symbol(b'f');
     let tr_c = gr.node().connect(gr.node());
-    tr_c.merge(b'a');
-    tr_c.merge(b'b');
-    tr_c.merge(b'c');
-    tr_c.merge(b'd');
-    tr_c.merge(b'e');
-    tr_c.merge(b'f');
-    assert_eq!(tr_a.intersects(&tr_b), false);
-    assert_eq!(tr_a.intersects(&tr_c), true);
-    assert_eq!(tr_b.intersects(&tr_c), true);
-}
-
-#[test]
-fn tr_merge_symbol() {
-    handle_tr(|tr| {
-        tr.merge(64);
-        tr.merge(63);
-        tr.merge(0);
-        let mut iter = tr.symbols();
-        assert_eq!(iter.next(), Some(0));
-        assert_eq!(iter.next(), Some(63));
-        assert_eq!(iter.next(), Some(64));
-        assert_eq!(iter.next(), None);
-    });
+    tr_c.add_symbol(b'a');
+    tr_c.add_symbol(b'b');
+    tr_c.add_symbol(b'c');
+    tr_c.add_symbol(b'd');
+    tr_c.add_symbol(b'e');
+    tr_c.add_symbol(b'f');
+    assert_eq!(tr_a.intersects(tr_b), false);
+    assert_eq!(tr_a.intersects(tr_c), true);
+    assert_eq!(tr_b.intersects(tr_c), true);
 }
 
 #[test]
@@ -287,7 +230,7 @@ fn tr_merge_range() {
         let range = range.into();
         let gr = Graph::new();
         let tr = gr.node().connect(gr.node());
-        tr.merge(range);
+        tr.add_symbols(range);
         let mut range: Option<RangeU8> = None;
         for next_range in tr.ranges() {
             range = if let Some(range) = range {
@@ -312,22 +255,22 @@ fn tr_merge_range() {
 fn tr_merge_transition() {
     let gr = Graph::new();
     let tr_a = gr.node().connect(gr.node());
-    tr_a.merge(b'a');
-    tr_a.merge(b'b');
-    tr_a.merge(b'c');
+    tr_a.add_symbol(b'a');
+    tr_a.add_symbol(b'b');
+    tr_a.add_symbol(b'c');
     let tr_b = gr.node().connect(gr.node());
-    tr_b.merge(b'b');
-    tr_b.merge(b'c');
-    tr_b.merge(b'd');
-    tr_b.merge(b'e');
+    tr_b.add_symbol(b'b');
+    tr_b.add_symbol(b'c');
+    tr_b.add_symbol(b'd');
+    tr_b.add_symbol(b'e');
     let tr_c = gr.node().connect(gr.node());
-    tr_c.merge(b'a');
-    tr_c.merge(b'b');
-    tr_c.merge(b'c');
-    tr_c.merge(b'd');
-    tr_c.merge(b'e');
+    tr_c.add_symbol(b'a');
+    tr_c.add_symbol(b'b');
+    tr_c.add_symbol(b'c');
+    tr_c.add_symbol(b'd');
+    tr_c.add_symbol(b'e');
     #[allow(clippy::needless_borrows_for_generic_args)]
-    tr_a.merge(&tr_b);
+    tr_a.merge(tr_b);
     assert_eq!(tr_a, tr_c);
 }
 
@@ -336,11 +279,11 @@ fn tr_instruct() {
     let gr = Graph::new();
     let tag = gr.group("1").open_tag();
     let tr_a = gr.node().connect(gr.node());
-    tr_a.put_tag(tag);
-    tr_a.merge(b'a');
-    tr_a.merge(b'b');
-    tr_a.merge(b'c');
-    tr_a.merge(b'e');
+    tr_a.add_tag(tag);
+    tr_a.add_symbol(b'a');
+    tr_a.add_symbol(b'b');
+    tr_a.add_symbol(b'c');
+    tr_a.add_symbol(b'e');
 
     assert_eq!(format!("{tr_a}"), "['a'-'c' | 'e'] / +t0");
 }
@@ -357,8 +300,8 @@ fn tr_display_fmt() {
     assert_eq!(tr(b"?@"), "['?'-'@']");
 
     handle_tr(|tr| {
-        tr.merge(range(2, 4));
-        tr.merge(range(5, 6));
+        tr.add_symbols(range(2, 4));
+        tr.add_symbols(range(5, 6));
         assert_eq!(format!("{tr}"), "[02h-06h]");
     });
 }
@@ -368,7 +311,7 @@ fn tr_display_fmt_with_epsilon() {
     handle_epsilon(|tr| assert_eq!(format!("{}", tr), "[Epsilon]"));
     handle_tr_from_symbols(b"abc", |tr| {
         assert_eq!(format!("{tr}"), "['a'-'c']");
-        tr.merge(u8::MAX);
+        tr.add_symbol(u8::MAX);
         assert_eq!(format!("{tr}"), "['a'-'c' | FFh]");
     });
 }
@@ -385,8 +328,8 @@ fn tr_debug_fmt() {
     assert_eq!(tr(b"?@"), "[63 | 64]");
 
     handle_tr(|tr| {
-        tr.merge(range(2, 4));
-        tr.merge(range(5, 6));
+        tr.add_symbols(range(2, 4));
+        tr.add_symbols(range(5, 6));
         assert_eq!(format!("{tr}"), "[02h-06h]");
     });
 }
@@ -396,7 +339,7 @@ fn tr_debug_fmt_with_epsilon() {
     handle_epsilon(|tr| assert_eq!(format!("{tr:?}"), "[Epsilon]"));
     handle_tr_from_symbols(b"?@ABC", |tr| {
         assert_eq!(format!("{tr:?}"), "[63 | 64-67]");
-        tr.merge(u8::MAX);
+        tr.add_symbol(u8::MAX);
         assert_eq!(format!("{tr:?}"), "[63 | 64-67 | 255]");
     });
 }

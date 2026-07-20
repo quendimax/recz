@@ -1,7 +1,7 @@
 use crate::error::{Result, err};
 use crate::hir::Hir;
 use crate::lexis::{Lexer, tok};
-use redt::{RangeList, SetU8, ops::*};
+use redt::{RangeList, SetU8};
 use renc::Encoder;
 
 /// A regex pattern parser that converts string patterns into high-level
@@ -619,8 +619,8 @@ impl<'s, 'c, C: Encoder, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
             .encode_range(first_codepoint, last_codepoint, |seq| {
                 let mut items = Vec::new();
                 for b_range in seq {
-                    let mut b_set = SetU8::new();
-                    b_set.include(*b_range);
+                    let b_set = SetU8::new();
+                    b_set.insert_bytes(*b_range);
                     items.push(Hir::class(b_set));
                 }
                 if items.len() == 1 {

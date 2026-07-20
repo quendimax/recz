@@ -6,8 +6,6 @@ pub use graph::Graph;
 mod node;
 pub use node::Node;
 
-pub mod ops;
-
 mod symbol;
 pub use symbol::Epsilon;
 

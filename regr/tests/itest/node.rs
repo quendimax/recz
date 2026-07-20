@@ -59,9 +59,9 @@ fn node_connect_nfa() {
     let node_a = graph.node();
     let node_b = graph.node();
     let node_c = graph.node();
-    node_a.connect(node_b).merge(b'a');
-    node_a.connect(node_c).merge(b'a');
-    node_a.connect(node_c).merge(b'a');
+    node_a.connect(node_b).add_symbol(b'a');
+    node_a.connect(node_c).add_symbol(b'a');
+    node_a.connect(node_c).add_symbol(b'a');
     node_c.connect(node_a);
 }
 
@@ -70,7 +70,7 @@ fn node_connect_dfa() {
     let graph = Graph::new();
     let node_a = graph.node();
     let node_b = graph.node();
-    node_a.connect(node_b).merge(b'a');
+    node_a.connect(node_b).add_symbol(b'a');
 }
 
 #[test]
@@ -91,10 +91,10 @@ fn node_symbol_targets() {
     let c = graph.node();
     let d = graph.node();
 
-    a.connect(b).merge(range(b'a', u8::MAX));
+    a.connect(b).add_symbols(range(b'a', u8::MAX));
     a.connect(b);
     b.connect(c);
-    c.connect(d).merge(b'c');
+    c.connect(d).add_symbol(b'c');
     b.connect(a);
     d.connect(a);
     d.connect(b);
@@ -115,10 +115,10 @@ fn node_modify_tr_during_iteration() {
     let graph = Graph::new();
     let a = graph.node();
     let b = graph.node();
-    a.connect(b).merge(b'c');
+    a.connect(b).add_symbol(b'c');
 
     for _ in a.targets() {
-        a.connect(b).merge(b'a');
+        a.connect(b).add_symbol(b'a');
     }
 }
 

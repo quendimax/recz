@@ -1,11 +1,7 @@
-use crate::ops::*;
-use crate::symbol::Epsilon;
 use crate::tag::Tag;
-use redt::{ByteIter, Legible, RangeIter, RangeU8, Set, SetU8, Step};
-use std::cell::{Ref, RefCell};
+use redt::{Legible, RangeIter, RangeU8, Set, SetU8, Step};
 use std::fmt::Write;
 use std::iter::Iterator;
-use std::ops::Deref;
 use std::ptr::NonNull;
 
 /// Transition is a struct that contains symbols that connect two nodes. The
@@ -20,7 +16,7 @@ pub struct Transition<'a>(&'a TransInner);
 pub(crate) type TransPtr = NonNull<TransInner>;
 
 pub(crate) struct TransInner {
-    symset: RefCell<SetU8>,
+    symset: SetU8,
     tags: Set<Tag>,
 }
 
@@ -30,7 +26,7 @@ impl<'a> Transition<'a> {
     #[inline(always)]
     pub(crate) fn new_inner() -> TransInner {
         TransInner {
-            symset: RefCell::new(SetU8::new()),
+            symset: SetU8::new(),
             tags: Set::new(),
         }
     }
@@ -50,26 +46,19 @@ impl<'a> Transition<'a> {
 
     #[inline]
     pub fn is_epsilon(&self) -> bool {
-        self.0.symset.borrow().is_empty()
+        self.0.symset.is_empty()
     }
 
     /// Returns iterator over all symbols in this trasition instance in
     /// ascendent order.
-    pub fn symbols(self) -> impl Iterator<Item = u8> {
-        let borrow = self.0.symset.borrow();
-        ByteIter::new(borrow)
+    pub fn symbols(&self) -> SetU8 {
+        self.0.symset.clone()
     }
 
     /// Returns iterator over all symbol ranges in this trasition instance in
     /// ascendent order.
-    pub fn ranges(self) -> impl Iterator<Item = RangeU8> {
-        let borrow = self.0.symset.borrow();
-        RangeIter::new(borrow)
-    }
-
-    /// Returns a clone of the symbol set in this transition instance.
-    pub fn symbol_set(&self) -> Ref<'_, SetU8> {
-        self.0.symset.borrow()
+    pub fn ranges(&self) -> RangeIter {
+        self.0.symset.ranges()
     }
 
     #[inline]
@@ -77,131 +66,55 @@ impl<'a> Transition<'a> {
         self.0.tags.iter().copied()
     }
 
-    pub fn put_tag(&self, tag: Tag) {
+    /// Adds a tag to this transition.
+    pub fn add_tag(&self, tag: Tag) {
         self.0.tags.insert(tag);
     }
 
+    /// Adds a symbol to this transition.
+    pub fn add_symbol(&self, symbol: u8) {
+        self.0.symset.insert(symbol);
+    }
+
+    /// Adds symbols to this transition.
+    pub fn add_symbols(&self, symbols: impl Into<SetU8>) {
+        self.0.symset.insert_bytes(symbols);
+    }
+
     /// Merges the `other` object into this transition.
-    pub fn merge<T>(&self, other: T)
-    where
-        Self: Mergeable<T>,
-    {
-        Mergeable::merge(self, other);
+    pub fn merge(&self, other: Self) {
+        self.0.symset.insert_bytes(other.0.symset.clone());
+
+        for tag in other.0.tags.iter() {
+            self.0.tags.insert(*tag);
+        }
     }
 
-    pub fn intersects<T>(&self, other: T) -> bool
-    where
-        Self: Intersectable<T>,
-    {
-        Intersectable::intersects(self, other)
+    /// Returns whether this transition contains the given symbol.
+    pub fn contains_symbol(&self, symbol: u8) -> bool {
+        self.0.symset.contains(symbol)
     }
 
-    pub fn contains<T>(&self, other: T) -> bool
-    where
-        Self: Containable<T>,
-    {
-        Containable::contains(self, other)
+    /// Returns whether this transition contains all the given symbols.
+    pub fn contains_symbols(&self, symbols: impl Into<SetU8>) -> bool {
+        self.0.symset.contains_bytes(symbols)
     }
-}
 
-impl<T> Containable<T> for Transition<'_>
-where
-    SetU8: Containable<T>,
-{
-    fn contains(&self, rhs: T) -> bool {
-        self.0.symset.borrow().contains(rhs)
+    /// Returns whether this transition contains the given tag.
+    pub fn contains_tag(&self, tag: Tag) -> bool {
+        self.0.tags.contains(&tag)
     }
-}
 
-impl Containable<Epsilon> for Transition<'_> {
-    fn contains(&self, _: Epsilon) -> bool {
-        self.0.symset.borrow().is_empty()
+    pub fn is_subset(&self, other: Self) -> bool {
+        other.is_superset(*self)
     }
-}
 
-impl<'a, 'b> Containable<Transition<'b>> for Transition<'a> {
-    #[inline]
-    fn contains(&self, other: Transition<'b>) -> bool {
-        self.0
-            .symset
-            .borrow()
-            .contains(other.0.symset.borrow().deref())
+    pub fn is_superset(&self, other: Self) -> bool {
+        self.0.symset.is_superset(&other.0.symset) && self.0.tags.is_superset(&other.0.tags)
     }
-}
 
-impl<'a, 'b> Containable<&Transition<'b>> for Transition<'a> {
-    #[inline]
-    fn contains(&self, other: &Transition<'b>) -> bool {
-        Containable::contains(self, *other)
-    }
-}
-
-impl<T> Intersectable<T> for Transition<'_>
-where
-    SetU8: Intersectable<T>,
-{
-    fn intersects(&self, rhs: T) -> bool {
-        self.0.symset.borrow().intersects(rhs)
-    }
-}
-
-impl Intersectable<Epsilon> for Transition<'_> {
-    fn intersects(&self, _: Epsilon) -> bool {
-        self.0.symset.borrow().is_empty()
-    }
-}
-
-impl<'a, 'b> redt::ops::Intersectable<Transition<'b>> for Transition<'a> {
-    #[inline]
-    fn intersects(&self, other: Transition<'b>) -> bool {
-        self.0
-            .symset
-            .borrow()
-            .intersects(other.0.symset.borrow().deref())
-    }
-}
-
-impl<'a, 'b> Intersectable<&Transition<'b>> for Transition<'a> {
-    #[inline]
-    fn intersects(&self, other: &Transition<'b>) -> bool {
-        Intersectable::intersects(self, *other)
-    }
-}
-
-impl<T> Mergeable<T> for Transition<'_>
-where
-    SetU8: Includable<T>,
-{
-    fn merge(&self, rhs: T) -> &Self {
-        self.0.symset.borrow_mut().include(rhs);
-        self
-    }
-}
-
-impl<'a, 'b> Mergeable<Transition<'b>> for Transition<'a> {
-    fn merge(&self, other: Transition<'b>) -> &Self {
-        let other_symset = other.0.symset.borrow();
-        let other_symset = other_symset.deref();
-        self.0.symset.borrow_mut().include(other_symset);
-        self
-    }
-}
-
-impl<'a, 'b> Mergeable<&Transition<'b>> for Transition<'a> {
-    fn merge(&self, other: &Transition<'b>) -> &Self {
-        Mergeable::merge(self, *other);
-        self
-    }
-}
-
-impl<T> Rejectable<T> for Transition<'_>
-where
-    T: Clone,
-    SetU8: Excludable<T>,
-{
-    fn reject(&self, rhs: T) -> &Self {
-        self.0.symset.borrow_mut().exclude(rhs);
-        self
+    pub fn intersects(&self, other: Self) -> bool {
+        !self.0.symset.is_disjoint(&other.0.symset) || !self.0.tags.is_disjoint(&other.0.tags)
     }
 }
 
@@ -225,7 +138,7 @@ impl std::cmp::Eq for Transition<'_> {}
 impl std::cmp::PartialEq for Transition<'_> {
     /// Tests equality between symbols only, not instructions.
     fn eq(&self, other: &Self) -> bool {
-        self.0.symset.borrow().eq(other.0.symset.borrow().deref())
+        self.0.symset.eq(&other.0.symset)
     }
 }
 
@@ -250,7 +163,7 @@ impl std::fmt::Display for Transition<'_> {
                 break;
             }
         }
-        if self.contains(Epsilon) {
+        if self.is_epsilon() {
             f.write_str("Epsilon")?;
         }
         f.write_char(']')?;
@@ -287,7 +200,7 @@ macro_rules! impl_fmt {
                     ::std::fmt::$trait::fmt(&range, f)?;
                 }
 
-                if self.contains(Epsilon) {
+                if self.is_epsilon() {
                     if !first_iter {
                         f.write_str(" | ")?;
                     }

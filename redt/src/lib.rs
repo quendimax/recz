@@ -13,8 +13,6 @@ pub use legible::Legible;
 
 mod macros;
 
-pub mod ops;
-
 mod range;
 pub use range::{Range, range};
 pub type RangeU8 = Range<u8>;

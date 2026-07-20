@@ -41,10 +41,10 @@ fn graph_display_fmt_0() {
     let c = graph.node();
     let d = graph.node();
 
-    a.connect(b).merge(RangeU8::new(b'a', u8::MAX));
+    a.connect(b).add_symbols(RangeU8::new(b'a', u8::MAX));
     a.connect(b);
     b.connect(c);
-    c.connect(d).merge(b'c');
+    c.connect(d).add_symbol(b'c');
     b.connect(a);
     d.connect(a);
     d.connect(b);
@@ -79,11 +79,11 @@ fn graph_display_fmt_1() {
     let n2 = graph.node();
     let n3 = graph.node();
     let n4 = graph.node();
-    n0.connect(n1).merge(RangeU8::from(b'a'..=b'b'));
-    n0.connect(n1).merge(RangeU8::from(b'd'..=b'z'));
+    n0.connect(n1).add_symbols(RangeU8::from(b'a'..=b'b'));
+    n0.connect(n1).add_symbols(RangeU8::from(b'd'..=b'z'));
     n1.connect(n2);
     n1.connect(n4);
-    n2.connect(n3).merge(b'a');
+    n2.connect(n3).add_symbols(b'a');
     n3.connect(n4);
     n3.connect(n2);
     assert_eq!(
@@ -121,11 +121,11 @@ fn graph_display_fmt_2() {
     let n7 = graph.node();
     n0.connect(n2);
     n0.connect(n5);
-    n2.connect(n3).merge(b'a');
-    n3.connect(n4).merge(b'b');
+    n2.connect(n3).add_symbol(b'a');
+    n3.connect(n4).add_symbol(b'b');
     n4.connect(n1);
-    n5.connect(n6).merge(b'c');
-    n6.connect(n7).merge(b'd');
+    n5.connect(n6).add_symbol(b'c');
+    n6.connect(n7).add_symbol(b'd');
     n7.connect(n1);
     assert_eq!(
         graph.to_string(),
@@ -163,9 +163,9 @@ fn graph_display_fmt_3() {
     let a = graph.node();
     let b = graph.node();
     let c = graph.node();
-    a.connect(b).merge(1);
-    b.connect(b).merge(3);
-    b.connect(c).merge(1);
+    a.connect(b).add_symbol(1);
+    b.connect(b).add_symbol(3);
+    b.connect(c).add_symbol(1);
     assert_eq!(
         format!("{graph:?}"),
         lit!(

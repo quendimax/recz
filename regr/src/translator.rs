@@ -47,17 +47,17 @@ impl<'a> Translator<'a> {
         let mut first = sub.first;
         for byte in &literal[..literal.len() - 1] {
             let next = self.graph.node();
-            first.connect(next).merge(*byte);
+            first.connect(next).add_symbol(*byte);
             first = next;
         }
         let last_byte = literal.last().unwrap();
-        first.connect(sub.last).merge(*last_byte);
+        first.connect(sub.last).add_symbol(*last_byte);
         Set::default()
     }
 
     fn translate_class(&self, class: &SetU8, sub: Pair<'a>) -> Set<Tag> {
         for range in class.ranges() {
-            sub.first.connect(sub.last).merge(range);
+            sub.first.connect(sub.last).add_symbols(range);
         }
         Set::default()
     }
@@ -70,10 +70,10 @@ impl<'a> Translator<'a> {
         let tag_group = self.graph.group(group.label());
 
         let first = self.graph.node();
-        sub.first.connect(first).put_tag(tag_group.open_tag());
+        sub.first.connect(first).add_tag(tag_group.open_tag());
 
         let last = self.graph.node();
-        last.connect(sub.last).put_tag(tag_group.close_tag());
+        last.connect(sub.last).add_tag(tag_group.close_tag());
 
         let tags = self.translate_hir(group.inner(), pair(first, last));
         tags.insert(tag_group.open_tag());
@@ -234,7 +234,7 @@ impl<'a> Translator<'a> {
             for (other_last, other_tags) in &branches {
                 if last != other_last {
                     for tag in other_tags {
-                        last.connect(sub.last).put_tag(tag.deleter());
+                        last.connect(sub.last).add_tag(tag.deleter());
                         is_connected = true;
                     }
                 }
