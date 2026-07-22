@@ -1,5 +1,5 @@
 use crate::tag::Tag;
-use redt::{Legible, RangeIter, RangeU8, Set, SetU8, Step};
+use redt::{ByteIter, Legible, RangeIter, RangeU8, Set, SetU8, Step};
 use std::fmt::Write;
 use std::iter::Iterator;
 use std::ptr::NonNull;
@@ -51,9 +51,9 @@ impl<'a> Transition<'a> {
         self.0.symset.is_empty()
     }
 
-    /// Returns a set of symbols that this transition contains.
-    pub fn symbols(&self) -> SetU8 {
-        self.0.symset.clone()
+    /// Returns an iterator over all symbols (bytes) in this transition.
+    pub fn symbols(&self) -> ByteIter {
+        self.0.symset.iter()
     }
 
     /// Returns iterator over all symbol ranges in this trasition instance in

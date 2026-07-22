@@ -19,7 +19,7 @@ pub fn verify_dfa(graph: &Graph) -> bool {
 pub fn verify_dfa_node<'a>(node: Node<'a>) -> bool {
     let out_symbols = SetU8::new();
     for (tr, _) in node.targets() {
-        let tr_symbols = tr.symbols();
+        let tr_symbols = tr.symbols().into_set();
         if tr.is_epsilon() {
             return false;
         } else {

@@ -67,7 +67,7 @@ fn tr_clone() {
 fn tr_symbols() {
     type Vec = smallvec::SmallVec<[u8; 8]>;
     fn symbols(a: u64, b: u64, c: u64, d: u64) -> Vec {
-        handle_tr_from_chunks(&[a, b, c, d], |tr| tr.symbols().iter().collect::<Vec>())
+        handle_tr_from_chunks(&[a, b, c, d], |tr| tr.symbols().collect::<Vec>())
     }
     fn vec<const N: usize>(buf: [u8; N]) -> Vec {
         Vec::from(&buf as &[u8])
@@ -84,7 +84,7 @@ fn tr_symbols() {
         (0..=255).collect::<Vec>()
     );
 
-    handle_epsilon(|tr| assert_eq!(tr.symbols().iter().next(), None));
+    handle_epsilon(|tr| assert_eq!(tr.symbols().next(), None));
 }
 
 #[test]

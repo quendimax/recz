@@ -568,8 +568,16 @@ impl std::convert::From<RangeU8> for SetU8 {
 
 impl std::convert::From<&RangeU8> for SetU8 {
     fn from(range: &RangeU8) -> Self {
+        let mut ls_mask = chunk_mask(range.start());
+        ls_mask = !(ls_mask - 1);
+
+        let mut ms_mask = chunk_mask(range.last());
+        ms_mask |= ms_mask - 1;
+
+        let ls_index = chunk_index(range.start());
+        let ms_index = chunk_index(range.last());
+
         let result = Self::new();
-        let (ls_mask, ms_mask, ls_index, ms_index) = eval_masks_indices(*range);
         unsafe {
             match ms_index - ls_index {
                 0 => {
@@ -623,13 +631,6 @@ impl<const N: usize> std::convert::From<[u8; N]> for SetU8 {
 impl std::convert::From<&SetU8> for SetU8 {
     fn from(value: &SetU8) -> Self {
         value.clone()
-    }
-}
-
-impl std::convert::AsRef<SetU8> for SetU8 {
-    #[inline]
-    fn as_ref(&self) -> &SetU8 {
-        self
     }
 }
 
@@ -720,18 +721,17 @@ impl std::fmt::Display for SetU8 {
 
 pub struct ByteIter {
     set: SetU8,
-    chunk: Chunk,
     shift: u32,
 }
 
 impl ByteIter {
-    pub fn new(set: SetU8) -> Self {
-        let chunk = set.bitmap[0].get();
-        Self {
-            set,
-            chunk,
-            shift: 0,
-        }
+    fn new(set: SetU8) -> Self {
+        Self { set, shift: 0 }
+    }
+
+    /// Consumes this iterator, returning the underlying [`SetU8`].
+    pub fn into_set(self) -> SetU8 {
+        self.set
     }
 }
 
@@ -741,15 +741,18 @@ impl std::iter::Iterator for ByteIter {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         while self.shift < BITMAP_WIDTH {
-            if self.chunk != 0 {
-                let trailing_zeros = self.chunk.trailing_zeros();
-                self.chunk &= self.chunk.wrapping_sub(1);
+            let chunk_index = chunk_index(self.shift as u8);
+            let mut chunk = self.set.bitmap[chunk_index].get();
+            if chunk != 0 {
+                let trailing_zeros = chunk.trailing_zeros();
+                chunk &= chunk.wrapping_sub(1);
+                self.set.bitmap[chunk_index].set(chunk);
+
                 let symbol = trailing_zeros + self.shift;
                 return Some(symbol as u8);
             }
             if self.shift < BITMAP_WIDTH - Chunk::BITS {
                 self.shift += Chunk::BITS;
-                self.chunk = self.set.bitmap[chunk_index(self.shift as u8)].get();
                 continue;
             }
             break;
@@ -760,18 +763,17 @@ impl std::iter::Iterator for ByteIter {
 
 pub struct RangeIter {
     set: SetU8,
-    chunk: Chunk,
     shift: u32,
 }
 
 impl RangeIter {
     fn new(set: SetU8) -> Self {
-        let chunk = set.bitmap[0].get();
-        Self {
-            set,
-            chunk,
-            shift: 0,
-        }
+        Self { set, shift: 0 }
+    }
+
+    /// Consumes this iterator, returning the underlying [`SetU8`].
+    pub fn into_set(self) -> SetU8 {
+        self.set
     }
 }
 
@@ -781,39 +783,28 @@ impl std::iter::Iterator for RangeIter {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         while self.shift < BITMAP_WIDTH {
-            if self.chunk != 0 {
-                let trailing_zeros = self.chunk.trailing_zeros();
-                self.chunk |= self.chunk.wrapping_sub(1);
+            let chunk_index = chunk_index(self.shift as u8);
+            let mut chunk = self.set.bitmap[chunk_index].get();
+            if chunk != 0 {
+                let trailing_zeros = chunk.trailing_zeros();
+                chunk |= chunk.wrapping_sub(1);
 
-                let trailing_ones = self.chunk.trailing_ones();
-                self.chunk &= self.chunk.wrapping_add(1);
+                let trailing_ones = chunk.trailing_ones();
+                chunk &= chunk.wrapping_add(1);
 
                 let start = trailing_zeros + self.shift;
                 let end = trailing_ones - 1 + self.shift;
 
+                self.set.bitmap[chunk_index].set(chunk);
                 return Some(RangeU8::new_unchecked(start as u8, end as u8));
             }
 
             if self.shift < BITMAP_WIDTH - Chunk::BITS {
                 self.shift += Chunk::BITS;
-                self.chunk = self.set.bitmap[chunk_index(self.shift as u8)].get();
                 continue;
             }
             break;
         }
         None
     }
-}
-
-fn eval_masks_indices(range: RangeU8) -> (Chunk, Chunk, usize, usize) {
-    let mut ls_mask = chunk_mask(range.start());
-    ls_mask = !(ls_mask - 1);
-
-    let mut ms_mask = chunk_mask(range.last());
-    ms_mask |= ms_mask - 1;
-
-    let ls_index = chunk_index(range.start());
-    let ms_index = chunk_index(range.last());
-
-    (ls_mask, ms_mask, ls_index, ms_index)
 }

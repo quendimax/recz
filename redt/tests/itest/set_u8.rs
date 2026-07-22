@@ -1,4 +1,4 @@
-use pretty_assertions::assert_eq;
+use pretty_assertions::{assert_eq, assert_ne};
 use redt::{RangeU8, SetU8};
 
 // ── Construction ──────────────────────────────────────────────────────────────
@@ -435,6 +435,14 @@ fn set_u8_iter_empty() {
 }
 
 #[test]
+fn set_u8_iter_into_set() {
+    let set = SetU8::from([1, 5, 89]);
+    let iter = set.iter();
+    let set2 = iter.into_set();
+    assert_eq!(set, set2);
+}
+
+#[test]
 fn set_u8_iter_yields_sorted() {
     let set = SetU8::from([50u8, 10, 200, 1]);
     let v: Vec<u8> = set.iter().collect();
@@ -473,6 +481,14 @@ fn set_u8_ranges_empty() {
     let set = SetU8::new();
     let v: Vec<RangeU8> = set.ranges().collect();
     assert_eq!(v, [] as [RangeU8; 0]);
+}
+
+#[test]
+fn set_u8_ranges_into_set() {
+    let set = SetU8::from([1, 5, 89]);
+    let iter = set.ranges();
+    let set2 = iter.into_set();
+    assert_eq!(set, set2);
 }
 
 #[test]
@@ -964,4 +980,17 @@ fn set_u8_is_superset_dual_of_is_subset() {
 
     let c = SetU8::from([2u8, 3]);
     assert_eq!(a.is_superset(&c), c.is_subset(&a));
+}
+
+// ── hash ───────────────────────────────────────────────────────────────
+
+#[test]
+fn set_u8_hash() {
+    #[allow(clippy::mutable_key_type)]
+    let mut set = std::collections::HashSet::new();
+    set.insert(SetU8::new());
+    set.insert(SetU8::from([1, 2, 3]));
+    set.insert(SetU8::from([1, 2, 3]));
+    set.insert(SetU8::new());
+    assert_eq!(set.len(), 2);
 }
