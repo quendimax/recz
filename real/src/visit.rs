@@ -1,6 +1,5 @@
-use crate::node::Node;
-use crate::transition::Transition;
-use redt::{Set, Stack};
+use redt::Set;
+use regr::{Node, Transition};
 
 pub enum VisitResult {
     Stop,
@@ -20,8 +19,8 @@ where
     A: FnMut(Node<'n>) -> VisitResult,
 {
     let mut action = action;
-    let mut visited = Set::default();
-    let mut unvisited = Stack::new();
+    let visited = Set::default();
+    let mut unvisited = Vec::default();
     unvisited.push(start_node);
     while let Some(node) = unvisited.pop() {
         visited.insert(node);
@@ -29,7 +28,7 @@ where
             Stop => break,
             Continue => continue,
             Recurse => {
-                for (target, _) in node.targets() {
+                for (_, target) in node.targets() {
                     if !visited.contains(&target) {
                         unvisited.push(target);
                     }
@@ -50,20 +49,18 @@ where
     A: FnMut(Node<'n>, Transition<'n>, Node<'n>) -> VisitResult,
 {
     let mut action = action;
-    let mut visited = Set::default();
-    let mut unvisited = Stack::new();
+    let visited = Set::default();
+    let mut unvisited = Vec::new();
     unvisited.push(start_node);
     while let Some(node) = unvisited.pop() {
         visited.insert(node);
-        for (target, transitions) in node.targets() {
-            for tr in transitions {
-                match action(node, tr, target) {
-                    Stop => return,
-                    Continue => continue,
-                    Recurse => {
-                        if !visited.contains(&target) {
-                            unvisited.push(target);
-                        }
+        for (tr, target) in node.targets() {
+            match action(node, tr, target) {
+                Stop => return,
+                Continue => continue,
+                Recurse => {
+                    if !visited.contains(&target) {
+                        unvisited.push(target);
                     }
                 }
             }

@@ -1,7 +1,5 @@
-use crate::graph::Graph;
-use crate::node::Node;
-use crate::tag::Inst;
 use redt::{Map, Set};
+use regr::{Graph, Node, Tag};
 use std::rc::Rc;
 
 pub fn determinate(nfa: &Graph) -> Graph {

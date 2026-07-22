@@ -1,11 +1,12 @@
 [workspace]
 members = [
+    "real",
     #"recz",
     "redt",
     "regr",
     #"remc",
     "renc",
-    "resy"
+    "resy",
 ]
 resolver = "2"
 
