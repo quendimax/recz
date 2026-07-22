@@ -4,13 +4,15 @@ use std::fmt::Write;
 use std::iter::Iterator;
 use std::ptr::NonNull;
 
-/// Transition is a struct that contains symbols that connect two nodes. The
-/// symbols can be bytes and Epsilon.
+/// Transition contains symbols and tags that connect two nodes. The symbols are
+/// bytes. If the transition doesn't have any symbols it is treated as an
+/// epsilon transition.
 ///
 /// # Implementation
 ///
-/// Symbols are the corresponding bits in `chunks` bitmap from 4x`Chunk` values.
-/// The 256-th bit is for Epsilon.
+/// The struct itself is hold in the heap. The `Transition` is a thin wrapper
+/// around reference to the struct. So it can be cheaply copied, and the new
+/// copies are just new references to the same data.
 pub struct Transition<'a>(&'a TransInner);
 
 pub(crate) type TransPtr = NonNull<TransInner>;
@@ -49,8 +51,7 @@ impl<'a> Transition<'a> {
         self.0.symset.is_empty()
     }
 
-    /// Returns iterator over all symbols in this trasition instance in
-    /// ascendent order.
+    /// Returns a set of symbols that this transition contains.
     pub fn symbols(&self) -> SetU8 {
         self.0.symset.clone()
     }

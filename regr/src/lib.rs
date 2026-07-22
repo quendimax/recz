@@ -6,9 +6,6 @@ pub use graph::Graph;
 mod node;
 pub use node::Node;
 
-mod symbol;
-pub use symbol::Epsilon;
-
 mod tag;
 pub use tag::{Group, Tag};
 
