@@ -17,7 +17,6 @@ repository = "https://github.com/quendimax/re"
 
 [workspace.dependencies]
 arrayvec = "0.7.6"
-assert_matches = "1"
 bumpish = { git = "https://codeberg.org/quendimax/bumpish.git"}
 ntest = "0.9"
 num-traits = "0.2"

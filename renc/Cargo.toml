@@ -12,7 +12,6 @@ redt = { path = "../redt" }
 thiserror.workspace = true
 
 [dev-dependencies]
-assert_matches.workspace = true
 proptest.workspace = true
 pretty_assertions.workspace = true
 regex-syntax.workspace = true

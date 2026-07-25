@@ -13,6 +13,5 @@ resy = { path = "../resy" }
 smallvec.workspace = true
 
 [dev-dependencies]
-assert_matches.workspace = true
 pretty_assertions.workspace = true
 smallvec.workspace = true

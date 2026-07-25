@@ -16,10 +16,10 @@ pub struct Graph {
     groups: Map<String, Group>,
 }
 
-static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(1);
-
 impl Graph {
     pub fn new() -> Self {
+        static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(1);
+
         let gid = NEXT_GRAPH_ID.fetch_add(1, Ordering::Relaxed);
         if gid == 0 {
             panic!("graph id overflow");

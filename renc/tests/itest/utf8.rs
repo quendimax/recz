@@ -1,9 +1,9 @@
 use arrayvec::ArrayVec;
-use assert_matches::assert_matches;
 use pretty_assertions::assert_eq;
 use redt::{Range, range};
 use regex_syntax::utf8::{Utf8Sequence, Utf8Sequences};
 use renc::{Encoder, Error, Result, Utf8Encoder};
+use std::assert_matches;
 use std::ops::RangeInclusive;
 
 static CODER: Utf8Encoder = Utf8Encoder;
