@@ -1,6 +1,7 @@
 use pretty_assertions::assert_eq;
 use redt::{RangeU8, range};
 use regr::{Graph, Transition};
+use smallvec::SmallVec;
 
 type Chunk = u64;
 
@@ -65,7 +66,7 @@ fn tr_clone() {
 
 #[test]
 fn tr_symbols() {
-    type Vec = smallvec::SmallVec<[u8; 8]>;
+    type Vec = SmallVec<[u8; 8]>;
     fn symbols(a: u64, b: u64, c: u64, d: u64) -> Vec {
         handle_tr_from_chunks(&[a, b, c, d], |tr| tr.symbols().collect::<Vec>())
     }
@@ -89,7 +90,7 @@ fn tr_symbols() {
 
 #[test]
 fn tr_ranges() {
-    type Vec = smallvec::SmallVec<[RangeU8; 4]>;
+    type Vec = SmallVec<[RangeU8; 4]>;
     fn ranges(a: u64, b: u64, c: u64, d: u64) -> Vec {
         handle_tr_from_chunks(&[a, b, c, d], |tr| tr.ranges().collect::<Vec>())
     }
@@ -249,29 +250,6 @@ fn tr_merge_range() {
     assert_eq!(check(63..=200), Some(range(63, 200)));
     assert_eq!(check(0..=255), Some(range(0, 255)));
     assert_eq!(check(192..=255), Some(range(192, 255)));
-}
-
-#[test]
-fn tr_merge_transition() {
-    let gr = Graph::new();
-    let tr_a = gr.node().connect(gr.node());
-    tr_a.add_symbol(b'a');
-    tr_a.add_symbol(b'b');
-    tr_a.add_symbol(b'c');
-    let tr_b = gr.node().connect(gr.node());
-    tr_b.add_symbol(b'b');
-    tr_b.add_symbol(b'c');
-    tr_b.add_symbol(b'd');
-    tr_b.add_symbol(b'e');
-    let tr_c = gr.node().connect(gr.node());
-    tr_c.add_symbol(b'a');
-    tr_c.add_symbol(b'b');
-    tr_c.add_symbol(b'c');
-    tr_c.add_symbol(b'd');
-    tr_c.add_symbol(b'e');
-    #[allow(clippy::needless_borrows_for_generic_args)]
-    tr_a.merge(tr_b);
-    assert_eq!(tr_a, tr_c);
 }
 
 #[test]

@@ -10,7 +10,6 @@ repository.workspace = true
 bumpish.workspace = true
 redt = { path = "../redt" }
 resy = { path = "../resy" }
-smallvec.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true

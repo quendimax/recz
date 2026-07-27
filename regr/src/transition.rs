@@ -82,15 +82,6 @@ impl<'a> Transition<'a> {
         self.0.symset.insert_bytes(symbols);
     }
 
-    /// Merges the `other` object into this transition.
-    pub fn merge(&self, other: Self) {
-        self.0.symset.insert_bytes(other.0.symset.clone());
-
-        for tag in other.0.tags.iter() {
-            self.0.tags.insert(*tag);
-        }
-    }
-
     /// Returns whether this transition contains the given symbol.
     pub fn contains_symbol(&self, symbol: u8) -> bool {
         self.0.symset.contains(symbol)
@@ -147,25 +138,26 @@ impl std::fmt::Display for Transition<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // symbols
         f.write_char('[')?;
-        let mut iter = self.ranges();
-        let mut range = iter.next();
-        while let Some(cur_range) = range {
-            if let Some(next_range) = iter.next() {
-                if cur_range.last().steps_between(next_range.start()) == 1 {
-                    range = Some(RangeU8::new(cur_range.start(), next_range.last()));
-                    continue;
-                } else {
-                    std::fmt::Display::fmt(&cur_range.display(), f)?;
-                    f.write_str(" | ")?;
-                    range = Some(next_range);
-                }
-            } else {
-                std::fmt::Display::fmt(&cur_range.display(), f)?;
-                break;
-            }
-        }
         if self.is_epsilon() {
             f.write_str("Epsilon")?;
+        } else {
+            let mut iter = self.ranges();
+            let mut range = iter.next();
+            while let Some(cur_range) = range {
+                if let Some(next_range) = iter.next() {
+                    if cur_range.last().steps_between(next_range.start()) == 1 {
+                        range = Some(RangeU8::new(cur_range.start(), next_range.last()));
+                        continue;
+                    } else {
+                        std::fmt::Display::fmt(&cur_range.display(), f)?;
+                        f.write_str(" | ")?;
+                        range = Some(next_range);
+                    }
+                } else {
+                    std::fmt::Display::fmt(&cur_range.display(), f)?;
+                    break;
+                }
+            }
         }
         f.write_char(']')?;
 
