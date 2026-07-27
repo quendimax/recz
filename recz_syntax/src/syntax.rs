@@ -8,30 +8,35 @@ use recz_codec::Codec;
 /// intermediate representation (HIR).
 ///
 /// The parser takes a regex pattern string and converts it into a structured
-/// [`Hir`] tree that represents the pattern's semantics. It uses an [`Encoder`]
+/// [`Hir`] tree that represents the pattern's semantics. It uses an [`Codec`]
 /// to handle character encoding specifics during parsing.
 ///
-/// # Type Parameters
-///
-/// * `C` - An [`Encoder`] implementation that defines how characters are
-///   encoded in byte sequences.
+/// `C` is an [`Codec`] implementation that defines how characters are encoded
+/// in byte sequences.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use resy::{Parser, enc::Utf8Encoder};
+/// use recz_syntax::{Parser, codec::Utf8Codec};
 ///
-/// let parser = Parser::new(Utf8Encoder);
+/// let parser = Parser::new(Utf8Codec);
 /// let hir = parser.parse("a+b*").unwrap();
 /// ```
 pub struct Parser<C: Codec> {
-    encoder: C,
+    codec: C,
 }
 
 impl<C: Codec> Parser<C> {
-    /// Creates a new parser with the specified encoder.
-    pub fn new(encoder: C) -> Self {
-        Parser { encoder }
+    /// Creates a new parser with the specified codec.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use recz_syntax::{Parser, codec::Utf8Codec};
+    /// let parser = Parser::new(Utf8Codec);
+    /// ```
+    pub fn new(codec: C) -> Self {
+        Parser { codec }
     }
 
     /// Parses a regex pattern string into a high-level intermediate
@@ -40,14 +45,14 @@ impl<C: Codec> Parser<C> {
     /// # Examples
     ///
     /// ```rust
-    /// use resy::{Parser, enc::Utf8Encoder};
+    /// use recz_syntax::{Parser, codec::Utf8Codec};
     ///
-    /// let parser = Parser::new(Utf8Encoder);
+    /// let parser = Parser::new(Utf8Codec);
     /// let hir = parser.parse("hello.*world").unwrap();
     /// ```
     pub fn parse(&self, pattern: &str) -> Result<Hir> {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<C>::new(lexer, &self.encoder);
+        let mut parser = ParserImpl::<C>::new(lexer, &self.codec);
         parser.parse()
     }
 }
@@ -634,5 +639,5 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
 }
 
 #[cfg(test)]
-#[path = "syntax.utest.rs"]
+#[path = "utest/syntax.rs"]
 mod utest;

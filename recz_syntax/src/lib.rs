@@ -11,6 +11,6 @@ mod syntax;
 pub use syntax::Parser;
 
 /// Re-export of the `renc` crate.
-pub mod enc {
+pub mod codec {
     pub use recz_codec::*;
 }
