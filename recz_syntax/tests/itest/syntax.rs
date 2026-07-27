@@ -1,11 +1,11 @@
 use pretty_assertions::assert_eq;
-use recz_codec::Utf8Encoder;
+use recz_codec::Utf8Codec;
 use recz_syntax::Parser;
 
 #[test]
 fn parser_parse() {
     let parse = |pattern: &str| {
-        let parser = Parser::new(Utf8Encoder::new());
+        let parser = Parser::new(Utf8Codec::new());
         match parser.parse(pattern) {
             Ok(hir) => hir.to_string(),
             Err(err) => err.to_string(),

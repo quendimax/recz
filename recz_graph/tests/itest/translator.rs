@@ -1,11 +1,11 @@
 use pretty_assertions::assert_eq;
 use recz_adt::lit;
 use recz_graph::{Graph, Translator};
-use recz_syntax::{Parser, enc::Utf8Encoder};
+use recz_syntax::{Parser, enc::Utf8Codec};
 
 fn parse(pattern: &str) -> String {
     let graph = Graph::new();
-    let parser = Parser::new(Utf8Encoder);
+    let parser = Parser::new(Utf8Codec);
     let hir = parser.parse(pattern).unwrap();
     let mut translator = Translator::new(&graph);
     let start_node = graph.start_node();

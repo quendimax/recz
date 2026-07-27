@@ -2,7 +2,7 @@ use crate::error::{Result, err};
 use crate::hir::Hir;
 use crate::lexis::{Lexer, tok};
 use recz_adt::{RangeList, SetU8};
-use recz_codec::Encoder;
+use recz_codec::Codec;
 
 /// A regex pattern parser that converts string patterns into high-level
 /// intermediate representation (HIR).
@@ -24,11 +24,11 @@ use recz_codec::Encoder;
 /// let parser = Parser::new(Utf8Encoder);
 /// let hir = parser.parse("a+b*").unwrap();
 /// ```
-pub struct Parser<C: Encoder> {
+pub struct Parser<C: Codec> {
     encoder: C,
 }
 
-impl<C: Encoder> Parser<C> {
+impl<C: Codec> Parser<C> {
     /// Creates a new parser with the specified encoder.
     pub fn new(encoder: C) -> Self {
         Parser { encoder }
@@ -53,12 +53,12 @@ impl<C: Encoder> Parser<C> {
 }
 
 /// Internal parser implementation that handles the actual parsing logic.
-struct ParserImpl<'s, 'c, C: Encoder, const UNICODE: bool = true> {
+struct ParserImpl<'s, 'c, C: Codec, const UNICODE: bool = true> {
     lexer: Lexer<'s>,
     coder: &'c C,
 }
 
-impl<'s, 'c, C: Encoder, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
+impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     /// Creates a new parser implementation instance.
     fn new(lexer: Lexer<'s>, coder: &'c C) -> Self {
         ParserImpl { lexer, coder }

@@ -1,4 +1,4 @@
-use crate::encoder::Encoder;
+use crate::codec::Codec;
 use crate::encoding::Encoding;
 use crate::error::{Error::*, Result};
 use arrayvec::ArrayVec;
@@ -6,23 +6,23 @@ use recz_adt::Range;
 
 const ENCODING: Encoding = Encoding::Utf8;
 
-pub struct Utf8Encoder;
+pub struct Utf8Codec;
 
-impl Utf8Encoder {
+impl Utf8Codec {
     #[inline]
     pub fn new() -> Self {
-        Utf8Encoder
+        Utf8Codec
     }
 }
 
-impl Default for Utf8Encoder {
+impl Default for Utf8Codec {
     #[inline]
     fn default() -> Self {
-        Utf8Encoder::new()
+        Utf8Codec::new()
     }
 }
 
-impl Encoder for Utf8Encoder {
+impl Codec for Utf8Codec {
     #[inline]
     fn encoding(&self) -> Encoding {
         ENCODING

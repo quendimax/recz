@@ -1,5 +1,10 @@
 use recz_adt::Range;
 
+/// Enumeration that represents the basic information about codecs supported by
+/// this crate.
+///
+/// It contains basic information about supported unicode code points, name of
+/// the encoding system, etc.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Encoding {
     Ascii,

@@ -4,13 +4,13 @@ use crate::lexis::Lexer;
 use crate::syntax::ParserImpl;
 use pretty_assertions::assert_eq;
 use recz_adt::{Range, RangeList};
-use recz_codec::Utf8Encoder;
+use recz_codec::Utf8Codec;
 
 #[test]
 fn parse_disjunct() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         parser.parse_disjunct()
     };
     assert_eq!(
@@ -41,7 +41,7 @@ fn parse_disjunct() {
 fn parse_concat() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         parser.parse_concat()
     };
     assert_eq!(parse("asdgўsdf"), Ok(Hir::literal("asdgўsdf")));
@@ -59,7 +59,7 @@ fn parse_concat() {
 #[test]
 fn parse_item() {
     let lexer = Lexer::new("aўў");
-    let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+    let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
     let mut parse = || parser.try_parse_item();
 
     assert_eq!(parse(), Ok(Some(Hir::literal("a"))));
@@ -72,7 +72,7 @@ fn parse_item() {
 fn parse_postfix() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         parser.try_parse_postfix()
     };
     assert_eq!(parse("*"), Ok(Some((0, None))));
@@ -89,7 +89,7 @@ fn parse_postfix() {
 fn parse_braces() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         parser.parse_braces()
     };
     assert_eq!(parse("."), err::unexpected(".", 0..1, "`{`"));
@@ -117,7 +117,7 @@ fn parse_braces() {
 fn parse_group() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         parser.parse_group()
     };
     assert_eq!(parse("(hello)"), Ok(Hir::literal("hello")));
@@ -127,7 +127,7 @@ fn parse_group() {
 fn parse_named_group() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         parser.parse_named_group()
     };
     assert_eq!(
@@ -149,7 +149,7 @@ fn parse_named_group() {
 fn parse_dot() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         parser.parse_class()
     };
     let hir = parse(".").expect("Failed to parse dot pattern");
@@ -175,7 +175,7 @@ fn parse_dot() {
 
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         parser.parse_dot()
     };
     assert_eq!(
@@ -192,7 +192,7 @@ fn parse_dot() {
 fn parse_squares() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         match parser.parse_class() {
             Ok(hir) => hir.to_string(),
             Err(err) => err.to_string(),
@@ -238,7 +238,7 @@ fn parse_squares() {
 fn parse_squares_negated() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         match parser.parse_class() {
             Ok(hir) => hir.to_string(),
             Err(err) => err.to_string(),
@@ -269,7 +269,7 @@ fn parse_squares_negated() {
     );
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         parser.parse_squares_negated()
     };
     assert_eq!(parse("a"), err::unexpected("a", 0..1, "`[^`"));
@@ -279,7 +279,7 @@ fn parse_squares_negated() {
 fn parse_ascii_escape() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         parser.parse_term()
     };
     assert_eq!(parse("a"), Ok('a' as u32));
@@ -344,7 +344,7 @@ fn parse_ascii_escape() {
     // Parsing special characters should be skipped
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         parser.try_parse_term()
     };
     assert_eq!(parse("\\"), Ok(None));
@@ -366,7 +366,7 @@ fn parse_ascii_escape() {
 fn parse_unicode_escape() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         parser.parse_term()
     };
 
@@ -425,7 +425,7 @@ fn parse_unicode_escape() {
 fn parse_decimal() {
     let parse_decimal = |pattern: &str| {
         let lexer = Lexer::new(pattern);
-        let mut parser = ParserImpl::<Utf8Encoder, true>::new(lexer, &Utf8Encoder);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         parser.try_parse_decimal()
     };
     assert_eq!(parse_decimal("-1"), Ok(None));

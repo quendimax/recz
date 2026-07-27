@@ -1,12 +1,12 @@
 use arrayvec::ArrayVec;
 use pretty_assertions::assert_eq;
 use recz_adt::{Range, range};
-use recz_codec::{Encoder, Error, Result, Utf8Encoder};
+use recz_codec::{Codec, Error, Result, Utf8Codec};
 use regex_syntax::utf8::{Utf8Sequence, Utf8Sequences};
 use std::assert_matches;
 use std::ops::RangeInclusive;
 
-static CODER: Utf8Encoder = Utf8Encoder;
+static CODER: Utf8Codec = Utf8Codec;
 
 type Sequence = ArrayVec<Range<u8>, 4>;
 
@@ -21,7 +21,7 @@ fn encode_range(range: RangeInclusive<u32>) -> Result<Sequences> {
     let mut seq = Sequences::new();
     let start = *range.start();
     let end = *range.end();
-    Utf8Encoder.encode_range(start, end, |ranges| {
+    Utf8Codec.encode_range(start, end, |ranges| {
         seq.push(Sequence::try_from(ranges).unwrap())
     });
     Ok(seq)
@@ -80,7 +80,7 @@ fn _expect<const N: usize>(start: &[u8; N], end: &[u8; N]) -> Result<Sequences> 
 #[test]
 fn encoding() {
     #[allow(clippy::default_constructed_unit_structs)]
-    let coder = Utf8Encoder::default();
+    let coder = Utf8Codec::default();
     let encoding = coder.encoding();
     assert_eq!(encoding.name(), "UTF-8");
 }
@@ -260,7 +260,7 @@ fn encode_out_ranges() {
 #[test]
 fn encode_entire_range() {
     let mut seq = Sequences::new();
-    Utf8Encoder.encode_entire_range(|ranges| seq.push(arr(ranges)));
+    Utf8Codec.encode_entire_range(|ranges| seq.push(arr(ranges)));
     seq.sort();
     assert_eq!(Ok(seq.clone()), expect_range(0x0..=0x10FFFF));
     assert_eq!(Ok(seq), encode_range(0x0..=0x10FFFF));

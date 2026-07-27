@@ -4,7 +4,7 @@ use recz_adt::Range;
 
 /// This trait helps convert unicode code points into byte sequences
 /// corresponding to the encoding way chosen by the user.
-pub trait Encoder {
+pub trait Codec {
     fn encoding(&self) -> Encoding;
 
     /// Encode unicode code point into a byte sequence

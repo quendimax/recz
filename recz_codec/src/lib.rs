@@ -1,5 +1,5 @@
-mod encoder;
-pub use encoder::Encoder;
+mod codec;
+pub use codec::Codec;
 
 mod error;
 pub use error::{Error, Result};
@@ -8,4 +8,4 @@ mod encoding;
 pub use encoding::Encoding;
 
 mod utf8;
-pub use utf8::Utf8Encoder;
+pub use utf8::Utf8Codec;
