@@ -1,12 +1,10 @@
 [workspace]
 members = [
-    "real",
-    #"recz",
-    "redt",
-    "regr",
-    #"remc",
-    "renc",
-    "resy",
+    "recz_adt",
+    "recz_algo",
+    "recz_codec",
+    "recz_graph",
+    "recz_syntax",
 ]
 resolver = "2"
 

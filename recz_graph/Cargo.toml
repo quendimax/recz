@@ -1,0 +1,16 @@
+[package]
+name = "recz_graph"
+version = "0.1.0"
+
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+bumpish.workspace = true
+recz_adt = { path = "../recz_adt" }
+recz_syntax = { path = "../recz_syntax" }
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+smallvec.workspace = true

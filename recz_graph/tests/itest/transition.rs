@@ -1,0 +1,323 @@
+use pretty_assertions::assert_eq;
+use recz_adt::{RangeU8, range};
+use recz_graph::{Graph, Transition};
+use smallvec::SmallVec;
+
+type Chunk = u64;
+
+fn single(sym: u8) -> RangeU8 {
+    range(sym, sym)
+}
+
+fn handle_tr<F, R>(f: F) -> R
+where
+    F: Fn(Transition<'_>) -> R,
+{
+    let gr = Graph::new();
+    let tr = gr.node().connect(gr.node());
+    f(tr)
+}
+
+fn handle_tr_from_chunks<F, R>(chunks: &[u64; 4], f: F) -> R
+where
+    F: Fn(Transition<'_>) -> R,
+{
+    let gr = Graph::new();
+    let tr = gr.node().connect(gr.node());
+    let mut sym = 0u8;
+    for chunk in chunks {
+        let mut mask = 1u64;
+        for _ in 0..64 {
+            if mask & *chunk != 0 {
+                tr.add_symbol(sym);
+            }
+            mask <<= 1;
+            sym = sym.wrapping_add(1);
+        }
+    }
+    f(tr)
+}
+
+fn handle_tr_from_symbols<F, R>(symbols: &[u8], f: F) -> R
+where
+    F: Fn(Transition<'_>) -> R,
+{
+    let gr = Graph::new();
+    let tr = gr.node().connect(gr.node());
+    for sym in symbols {
+        tr.add_symbol(*sym);
+    }
+    f(tr)
+}
+
+fn handle_epsilon<F, R>(f: F) -> R
+where
+    F: Fn(Transition<'_>) -> R,
+{
+    let gr = Graph::new();
+    let tr = gr.node().connect(gr.node());
+    f(tr)
+}
+
+#[test]
+fn tr_clone() {
+    handle_tr(|tr| assert_eq!(tr, tr.clone()));
+}
+
+#[test]
+fn tr_symbols() {
+    type Vec = SmallVec<[u8; 8]>;
+    fn symbols(a: u64, b: u64, c: u64, d: u64) -> Vec {
+        handle_tr_from_chunks(&[a, b, c, d], |tr| tr.symbols().collect::<Vec>())
+    }
+    fn vec<const N: usize>(buf: [u8; N]) -> Vec {
+        Vec::from(&buf as &[u8])
+    }
+
+    assert_eq!(symbols(0, 0, 0, 0), vec([]));
+    assert_eq!(symbols(255, 0, 0, 0), (0..=7).collect::<Vec>());
+    assert_eq!(symbols(u64::MAX, 0, 0, 0), (0..=63).collect::<Vec>());
+    assert_eq!(symbols(u64::MAX, 255, 0, 0), (0..=71).collect::<Vec>());
+    assert_eq!(symbols(0x8000000000000001, 1, 0, 0), vec([0, 63, 64]));
+    assert_eq!(symbols(0x5555, 0, 0, 0), vec([0, 2, 4, 6, 8, 10, 12, 14]));
+    assert_eq!(
+        symbols(u64::MAX, u64::MAX, u64::MAX, u64::MAX),
+        (0..=255).collect::<Vec>()
+    );
+
+    handle_epsilon(|tr| assert_eq!(tr.symbols().next(), None));
+}
+
+#[test]
+fn tr_ranges() {
+    type Vec = SmallVec<[RangeU8; 4]>;
+    fn ranges(a: u64, b: u64, c: u64, d: u64) -> Vec {
+        handle_tr_from_chunks(&[a, b, c, d], |tr| tr.ranges().collect::<Vec>())
+    }
+    fn vec<const N: usize>(buf: [RangeU8; N]) -> Vec {
+        Vec::from(&buf as &[RangeU8])
+    }
+
+    assert_eq!(ranges(0, 0, 0, 0), vec([]));
+    assert_eq!(ranges(255, 0, 0, 0), vec([range(0, 7)]));
+    assert_eq!(ranges(255, 255, 0, 0), vec([range(0, 7), range(64, 71)]));
+    assert_eq!(ranges(0, 255, 0, 0), vec([range(64, 71)]));
+    assert_eq!(ranges(0, 0, 0, 255), vec([range(192, 199)]));
+    assert_eq!(
+        ranges(255, 255, 255, 255),
+        vec([range(0, 7), range(64, 71), range(128, 135), range(192, 199)])
+    );
+    assert_eq!(ranges(u64::MAX, 0, 0, 0), vec([range(0, 63)]));
+    assert_eq!(ranges(0, u64::MAX, 0, 0), vec([range(64, 127)]));
+    assert_eq!(ranges(0, 0, u64::MAX, 0), vec([range(128, 191)]));
+    assert_eq!(ranges(0, 0, 0, u64::MAX), vec([range(192, 255)]));
+    assert_eq!(
+        ranges(u64::MAX, 0, 0, u64::MAX),
+        vec([range(0, 63), range(192, 255)])
+    );
+    assert_eq!(
+        ranges(u64::MAX, u64::MAX, u64::MAX, u64::MAX),
+        vec([
+            range(0, 63),
+            range(64, 127),
+            range(128, 191),
+            range(192, 255)
+        ])
+    );
+    assert_eq!(ranges(1, 0, 0, 0), vec([single(0)]));
+    assert_eq!(
+        ranges(0x8000000000000001, 0, 0, 0),
+        vec([single(0), single(63)])
+    );
+    assert_eq!(
+        ranges(0x8000000000000001, 0x8000000000000001, 0, 0),
+        vec([single(0), single(63), single(64), single(127)])
+    );
+    assert_eq!(
+        ranges(0xC000000000000007, 0x1F000001, 0, 0),
+        vec([range(0, 2), range(62, 63), single(64), range(88, 92)])
+    );
+
+    handle_epsilon(|tr| assert_eq!(tr.ranges().next(), None));
+}
+
+#[test]
+fn tr_contains_symbol() {
+    handle_tr_from_symbols(b"\x00bcde\xFF", |tr| {
+        assert_eq!(tr.contains_symbol(0), true);
+        assert_eq!(tr.contains_symbol(255), true);
+        assert_eq!(tr.contains_symbol(b'b'), true);
+        assert_eq!(tr.contains_symbol(b'c'), true);
+        assert_eq!(tr.contains_symbol(b'f'), false);
+        assert_eq!(tr.contains_symbol(254), false);
+    });
+}
+
+#[test]
+fn tr_contains_range() {
+    handle_tr_from_symbols(&[0, 1, 5, 6, 7, 255], |tr| {
+        assert!(tr.contains_symbols(single(0)));
+        assert!(tr.contains_symbols(range(0, 1)));
+        assert!(tr.contains_symbols(range(5, 7)));
+        assert!(tr.contains_symbols(single(255)));
+        assert!(!tr.contains_symbols(range(0, 3)));
+        assert!(!tr.contains_symbols(range(2, 4)));
+        assert!(!tr.contains_symbols(single(254)));
+    });
+
+    handle_tr_from_chunks(&[Chunk::MAX, Chunk::MAX, Chunk::MAX, Chunk::MAX], |tr| {
+        assert!(tr.contains_symbols(range(0, 100)));
+        assert!(tr.contains_symbols(range(0, 160)));
+        assert!(tr.contains_symbols(range(0, 255)));
+    });
+}
+
+#[test]
+fn tr_contains_transition() {
+    let gr = Graph::new();
+    let tr_a = gr.node().connect(gr.node());
+    tr_a.add_symbol(b'a');
+    tr_a.add_symbol(b'c');
+    tr_a.add_symbol(b'e');
+    let tr_b = gr.node().connect(gr.node());
+    tr_b.add_symbol(b'b');
+    tr_b.add_symbol(b'd');
+    tr_b.add_symbol(b'f');
+    let tr_c = gr.node().connect(gr.node());
+    tr_c.add_symbol(b'a');
+    tr_c.add_symbol(b'b');
+    tr_c.add_symbol(b'c');
+    tr_c.add_symbol(b'd');
+    tr_c.add_symbol(b'e');
+    tr_c.add_symbol(b'f');
+    tr_c.add_symbol(b'g');
+    assert!(tr_a.is_superset(tr_a));
+    assert!(tr_b.is_superset(tr_b));
+    assert!(tr_c.is_superset(tr_c));
+    assert!(tr_c.is_superset(tr_a));
+    assert!(tr_c.is_superset(tr_a));
+    assert!(!tr_a.is_superset(tr_b));
+    assert!(!tr_a.is_superset(tr_c));
+    assert!(!tr_b.is_superset(tr_a));
+    assert!(!tr_b.is_superset(tr_c));
+}
+
+#[test]
+fn tr_intersects_transition() {
+    let gr = Graph::new();
+    let tr_a = gr.node().connect(gr.node());
+    tr_a.add_symbol(b'a');
+    tr_a.add_symbol(b'c');
+    tr_a.add_symbol(b'e');
+    let tr_b = gr.node().connect(gr.node());
+    tr_b.add_symbol(b'b');
+    tr_b.add_symbol(b'd');
+    tr_b.add_symbol(b'f');
+    let tr_c = gr.node().connect(gr.node());
+    tr_c.add_symbol(b'a');
+    tr_c.add_symbol(b'b');
+    tr_c.add_symbol(b'c');
+    tr_c.add_symbol(b'd');
+    tr_c.add_symbol(b'e');
+    tr_c.add_symbol(b'f');
+    assert_eq!(tr_a.intersects(tr_b), false);
+    assert_eq!(tr_a.intersects(tr_c), true);
+    assert_eq!(tr_b.intersects(tr_c), true);
+}
+
+#[test]
+fn tr_merge_range() {
+    fn check(range: impl Into<RangeU8>) -> Option<RangeU8> {
+        let range = range.into();
+        let gr = Graph::new();
+        let tr = gr.node().connect(gr.node());
+        tr.add_symbols(range);
+        let mut range: Option<RangeU8> = None;
+        for next_range in tr.ranges() {
+            range = if let Some(range) = range {
+                Some(range.merge(&next_range))
+            } else {
+                Some(next_range)
+            }
+        }
+        range
+    }
+    assert_eq!(check(0..=2), Some(range(0, 2)));
+    assert_eq!(check(3..=12), Some(range(3, 12)));
+    assert_eq!(check(0..=63), Some(range(0, 63)));
+    assert_eq!(check(0..=100), Some(range(0, 100)));
+    assert_eq!(check(63..=127), Some(range(63, 127)));
+    assert_eq!(check(63..=200), Some(range(63, 200)));
+    assert_eq!(check(0..=255), Some(range(0, 255)));
+    assert_eq!(check(192..=255), Some(range(192, 255)));
+}
+
+#[test]
+fn tr_instruct() {
+    let gr = Graph::new();
+    let tag = gr.group("1").open_tag();
+    let tr_a = gr.node().connect(gr.node());
+    tr_a.add_tag(tag);
+    tr_a.add_symbol(b'a');
+    tr_a.add_symbol(b'b');
+    tr_a.add_symbol(b'c');
+    tr_a.add_symbol(b'e');
+
+    assert_eq!(format!("{tr_a}"), "['a'-'c' | 'e'] / +t0");
+}
+
+#[test]
+fn tr_display_fmt() {
+    fn tr(bytes: &[u8]) -> String {
+        handle_tr_from_symbols(bytes, |tr| format!("{tr}"))
+    }
+    assert_eq!(tr(b""), "[Epsilon]");
+    assert_eq!(tr(b"abc"), "['a'-'c']");
+    assert_eq!(tr(b"abc"), "['a'-'c']");
+    assert_eq!(tr(b"abcE"), "['E' | 'a'-'c']");
+    assert_eq!(tr(b"?@"), "['?'-'@']");
+
+    handle_tr(|tr| {
+        tr.add_symbols(range(2, 4));
+        tr.add_symbols(range(5, 6));
+        assert_eq!(format!("{tr}"), "[02h-06h]");
+    });
+}
+
+#[test]
+fn tr_display_fmt_with_epsilon() {
+    handle_epsilon(|tr| assert_eq!(format!("{}", tr), "[Epsilon]"));
+    handle_tr_from_symbols(b"abc", |tr| {
+        assert_eq!(format!("{tr}"), "['a'-'c']");
+        tr.add_symbol(u8::MAX);
+        assert_eq!(format!("{tr}"), "['a'-'c' | FFh]");
+    });
+}
+
+#[test]
+fn tr_debug_fmt() {
+    fn tr(bytes: &[u8]) -> String {
+        handle_tr_from_symbols(bytes, |tr| format!("{tr:?}"))
+    }
+    assert_eq!(tr(b""), "[Epsilon]");
+    assert_eq!(tr(b"abc"), "[97-99]");
+    assert_eq!(tr(b"abc"), "[97-99]");
+    assert_eq!(tr(b"abcE"), "[69 | 97-99]");
+    assert_eq!(tr(b"?@"), "[63 | 64]");
+
+    handle_tr(|tr| {
+        tr.add_symbols(range(2, 4));
+        tr.add_symbols(range(5, 6));
+        assert_eq!(format!("{tr}"), "[02h-06h]");
+    });
+}
+
+#[test]
+fn tr_debug_fmt_with_epsilon() {
+    handle_epsilon(|tr| assert_eq!(format!("{tr:?}"), "[Epsilon]"));
+    handle_tr_from_symbols(b"?@ABC", |tr| {
+        assert_eq!(format!("{tr:?}"), "[63 | 64-67]");
+        tr.add_symbol(u8::MAX);
+        assert_eq!(format!("{tr:?}"), "[63 | 64-67 | 255]");
+    });
+}

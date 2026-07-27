@@ -1,0 +1,14 @@
+[package]
+name = "recz_algo"
+version = "0.1.0"
+
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+recz_adt = { path = "../recz_adt" }
+recz_graph = { path = "../recz_graph" }
+
+[dev-dependencies]
+pretty_assertions.workspace = true

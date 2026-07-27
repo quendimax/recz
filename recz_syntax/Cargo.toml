@@ -1,0 +1,17 @@
+[package]
+name = "recz_syntax"
+version = "0.1.0"
+
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+recz_adt = { path = "../recz_adt" }
+recz_codec = { path = "../recz_codec" }
+static_assertions.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+ntest.workspace = true
+pretty_assertions.workspace = true
