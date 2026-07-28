@@ -7,6 +7,27 @@ use std::cell::Cell;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+/// Represents a graph that holds nodes and transitions.
+///
+/// A graph can creates nodes, transitions (via [`Node`]'s API) and capturing
+/// groups.
+///
+/// A graph contains only one start node, that you can get via
+/// [`Graph::start_node`].
+///
+/// # Examples
+///
+/// ```
+/// use recz_graph::Graph;
+///
+/// let graph = Graph::new();
+/// assert_eq!(graph.node_count(), 0);
+/// assert_eq!(graph.transition_count(), 0);
+///
+/// graph.node().connect(graph.node());
+/// assert_eq!(graph.node_count(), 2);
+/// assert_eq!(graph.transition_count(), 1);
+/// ```
 pub struct Graph {
     gid: u32,
     next_nid: Cell<u32>,
@@ -16,7 +37,19 @@ pub struct Graph {
     groups: Map<String, Group>,
 }
 
+/// Public API
 impl Graph {
+    /// Creates a new graph.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use recz_graph::Graph;
+    ///
+    /// let graph = Graph::new();
+    /// assert_eq!(graph.node_count(), 0);
+    /// assert_eq!(graph.transition_count(), 0);
+    /// ```
     pub fn new() -> Self {
         static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(1);
 
@@ -35,13 +68,48 @@ impl Graph {
         }
     }
 
-    /// This graph's ID.
+    /// Unique identifier for this graph, and every node of this graph.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use recz_graph::Graph;
+    ///
+    /// let graph_a = Graph::new();
+    /// let graph_b = Graph::new();
+    /// assert_ne!(graph_a.gid(), graph_b.gid());
+    ///
+    /// assert_eq!(graph_a.gid(), graph_a.node().gid());
+    /// assert_eq!(graph_b.gid(), graph_b.node().gid());
+    /// ```
     #[inline]
     pub fn gid(&self) -> u32 {
         self.gid
     }
 
     /// Creates a new node.
+    ///
+    /// If there was no start node, this node will be set as the start node.
+    ///
+    /// Also every new node gets a new node identifier that is unique within
+    /// this graph.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node ID (`u32`) overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use recz_graph::Graph;
+    ///
+    /// let graph = Graph::new();
+    /// let node = graph.node();
+    ///
+    /// // first node is the start node
+    /// assert_eq!(graph.start_node().nid(), node.nid());
+    /// assert_ne!(graph.start_node().nid(), graph.node().nid());
+    /// ```
     pub fn node(&self) -> Node<'_> {
         let nid = self.next_nid.replace(
             self.next_nid
@@ -50,7 +118,6 @@ impl Graph {
                 .expect("node id overflow"),
         );
         let node_ref = self.bump_nodes.push(Node::new_inner(self, self.gid, nid));
-
         let node_ptr = NodePtr::from(node_ref);
 
         if self.start_node.get().is_none() {
@@ -59,14 +126,30 @@ impl Graph {
         Node::from(node_ref)
     }
 
-    /// Creates a new transition.
+    /// Returns the start node of the graph.
     ///
-    /// This method is not available for external use. Use [`Node::connect`] instead.
-    pub(crate) fn transition(&self) -> Transition<'_> {
-        let tr_ref = self.bump_trans.push(Transition::new_inner());
-        Transition::from(tr_ref)
+    /// If the graph is empty, creates the node.
+    ///
+    /// That means that the first node always has NID 0.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use recz_graph::Graph;
+    /// let graph = Graph::new();
+    /// assert_eq!(graph.start_node().nid(), 0);
+    /// ```
+    #[inline]
+    pub fn start_node(&self) -> Node<'_> {
+        if let Some(ptr) = self.start_node.get() {
+            Node::from(unsafe { ptr.as_ref() })
+        } else {
+            self.node()
+        }
     }
 
+    /// TODO: complete the comment.
+    ///
     /// Creates a new group with the given label, or returns an existing group
     /// with the same label.
     pub fn group(&self, label: &str) -> &Group {
@@ -79,27 +162,56 @@ impl Graph {
             .expect("group label already exists")
     }
 
-    /// Returns the start node of the graph. If the graph is empty, creates a
-    /// node, and returns it.
-    #[inline]
-    pub fn start_node(&self) -> Node<'_> {
-        if let Some(ptr) = self.start_node.get() {
-            Node::from(unsafe { ptr.as_ref() })
-        } else {
-            self.node()
-        }
-    }
-
-    /// Returns true if the graph is empty.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.start_node.get().is_none()
-    }
-
     /// Returns a number of nodes belonging to this graph.
+    ///
+    /// It doesn't take into account if the nodes are connected.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use recz_graph::Graph;
+    /// let graph = Graph::new();
+    /// assert_eq!(graph.node_count(), 0);
+    ///
+    /// graph.node();
+    /// graph.node();
+    /// assert_eq!(graph.node_count(), 2);
+    /// ```
     #[inline]
-    pub fn len(&self) -> usize {
+    pub fn node_count(&self) -> usize {
         self.bump_nodes.len()
+    }
+
+    /// Returns a number of transitions between nodes belonging to this graph.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use recz_graph::Graph;
+    ///
+    /// let graph = Graph::new();
+    ///
+    /// graph.node();
+    /// graph.node();
+    /// assert_eq!(graph.transition_count(), 0);
+    ///
+    /// graph.node().connect(graph.node());
+    /// assert_eq!(graph.transition_count(), 1);
+    /// ```
+    #[inline]
+    pub fn transition_count(&self) -> usize {
+        self.bump_trans.len()
+    }
+}
+
+/// Private API
+impl Graph {
+    /// Creates a new transition.
+    ///
+    /// This method is not available for external use. Use [`Node::connect`] instead.
+    pub(crate) fn transition(&self) -> Transition<'_> {
+        let tr_ref = self.bump_trans.push(Transition::new_inner());
+        Transition::from(tr_ref)
     }
 }
 

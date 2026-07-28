@@ -1,7 +1,7 @@
 use pretty_assertions::assert_eq;
 use recz_adt::lit;
 use recz_graph::{Graph, Translator};
-use recz_syntax::{Parser, enc::Utf8Codec};
+use recz_syntax::{Parser, codec::Utf8Codec};
 
 fn parse(pattern: &str) -> String {
     let graph = Graph::new();
