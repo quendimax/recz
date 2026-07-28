@@ -2,6 +2,14 @@
 members = [
     "recz_adt",
     "recz_algo",
+    "recz_bench",
+    "recz_codec",
+    "recz_graph",
+    "recz_syntax",
+]
+default-members = [
+    "recz_adt",
+    "recz_algo",
     "recz_codec",
     "recz_graph",
     "recz_syntax",
@@ -30,3 +38,7 @@ static_assertions = "1"
 syn = "2"
 test-case = "3.3"
 thiserror = "2"
+
+[profile.bench]
+debug = true
+strip = false

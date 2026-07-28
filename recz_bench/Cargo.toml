@@ -1,0 +1,19 @@
+[package]
+name = "recz_bench"
+version = "0.1.0"
+publish = false
+
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+recz_adt = { path = "../recz_adt" }
+
+[dev-dependencies]
+gungraun = "0.19.4"
+
+[[bench]]
+harness = false
+name = "recz_adt"
+path = "benches/adt.rs"
