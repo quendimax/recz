@@ -1,5 +1,6 @@
 /target
 /Cargo.lock
+/.zed
 .DS_Store
 
 # output of different profiling tools
