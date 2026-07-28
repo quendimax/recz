@@ -4,31 +4,31 @@ use std::fmt::Write;
 use std::iter::Iterator;
 use std::ptr::NonNull;
 
-/// Transition contains symbols and tags that connect two nodes. The symbols are
-/// bytes. If the transition doesn't have any symbols it is treated as an
-/// epsilon transition.
+/// Edge is a transition from one node to another that contains symbols and
+/// tags. The symbols are bytes. If the edge doesn't have any symbols it is
+/// treated as an epsilon transition.
 ///
 /// # Implementation
 ///
-/// The struct itself is hold in the heap. The `Transition` is a thin wrapper
-/// around reference to the struct. So it can be cheaply copied, and the new
-/// copies are just new references to the same data.
-pub struct Transition<'a>(&'a TransInner);
+/// The struct itself is hold in the heap. The `Edge` is a thin wrapper around
+/// reference to the struct. So it can be cheaply copied, and the new copies are
+/// just new references to the same data.
+pub struct Edge<'a>(&'a EdgeInner);
 
-pub(crate) type TransPtr = NonNull<TransInner>;
+pub(crate) type TransPtr = NonNull<EdgeInner>;
 
-pub(crate) struct TransInner {
-    symset: SetU8,
+pub(crate) struct EdgeInner {
+    symbols: SetU8,
     tags: Set<Tag>,
 }
 
 /// Crate API
-impl<'a> Transition<'a> {
-    /// Creates a new empty transition.
+impl<'a> Edge<'a> {
+    /// Creates a new empty edge.
     #[inline(always)]
-    pub(crate) fn new_inner() -> TransInner {
-        TransInner {
-            symset: SetU8::new(),
+    pub(crate) fn new_inner() -> EdgeInner {
+        EdgeInner {
+            symbols: SetU8::new(),
             tags: Set::new(),
         }
     }
@@ -39,8 +39,8 @@ impl<'a> Transition<'a> {
     }
 }
 
-impl<'a> Transition<'a> {
-    /// Checks if these transitions are two references to the same transition.
+impl<'a> Edge<'a> {
+    /// Checks if these edges are two references to the same edge.
     #[inline]
     pub fn is(self, other: Self) -> bool {
         std::ptr::eq(self.0, other.0)
@@ -48,18 +48,18 @@ impl<'a> Transition<'a> {
 
     #[inline]
     pub fn is_epsilon(&self) -> bool {
-        self.0.symset.is_empty()
+        self.0.symbols.is_empty()
     }
 
-    /// Returns an iterator over all symbols (bytes) in this transition.
+    /// Returns an iterator over all symbols (bytes) in this edge.
     pub fn symbols(&self) -> ByteIter {
-        self.0.symset.iter()
+        self.0.symbols.iter()
     }
 
-    /// Returns iterator over all symbol ranges in this trasition instance in
+    /// Returns iterator over all symbol ranges in this edge instance in
     /// ascendent order.
     pub fn ranges(&self) -> RangeIter {
-        self.0.symset.ranges()
+        self.0.symbols.ranges()
     }
 
     #[inline]
@@ -67,32 +67,32 @@ impl<'a> Transition<'a> {
         self.0.tags.iter().copied()
     }
 
-    /// Adds a tag to this transition.
+    /// Adds a tag to this edge.
     pub fn add_tag(&self, tag: Tag) {
         self.0.tags.insert(tag);
     }
 
-    /// Adds a symbol to this transition.
+    /// Adds a symbol to this edge.
     pub fn add_symbol(&self, symbol: u8) {
-        self.0.symset.insert(symbol);
+        self.0.symbols.insert(symbol);
     }
 
-    /// Adds symbols to this transition.
+    /// Adds symbols to this edge.
     pub fn add_symbols(&self, symbols: impl Into<SetU8>) {
-        self.0.symset.insert_bytes(symbols);
+        self.0.symbols.insert_bytes(symbols);
     }
 
-    /// Returns whether this transition contains the given symbol.
+    /// Returns whether this edge contains the given symbol.
     pub fn contains_symbol(&self, symbol: u8) -> bool {
-        self.0.symset.contains(symbol)
+        self.0.symbols.contains(symbol)
     }
 
-    /// Returns whether this transition contains all the given symbols.
+    /// Returns whether this edge contains all the given symbols.
     pub fn contains_symbols(&self, symbols: impl Into<SetU8>) -> bool {
-        self.0.symset.contains_bytes(symbols)
+        self.0.symbols.contains_bytes(symbols)
     }
 
-    /// Returns whether this transition contains the given tag.
+    /// Returns whether this edge contains the given tag.
     pub fn contains_tag(&self, tag: Tag) -> bool {
         self.0.tags.contains(&tag)
     }
@@ -102,39 +102,39 @@ impl<'a> Transition<'a> {
     }
 
     pub fn is_superset(&self, other: Self) -> bool {
-        self.0.symset.is_superset(&other.0.symset) && self.0.tags.is_superset(&other.0.tags)
+        self.0.symbols.is_superset(&other.0.symbols) && self.0.tags.is_superset(&other.0.tags)
     }
 
     pub fn intersects(&self, other: Self) -> bool {
-        !self.0.symset.is_disjoint(&other.0.symset) || !self.0.tags.is_disjoint(&other.0.tags)
+        !self.0.symbols.is_disjoint(&other.0.symbols) || !self.0.tags.is_disjoint(&other.0.tags)
     }
 }
 
-impl Copy for Transition<'_> {}
+impl Copy for Edge<'_> {}
 
-impl Clone for Transition<'_> {
+impl Clone for Edge<'_> {
     #[inline]
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<'a> std::convert::From<&'a TransInner> for Transition<'a> {
-    fn from(inner: &'a TransInner) -> Self {
+impl<'a> std::convert::From<&'a EdgeInner> for Edge<'a> {
+    fn from(inner: &'a EdgeInner) -> Self {
         Self(inner)
     }
 }
 
-impl std::cmp::Eq for Transition<'_> {}
+impl std::cmp::Eq for Edge<'_> {}
 
-impl std::cmp::PartialEq for Transition<'_> {
+impl std::cmp::PartialEq for Edge<'_> {
     /// Tests equality between symbols only, not instructions.
     fn eq(&self, other: &Self) -> bool {
-        self.0.symset.eq(&other.0.symset)
+        self.0.symbols.eq(&other.0.symbols)
     }
 }
 
-impl std::fmt::Display for Transition<'_> {
+impl std::fmt::Display for Edge<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // symbols
         f.write_char('[')?;
@@ -180,24 +180,21 @@ impl std::fmt::Display for Transition<'_> {
 
 macro_rules! impl_fmt {
     (std::fmt::$trait:ident) => {
-        impl std::fmt::$trait for Transition<'_> {
+        impl std::fmt::$trait for Edge<'_> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 f.write_char('[')?;
-                let mut first_iter = true;
-                for range in self.ranges() {
-                    if first_iter {
-                        first_iter = false;
-                    } else {
-                        f.write_str(" | ")?;
-                    }
-                    ::std::fmt::$trait::fmt(&range, f)?;
-                }
-
                 if self.is_epsilon() {
-                    if !first_iter {
-                        f.write_str(" | ")?;
-                    }
                     f.write_str("Epsilon")?;
+                } else {
+                    let mut first_iter = true;
+                    for range in self.ranges() {
+                        if first_iter {
+                            first_iter = false;
+                        } else {
+                            f.write_str(" | ")?;
+                        }
+                        ::std::fmt::$trait::fmt(&range, f)?;
+                    }
                 }
                 f.write_char(']')
             }

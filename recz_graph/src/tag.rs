@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 /// Represents a tag used for marking groups in regexps.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Tag {
@@ -44,11 +46,11 @@ impl std::fmt::Display for Tag {
 #[derive(Clone)]
 pub struct Group {
     id: u32,
-    label: String,
+    label: Rc<str>,
 }
 
 impl Group {
-    pub(crate) fn new(id: u32, label: String) -> Self {
+    pub(crate) fn new(id: u32, label: Rc<str>) -> Self {
         Self { id, label }
     }
 

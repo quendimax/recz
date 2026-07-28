@@ -71,7 +71,7 @@ fn visit_nodes_in_tree() {
 }
 
 #[test]
-fn for_each_transition() {
+fn for_each_edge() {
     let gr = Graph::new();
     let a = gr.node();
     let b = gr.node();
@@ -86,7 +86,7 @@ fn for_each_transition() {
     e.connect(a);
 
     let mut vec = Vec::new();
-    recz_algo::visit_transitions(a, |source, _transition, target| {
+    recz_algo::visit_edges(a, |source, _, target| {
         vec.push((source, target));
         Recurse
     });
@@ -94,7 +94,7 @@ fn for_each_transition() {
     assert_eq!(vec, [(a, b), (a, d), (b, c), (c, a)]);
 
     let mut vec = Vec::new();
-    recz_algo::visit_transitions(e, |source, _transition, target| {
+    recz_algo::visit_edges(e, |source, _, target| {
         vec.push((source, target));
         Recurse
     });
@@ -103,7 +103,7 @@ fn for_each_transition() {
 }
 
 #[test]
-fn for_each_transition_in_tree() {
+fn for_each_edge_in_tree() {
     let gr = Graph::new();
     let a = gr.node();
     let b = gr.node();
@@ -123,7 +123,7 @@ fn for_each_transition_in_tree() {
     e.connect(g);
 
     let mut vec = Vec::new();
-    recz_algo::visit_transitions(a, |source, _, target| {
+    recz_algo::visit_edges(a, |source, _, target| {
         vec.push((source, target));
         if target == b { Continue } else { Recurse }
     });
@@ -131,7 +131,7 @@ fn for_each_transition_in_tree() {
     assert_eq!(vec, [(a, b), (a, c)]);
 
     let mut vec = Vec::new();
-    recz_algo::visit_transitions(a, |source, _, target| {
+    recz_algo::visit_edges(a, |source, _, target| {
         vec.push((source, target));
         if target == e { Continue } else { Recurse }
     });

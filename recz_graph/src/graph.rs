@@ -1,16 +1,16 @@
+use crate::edge::{Edge, EdgeInner};
 use crate::node::{Node, NodeInner, NodePtr};
 use crate::tag::Group;
-use crate::transition::{TransInner, Transition};
 use bumpish::BumpVec;
 use recz_adt::{Map, Set};
 use std::cell::Cell;
 use std::fmt::Write;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-/// Represents a graph that holds nodes and transitions.
+/// Represents a graph that holds nodes and edges between them.
 ///
-/// A graph can creates nodes, transitions (via [`Node`]'s API) and capturing
-/// groups.
+/// A graph can creates nodes, edges (via [`Node`]'s API) and capturing groups.
 ///
 /// A graph contains only one start node, that you can get via
 /// [`Graph::start_node`].
@@ -22,19 +22,19 @@ use std::sync::atomic::{AtomicU32, Ordering};
 ///
 /// let graph = Graph::new();
 /// assert_eq!(graph.node_count(), 0);
-/// assert_eq!(graph.transition_count(), 0);
+/// assert_eq!(graph.edge_count(), 0);
 ///
 /// graph.node().connect(graph.node());
 /// assert_eq!(graph.node_count(), 2);
-/// assert_eq!(graph.transition_count(), 1);
+/// assert_eq!(graph.edge_count(), 1);
 /// ```
 pub struct Graph {
     gid: u32,
     next_nid: Cell<u32>,
     start_node: Cell<Option<NodePtr>>,
     bump_nodes: BumpVec<NodeInner, 0>,
-    bump_trans: BumpVec<TransInner, 0>,
-    groups: Map<String, Group>,
+    bump_edges: BumpVec<EdgeInner, 0>,
+    groups: Map<Rc<str>, Group>,
 }
 
 /// Public API
@@ -48,7 +48,7 @@ impl Graph {
     ///
     /// let graph = Graph::new();
     /// assert_eq!(graph.node_count(), 0);
-    /// assert_eq!(graph.transition_count(), 0);
+    /// assert_eq!(graph.edge_count(), 0);
     /// ```
     pub fn new() -> Self {
         static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(1);
@@ -63,7 +63,7 @@ impl Graph {
             next_nid: Cell::new(0),
             start_node: Cell::new(None),
             bump_nodes: BumpVec::new(),
-            bump_trans: BumpVec::new(),
+            bump_edges: BumpVec::new(),
             groups: Map::new(),
         }
     }
@@ -148,17 +148,26 @@ impl Graph {
         }
     }
 
-    /// TODO: complete the comment.
-    ///
     /// Creates a new group with the given label, or returns an existing group
-    /// with the same label.
+    /// with the same label.o
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use recz_graph::Graph;
+    /// let graph = Graph::new();
+    /// let group = graph.group("foo");
+    /// assert_eq!(group.label(), "foo");
+    /// assert_eq!(group.id(), 0);
+    /// ```
     pub fn group(&self, label: &str) -> &Group {
+        let label = Rc::from(label);
         let Ok(id) = self.groups.len().try_into() else {
             panic!()
         };
-        let group = Group::new(id, label.to_string());
+        let group = Group::new(id, Rc::clone(&label));
         self.groups
-            .insert(label.to_string(), group)
+            .insert(label, group)
             .expect("group label already exists")
     }
 
@@ -182,7 +191,7 @@ impl Graph {
         self.bump_nodes.len()
     }
 
-    /// Returns a number of transitions between nodes belonging to this graph.
+    /// Returns a number of edges between nodes belonging to this graph.
     ///
     /// # Examples
     ///
@@ -193,25 +202,25 @@ impl Graph {
     ///
     /// graph.node();
     /// graph.node();
-    /// assert_eq!(graph.transition_count(), 0);
+    /// assert_eq!(graph.edge_count(), 0);
     ///
     /// graph.node().connect(graph.node());
-    /// assert_eq!(graph.transition_count(), 1);
+    /// assert_eq!(graph.edge_count(), 1);
     /// ```
     #[inline]
-    pub fn transition_count(&self) -> usize {
-        self.bump_trans.len()
+    pub fn edge_count(&self) -> usize {
+        self.bump_edges.len()
     }
 }
 
 /// Private API
 impl Graph {
-    /// Creates a new transition.
+    /// Creates a new edge.
     ///
     /// This method is not available for external use. Use [`Node::connect`] instead.
-    pub(crate) fn transition(&self) -> Transition<'_> {
-        let tr_ref = self.bump_trans.push(Transition::new_inner());
-        Transition::from(tr_ref)
+    pub(crate) fn edge(&self) -> Edge<'_> {
+        let edge_ref = self.bump_edges.push(Edge::new_inner());
+        Edge::from(edge_ref)
     }
 }
 

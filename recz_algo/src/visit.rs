@@ -1,9 +1,22 @@
 use recz_adt::Set;
-use recz_graph::{Node, Transition};
+use recz_graph::{Edge, Node};
 
+/// The result of a visit action that is run within a [`visit_nodes`] or
+/// [`visit_edges`] call.
+///
+/// Returning `VisitResult` action says to visit algorithm in the following way:
+///
+/// - `Stop` — stop visiting nodes immediately.
+/// - `Continue` — don't visit children, but continue visiting siblings.
+/// - `Recurse` — first visit children, then siblings.
 pub enum VisitResult {
+    /// Stop visiting nodes immediately.
     Stop,
+
+    /// Don't visit children, but continue visiting siblings.
     Continue,
+
+    /// First visit children, then siblings.
     Recurse,
 }
 
@@ -14,13 +27,12 @@ use VisitResult::*;
 ///
 /// The `action` should return `true` if the node's children should be visited,
 /// and `false` otherwise. So, `action` is called for `start_node` at least.
-pub fn visit_nodes<'n, A>(start_node: Node<'n>, action: A)
+pub fn visit_nodes<'n, A>(start_node: Node<'n>, mut action: A)
 where
     A: FnMut(Node<'n>) -> VisitResult,
 {
-    let mut action = action;
     let visited = Set::default();
-    let mut unvisited = Vec::default();
+    let mut unvisited = Vec::with_capacity(32);
     unvisited.push(start_node);
     while let Some(node) = unvisited.pop() {
         visited.insert(node);
@@ -38,24 +50,22 @@ where
     }
 }
 
-/// Recursively visit all transitions in breadth-first order in the graph
-/// starting from the `start_node`, applying the given `action` to each
-/// transition.
+/// Recursively visit all edges in breadth-first order in the graph starting
+/// from the `start_node`, applying the given `action` to each edge.
 ///
-/// The `action` should return `true` if you want to visit transitions of the
-/// current target node. Otherwise, the transitions will be skipped.
-pub fn visit_transitions<'n, A>(start_node: Node<'n>, action: A)
+/// The `action` should return `true` if you want to visit edges of the current
+/// target node. Otherwise, the edges will be skipped.
+pub fn visit_edges<'n, A>(start_node: Node<'n>, mut action: A)
 where
-    A: FnMut(Node<'n>, Transition<'n>, Node<'n>) -> VisitResult,
+    A: FnMut(Node<'n>, Edge<'n>, Node<'n>) -> VisitResult,
 {
-    let mut action = action;
     let visited = Set::default();
     let mut unvisited = Vec::new();
     unvisited.push(start_node);
     while let Some(node) = unvisited.pop() {
         visited.insert(node);
-        for (tr, target) in node.targets() {
-            match action(node, tr, target) {
+        for (edge, target) in node.targets() {
+            match action(node, edge, target) {
                 Stop => return,
                 Continue => continue,
                 Recurse => {

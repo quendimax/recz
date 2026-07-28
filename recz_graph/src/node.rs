@@ -1,5 +1,5 @@
+use crate::edge::{Edge, TransPtr};
 use crate::graph::Graph;
-use crate::transition::{TransPtr, Transition};
 use recz_adt::Map;
 use std::cell::Cell;
 use std::fmt::Write;
@@ -70,52 +70,47 @@ impl<'a> Node<'a> {
         unsafe { self.0.graph.as_ref() }
     }
 
-    /// Creates a new empty transition between two nodes. You can fill the
-    /// transition with symbols later.
-    ///
-    /// Specifying instruction is mandatory. If there is no instruction for the
-    /// transition use [`nop`].
-    ///
-    /// [`nop`]: crate::isa::Inst::Nop
-    pub fn connect(&self, to: Node<'a>) -> Transition<'a> {
+    /// Creates a new empty edge between two nodes. You can fill the edge with
+    /// symbols and tags later.
+    pub fn connect(&self, to: Node<'a>) -> Edge<'a> {
         assert_eq!(
             self.gid(),
             to.gid(),
             "only nodes belonging to the same graph can be joined"
         );
-        if let Some(tr) = self.0.targets.get(&to.as_ptr()) {
-            Transition::from(unsafe { tr.as_ref() })
+        if let Some(edge) = self.0.targets.get(&to.as_ptr()) {
+            Edge::from(unsafe { edge.as_ref() })
         } else {
-            let tr = self.graph().transition();
-            self.0.targets.insert(to.as_ptr(), tr.as_ptr());
-            to.0.sources.insert(self.as_ptr(), tr.as_ptr());
-            tr
+            let edge = self.graph().edge();
+            self.0.targets.insert(to.as_ptr(), edge.as_ptr());
+            to.0.sources.insert(self.as_ptr(), edge.as_ptr());
+            edge
         }
     }
 
     /// Returns an iterator over target nodes, i.e. nodes that this node has
     /// transitions to.
     ///
-    /// This iterator walks over pairs `(Transition<'a>, Node<'a>)`.
+    /// This iterator walks over pairs `(Edge<'a>, Node<'a>)`.
     #[inline]
-    pub fn targets(&self) -> impl Iterator<Item = (Transition<'a>, Node<'a>)> {
+    pub fn targets(&self) -> impl Iterator<Item = (Edge<'a>, Node<'a>)> {
         self.0.targets.iter().map(|(to, tr)| {
             let node = Node::from(unsafe { to.as_ref() });
-            let tr = Transition::from(unsafe { tr.as_ref() });
-            (tr, node)
+            let edge = Edge::from(unsafe { tr.as_ref() });
+            (edge, node)
         })
     }
 
     /// Returns an iterator over target nodes, i.e. nodes that this node has
-    /// transitions to.
+    /// transitions from.
     ///
-    /// This iterator walks over pairs `(Node<'a>, Transition<'a>)`.
+    /// This iterator walks over pairs `(Node<'a>, Edge<'a>)`.
     #[inline]
-    pub fn sources(&self) -> impl Iterator<Item = (Node<'a>, Transition<'a>)> {
-        self.0.sources.iter().map(|(to, tr)| {
+    pub fn sources(&self) -> impl Iterator<Item = (Node<'a>, Edge<'a>)> {
+        self.0.sources.iter().map(|(to, edge)| {
             let node = Node::from(unsafe { to.as_ref() });
-            let tr = Transition::from(unsafe { tr.as_ref() });
-            (node, tr)
+            let edge = Edge::from(unsafe { edge.as_ref() });
+            (node, edge)
         })
     }
 }
