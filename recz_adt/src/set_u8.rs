@@ -561,6 +561,7 @@ impl std::convert::From<std::ops::RangeInclusive<u8>> for SetU8 {
 }
 
 impl std::convert::From<RangeU8> for SetU8 {
+    #[inline]
     fn from(value: RangeU8) -> Self {
         Self::from(&value)
     }
@@ -578,30 +579,15 @@ impl std::convert::From<&RangeU8> for SetU8 {
         let ms_index = chunk_index(range.last());
 
         let result = Self::new();
-        unsafe {
-            match ms_index - ls_index {
-                0 => {
-                    let mask = ls_mask & ms_mask;
-                    result.bitmap.get_unchecked(ls_index).set(mask);
-                }
-                1 => {
-                    result.bitmap.get_unchecked(ls_index).set(ls_mask);
-                    result.bitmap.get_unchecked(ls_index + 1).set(ms_mask);
-                }
-                2 => {
-                    result.bitmap.get_unchecked(ls_index).set(ls_mask);
-                    result.bitmap.get_unchecked(ls_index + 1).set(Chunk::MAX);
-                    result.bitmap.get_unchecked(ls_index + 2).set(ms_mask);
-                }
-                3 => {
-                    result.bitmap.get_unchecked(0).set(ls_mask);
-                    result.bitmap.get_unchecked(1).set(Chunk::MAX);
-                    result.bitmap.get_unchecked(2).set(Chunk::MAX);
-                    result.bitmap.get_unchecked(3).set(ms_mask);
-                }
-                _ => std::hint::unreachable_unchecked(),
-            };
-        };
+        if ls_index == ms_index {
+            result.bitmap[ms_index].set(ls_mask & ms_mask);
+        } else {
+            result.bitmap[ls_index].set(ls_mask);
+            result.bitmap[ms_index].set(ms_mask);
+            for i in 0..ms_index - ls_index - 1 {
+                result.bitmap[ls_index + i + 1].set(Chunk::MAX);
+            }
+        }
         result
     }
 }
