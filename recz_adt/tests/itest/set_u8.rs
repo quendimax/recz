@@ -521,7 +521,7 @@ fn set_u8_ranges_across_chunk_boundary() {
     // chunk 1 (bytes 64-127). The per-chunk iterator yields two separate ranges.
     let set = SetU8::from(62u8..=65u8);
     let v: Vec<RangeU8> = set.ranges().collect();
-    assert_eq!(v, [RangeU8::new(62, 63), RangeU8::new(64, 65)]);
+    assert_eq!(v, [RangeU8::new(62, 65)]);
     assert_eq!(set.len(), 4);
 }
 
@@ -533,12 +533,9 @@ fn set_u8_ranges_all_chunk_boundaries() {
     assert_eq!(
         v,
         [
-            RangeU8::new(63, 63),
-            RangeU8::new(64, 64),
-            RangeU8::new(127, 127),
-            RangeU8::new(128, 128),
-            RangeU8::new(191, 191),
-            RangeU8::new(192, 192),
+            RangeU8::new(63, 64),
+            RangeU8::new(127, 128),
+            RangeU8::new(191, 192),
         ]
     );
 }
@@ -821,14 +818,7 @@ fn set_u8_full_iter_covers_all_bytes() {
 #[test]
 fn set_u8_full_ranges_is_single_span() {
     let v: Vec<RangeU8> = SetU8::full().ranges().collect();
-    // The bitmap iterator splits at chunk boundaries, but every boundary pair
-    // is adjacent (steps_between == 1), so Display merges them. The ranges()
-    // iterator itself still yields per-chunk slices — there are 4 chunks.
-    assert_eq!(v.len(), 4);
-    assert_eq!(v[0], RangeU8::new(0, 63));
-    assert_eq!(v[1], RangeU8::new(64, 127));
-    assert_eq!(v[2], RangeU8::new(128, 191));
-    assert_eq!(v[3], RangeU8::new(192, 255));
+    assert_eq!(v[0], RangeU8::new(0, 255));
 }
 
 #[test]

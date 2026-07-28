@@ -117,12 +117,7 @@ fn tr_ranges() {
     );
     assert_eq!(
         ranges(u64::MAX, u64::MAX, u64::MAX, u64::MAX),
-        vec([
-            range(0, 63),
-            range(64, 127),
-            range(128, 191),
-            range(192, 255)
-        ])
+        vec([range(0, 255)])
     );
     assert_eq!(ranges(1, 0, 0, 0), vec([single(0)]));
     assert_eq!(
@@ -131,11 +126,11 @@ fn tr_ranges() {
     );
     assert_eq!(
         ranges(0x8000000000000001, 0x8000000000000001, 0, 0),
-        vec([single(0), single(63), single(64), single(127)])
+        vec([single(0), range(63, 64), single(127)])
     );
     assert_eq!(
         ranges(0xC000000000000007, 0x1F000001, 0, 0),
-        vec([range(0, 2), range(62, 63), single(64), range(88, 92)])
+        vec([range(0, 2), range(62, 64), range(88, 92)])
     );
 
     handle_epsilon(|tr| assert_eq!(tr.ranges().next(), None));
@@ -303,7 +298,7 @@ fn tr_debug_fmt() {
     assert_eq!(tr(b"abc"), "[97-99]");
     assert_eq!(tr(b"abc"), "[97-99]");
     assert_eq!(tr(b"abcE"), "[69 | 97-99]");
-    assert_eq!(tr(b"?@"), "[63 | 64]");
+    assert_eq!(tr(b"?@"), "[63-64]");
 
     handle_tr(|tr| {
         tr.add_symbols(range(2, 4));
@@ -316,8 +311,8 @@ fn tr_debug_fmt() {
 fn tr_debug_fmt_with_epsilon() {
     handle_epsilon(|tr| assert_eq!(format!("{tr:?}"), "[Epsilon]"));
     handle_tr_from_symbols(b"?@ABC", |tr| {
-        assert_eq!(format!("{tr:?}"), "[63 | 64-67]");
+        assert_eq!(format!("{tr:?}"), "[63-67]");
         tr.add_symbol(u8::MAX);
-        assert_eq!(format!("{tr:?}"), "[63 | 64-67 | 255]");
+        assert_eq!(format!("{tr:?}"), "[63-67 | 255]");
     });
 }

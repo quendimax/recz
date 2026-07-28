@@ -1,8 +1,8 @@
-use crate::{Legible, RangeU8, Step};
+use crate::{Legible, RangeU8};
 use std::cell::Cell;
 use std::fmt::Write;
 
-type Chunk = u64;
+type Chunk = usize;
 
 /// Number of bits that are needed to represent how many separate bits the chunk
 /// can hold. E.g. for 64-bit chunks, this is 6.
@@ -35,6 +35,9 @@ pub struct SetU8 {
 }
 
 impl SetU8 {
+    /// The number of chunks in the bitmap.
+    pub const CHUNKS: usize = BITMAP_LEN;
+
     /// Creates a new empty byte set.
     ///
     /// Because of the set uses a fixed-size bitmap under the hood, the capacity
@@ -51,7 +54,7 @@ impl SetU8 {
     #[inline]
     pub const fn new() -> Self {
         Self {
-            bitmap: [Cell::new(0), Cell::new(0), Cell::new(0), Cell::new(0)],
+            bitmap: [const { Cell::new(0) }; BITMAP_LEN],
         }
     }
 
@@ -67,12 +70,7 @@ impl SetU8 {
     #[inline]
     pub fn full() -> Self {
         Self {
-            bitmap: [
-                Cell::new(Chunk::MAX),
-                Cell::new(Chunk::MAX),
-                Cell::new(Chunk::MAX),
-                Cell::new(Chunk::MAX),
-            ],
+            bitmap: [const { Cell::new(Chunk::MAX) }; BITMAP_LEN],
         }
     }
 
@@ -670,36 +668,25 @@ impl std::ops::Not for SetU8 {
 
     #[inline]
     fn not(self) -> Self {
-        Self {
-            bitmap: [
-                Cell::new(!self.bitmap[0].get()),
-                Cell::new(!self.bitmap[1].get()),
-                Cell::new(!self.bitmap[2].get()),
-                Cell::new(!self.bitmap[3].get()),
-            ],
+        let not_set = SetU8::new();
+        for i in 0..BITMAP_LEN {
+            not_set.bitmap[i].set(!self.bitmap[i].get());
         }
+        not_set
     }
 }
 
 impl std::fmt::Display for SetU8 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_char('[')?;
-        let mut iter = self.ranges();
-        let mut range = iter.next();
-        while let Some(cur_range) = range {
-            if let Some(next_range) = iter.next() {
-                if cur_range.last().steps_between(next_range.start()) == 1 {
-                    range = Some(RangeU8::new(cur_range.start(), next_range.last()));
-                    continue;
-                } else {
-                    std::fmt::Display::fmt(&cur_range.display(), f)?;
-                    f.write_str(" | ")?;
-                    range = Some(next_range);
-                }
+        let mut first = true;
+        for range in self.ranges() {
+            if first {
+                first = false;
             } else {
-                std::fmt::Display::fmt(&cur_range.display(), f)?;
-                break;
+                f.write_str(" | ")?;
             }
+            std::fmt::Display::fmt(&range.display(), f)?;
         }
         f.write_char(']')
     }
@@ -750,24 +737,25 @@ impl std::iter::Iterator for ByteIter {
 pub struct RangeIter {
     set: SetU8,
     shift: u32,
+    range: Option<RangeU8>,
 }
 
 impl RangeIter {
     fn new(set: SetU8) -> Self {
-        Self { set, shift: 0 }
+        Self {
+            set,
+            shift: 0,
+            range: None,
+        }
     }
 
     /// Consumes this iterator, returning the underlying [`SetU8`].
     pub fn into_set(self) -> SetU8 {
         self.set
     }
-}
-
-impl std::iter::Iterator for RangeIter {
-    type Item = RangeU8;
 
     #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next_internal(&mut self) -> Option<RangeU8> {
         while self.shift < BITMAP_WIDTH {
             let chunk_index = chunk_index(self.shift as u8);
             let mut chunk = self.set.bitmap[chunk_index].get();
@@ -792,5 +780,23 @@ impl std::iter::Iterator for RangeIter {
             break;
         }
         None
+    }
+}
+
+impl std::iter::Iterator for RangeIter {
+    type Item = RangeU8;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut range = self.range.take().or_else(|| self.next_internal())?;
+        while let Some(next_range) = self.next_internal() {
+            if range.adjoins(&next_range) {
+                range = range.merge(&next_range);
+            } else {
+                self.range = Some(next_range);
+                break;
+            }
+        }
+        Some(range)
     }
 }
