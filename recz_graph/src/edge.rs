@@ -2,7 +2,6 @@ use crate::tag::Tag;
 use recz_adt::{ByteIter, Legible, RangeIter, RangeU8, Set, SetU8, Step};
 use std::fmt::Write;
 use std::iter::Iterator;
-use std::ptr::NonNull;
 
 /// Edge is a transition from one node to another that contains symbols and
 /// tags. The symbols are bytes. If the edge doesn't have any symbols it is
@@ -12,33 +11,17 @@ use std::ptr::NonNull;
 ///
 /// The struct itself is hold in the heap. The `Edge` is a thin wrapper around
 /// reference to the struct. So it can be cheaply copied, and the new copies are
-/// just new references to the same data.
+/// just new references to the same data
 pub struct Edge<'a>(&'a EdgeInner);
-
-pub(crate) type TransPtr = NonNull<EdgeInner>;
 
 pub(crate) struct EdgeInner {
     symbols: SetU8,
     tags: Set<Tag>,
 }
 
-/// Crate API
-impl<'a> Edge<'a> {
-    /// Creates a new empty edge.
-    #[inline(always)]
-    pub(crate) fn new_inner() -> EdgeInner {
-        EdgeInner {
-            symbols: SetU8::new(),
-            tags: Set::new(),
-        }
-    }
+pub(crate) type EdgePtr = core::ptr::NonNull<EdgeInner>;
 
-    #[inline(always)]
-    pub(crate) fn as_ptr(&self) -> TransPtr {
-        NonNull::from(self.0)
-    }
-}
-
+/// Public API
 impl<'a> Edge<'a> {
     /// Checks if these edges are two references to the same edge.
     #[inline]
@@ -110,18 +93,24 @@ impl<'a> Edge<'a> {
     }
 }
 
+/// Private API
+impl<'a> Edge<'a> {
+    pub(crate) fn from_ref(edge_ref: &'a EdgeInner) -> Self {
+        Self(edge_ref)
+    }
+
+    #[inline(always)]
+    pub(crate) fn as_ptr(&self) -> EdgePtr {
+        EdgePtr::from(self.0)
+    }
+}
+
 impl Copy for Edge<'_> {}
 
 impl Clone for Edge<'_> {
     #[inline]
     fn clone(&self) -> Self {
         *self
-    }
-}
-
-impl<'a> std::convert::From<&'a EdgeInner> for Edge<'a> {
-    fn from(inner: &'a EdgeInner) -> Self {
-        Self(inner)
     }
 }
 
@@ -207,3 +196,14 @@ impl_fmt!(std::fmt::Binary);
 impl_fmt!(std::fmt::Octal);
 impl_fmt!(std::fmt::LowerHex);
 impl_fmt!(std::fmt::UpperHex);
+
+impl EdgeInner {
+    /// Creates a new empty edge.
+    #[inline(always)]
+    pub(crate) fn new() -> EdgeInner {
+        EdgeInner {
+            symbols: SetU8::new(),
+            tags: Set::new(),
+        }
+    }
+}

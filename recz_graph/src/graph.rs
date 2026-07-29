@@ -28,7 +28,9 @@ use std::sync::atomic::{AtomicU32, Ordering};
 /// assert_eq!(graph.node_count(), 2);
 /// assert_eq!(graph.edge_count(), 1);
 /// ```
-pub struct Graph {
+pub struct Graph(Box<GraphInner>);
+
+pub(crate) struct GraphInner {
     gid: u32,
     next_nid: Cell<u32>,
     start_node: Cell<Option<NodePtr>>,
@@ -37,9 +39,15 @@ pub struct Graph {
     groups: Map<Rc<str>, Group>,
 }
 
+pub(crate) type GraphPtr = core::ptr::NonNull<GraphInner>;
+
 /// Public API
 impl Graph {
-    /// Creates a new graph.
+    /// Creates a new graph with a unique ID (`u32`) for the current process.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the graph ID overflows.
     ///
     /// # Examples
     ///
@@ -58,14 +66,14 @@ impl Graph {
             panic!("graph id overflow");
         }
 
-        Self {
+        Self(Box::new(GraphInner {
             gid,
             next_nid: Cell::new(0),
             start_node: Cell::new(None),
             bump_nodes: BumpVec::new(),
             bump_edges: BumpVec::new(),
             groups: Map::new(),
-        }
+        }))
     }
 
     /// Unique identifier for this graph, and every node of this graph.
@@ -84,7 +92,7 @@ impl Graph {
     /// ```
     #[inline]
     pub fn gid(&self) -> u32 {
-        self.gid
+        self.0.gid
     }
 
     /// Creates a new node.
@@ -111,26 +119,29 @@ impl Graph {
     /// assert_ne!(graph.start_node().nid(), graph.node().nid());
     /// ```
     pub fn node(&self) -> Node<'_> {
-        let nid = self.next_nid.replace(
-            self.next_nid
+        let nid = self.0.next_nid.replace(
+            self.0
+                .next_nid
                 .get()
                 .checked_add(1)
                 .expect("node id overflow"),
         );
-        let node_ref = self.bump_nodes.push(Node::new_inner(self, self.gid, nid));
+        let node_ref = self
+            .0
+            .bump_nodes
+            .push(NodeInner::new(self.0.as_ref(), self.0.gid, nid));
         let node_ptr = NodePtr::from(node_ref);
 
-        if self.start_node.get().is_none() {
-            self.start_node.set(Some(node_ptr));
+        if self.0.start_node.get().is_none() {
+            self.0.start_node.set(Some(node_ptr));
         }
-        Node::from(node_ref)
+        Node::from_ref(node_ref)
     }
 
     /// Returns the start node of the graph.
     ///
-    /// If the graph is empty, creates the node.
-    ///
-    /// That means that the first node always has NID 0.
+    /// If the graph is empty, creates the node. That means that the first node
+    /// always has NID `0`.
     ///
     /// # Examples
     ///
@@ -141,15 +152,15 @@ impl Graph {
     /// ```
     #[inline]
     pub fn start_node(&self) -> Node<'_> {
-        if let Some(ptr) = self.start_node.get() {
-            Node::from(unsafe { ptr.as_ref() })
+        if let Some(ptr) = self.0.start_node.get() {
+            Node::from_ref(unsafe { ptr.as_ref() })
         } else {
             self.node()
         }
     }
 
     /// Creates a new group with the given label, or returns an existing group
-    /// with the same label.o
+    /// with the same label.
     ///
     /// # Examples
     ///
@@ -161,12 +172,17 @@ impl Graph {
     /// assert_eq!(group.id(), 0);
     /// ```
     pub fn group(&self, label: &str) -> &Group {
+        if let Some(group) = self.0.groups.get(label) {
+            return group;
+        }
+
         let label = Rc::from(label);
-        let Ok(id) = self.groups.len().try_into() else {
-            panic!()
+        let Ok(id) = self.0.groups.len().try_into() else {
+            panic!("group id overflow");
         };
         let group = Group::new(id, Rc::clone(&label));
-        self.groups
+        self.0
+            .groups
             .insert(label, group)
             .expect("group label already exists")
     }
@@ -188,7 +204,7 @@ impl Graph {
     /// ```
     #[inline]
     pub fn node_count(&self) -> usize {
-        self.bump_nodes.len()
+        self.0.bump_nodes.len()
     }
 
     /// Returns a number of edges between nodes belonging to this graph.
@@ -209,18 +225,37 @@ impl Graph {
     /// ```
     #[inline]
     pub fn edge_count(&self) -> usize {
-        self.bump_edges.len()
+        self.0.bump_edges.len()
+    }
+
+    /// Returns a number of groups in this graph.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use recz_graph::Graph;
+    ///
+    /// let graph = Graph::new();
+    ///
+    /// assert_eq!(graph.group_count(), 0);
+    ///
+    /// graph.group("foo");
+    /// assert_eq!(graph.group_count(), 1);
+    /// ```
+    #[inline]
+    pub fn group_count(&self) -> usize {
+        self.0.groups.len()
     }
 }
 
 /// Private API
-impl Graph {
+impl GraphInner {
     /// Creates a new edge.
     ///
     /// This method is not available for external use. Use [`Node::connect`] instead.
     pub(crate) fn edge(&self) -> Edge<'_> {
-        let edge_ref = self.bump_edges.push(Edge::new_inner());
-        Edge::from(edge_ref)
+        let edge_ref = self.bump_edges.push(EdgeInner::new());
+        Edge::from_ref(edge_ref)
     }
 }
 
@@ -244,7 +279,7 @@ macro_rules! impl_fmt {
                         }
                     }
                 }
-                if self.start_node.get().is_none() {
+                if self.0.start_node.get().is_none() {
                     return Ok(());
                 }
                 let start_node = self.start_node();

@@ -1,10 +1,9 @@
-use crate::edge::{Edge, TransPtr};
-use crate::graph::Graph;
+use crate::edge::{Edge, EdgePtr};
+use crate::graph::{GraphInner, GraphPtr};
 use recz_adt::Map;
 use std::cell::Cell;
 use std::fmt::Write;
 use std::iter::Iterator;
-use std::ptr::NonNull;
 
 /// Node for an NFA graph.
 ///
@@ -12,22 +11,18 @@ use std::ptr::NonNull;
 /// another node via [`Transition`]'s.
 pub struct Node<'a>(&'a NodeInner);
 
-pub(crate) type NodePtr = NonNull<NodeInner>;
-pub(crate) type GraphPtr = NonNull<Graph>;
-
 pub(crate) struct NodeInner {
     uid: u64,
     is_final: Cell<bool>,
-    sources: Map<NodePtr, TransPtr>,
-    targets: Map<NodePtr, TransPtr>,
-    graph: GraphPtr,
+    sources: Map<NodePtr, EdgePtr>,
+    targets: Map<NodePtr, EdgePtr>,
+    graph_ptr: GraphPtr,
 }
+
+pub(crate) type NodePtr = core::ptr::NonNull<NodeInner>;
 
 /// Public API
 impl<'a> Node<'a> {
-    pub(crate) const ID_MASK: u64 = (1 << (u64::BITS / 2)) - 1;
-    pub(crate) const ID_BITS: u32 = u64::BITS / 2;
-
     /// Returns the node's identifier that is unique within its owner.
     #[inline]
     pub fn nid(&self) -> u32 {
@@ -64,12 +59,6 @@ impl<'a> Node<'a> {
         *self
     }
 
-    /// Arena owner of this node.
-    #[inline]
-    pub fn graph(&self) -> &'a Graph {
-        unsafe { self.0.graph.as_ref() }
-    }
-
     /// Creates a new empty edge between two nodes. You can fill the edge with
     /// symbols and tags later.
     pub fn connect(&self, to: Node<'a>) -> Edge<'a> {
@@ -79,9 +68,9 @@ impl<'a> Node<'a> {
             "only nodes belonging to the same graph can be joined"
         );
         if let Some(edge) = self.0.targets.get(&to.as_ptr()) {
-            Edge::from(unsafe { edge.as_ref() })
+            Edge::from_ref(unsafe { edge.as_ref() })
         } else {
-            let edge = self.graph().edge();
+            let edge = self.0.graph_inner().edge();
             self.0.targets.insert(to.as_ptr(), edge.as_ptr());
             to.0.sources.insert(self.as_ptr(), edge.as_ptr());
             edge
@@ -95,8 +84,8 @@ impl<'a> Node<'a> {
     #[inline]
     pub fn targets(&self) -> impl Iterator<Item = (Edge<'a>, Node<'a>)> {
         self.0.targets.iter().map(|(to, tr)| {
-            let node = Node::from(unsafe { to.as_ref() });
-            let edge = Edge::from(unsafe { tr.as_ref() });
+            let node = Node::from_ref(unsafe { to.as_ref() });
+            let edge = Edge::from_ref(unsafe { tr.as_ref() });
             (edge, node)
         })
     }
@@ -108,29 +97,45 @@ impl<'a> Node<'a> {
     #[inline]
     pub fn sources(&self) -> impl Iterator<Item = (Node<'a>, Edge<'a>)> {
         self.0.sources.iter().map(|(to, edge)| {
-            let node = Node::from(unsafe { to.as_ref() });
-            let edge = Edge::from(unsafe { edge.as_ref() });
+            let node = Node::from_ref(unsafe { to.as_ref() });
+            let edge = Edge::from_ref(unsafe { edge.as_ref() });
             (node, edge)
         })
     }
 }
 
-/// Crate API
+/// Private API
 impl<'a> Node<'a> {
+    pub(crate) const ID_MASK: u64 = (1 << (u64::BITS / 2)) - 1;
+    pub(crate) const ID_BITS: u32 = u64::BITS / 2;
+
+    pub(crate) fn from_ref(inner: &'a NodeInner) -> Self {
+        Self(inner)
+    }
+
+    pub(crate) fn as_ptr(&self) -> NodePtr {
+        NodePtr::from(self.0)
+    }
+}
+
+/// Crate API
+impl NodeInner {
     #[inline(always)]
-    pub(crate) fn new_inner(graph: &'a Graph, gid: u32, nid: u32) -> NodeInner {
+    pub(crate) fn new(graph: &GraphInner, gid: u32, nid: u32) -> NodeInner {
         let uid = ((gid as u64) << Node::ID_BITS) | nid as u64;
         NodeInner {
             uid,
             is_final: Cell::new(false),
             sources: Default::default(),
             targets: Default::default(),
-            graph: NonNull::from(graph),
+            graph_ptr: GraphPtr::from(graph),
         }
     }
 
-    pub(crate) fn as_ptr(&self) -> NodePtr {
-        NodePtr::from(self.0)
+    /// Arena owner of this node.
+    #[inline]
+    fn graph_inner<'a>(&self) -> &'a GraphInner {
+        unsafe { self.graph_ptr.as_ref() }
     }
 }
 
@@ -165,12 +170,6 @@ impl std::cmp::PartialOrd for Node<'_> {
 impl std::hash::Hash for Node<'_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.uid().hash(state)
-    }
-}
-
-impl<'a> std::convert::From<&'a NodeInner> for Node<'a> {
-    fn from(inner: &'a NodeInner) -> Self {
-        Self(inner)
     }
 }
 
