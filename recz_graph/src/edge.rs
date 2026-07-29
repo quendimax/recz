@@ -11,7 +11,7 @@ use std::iter::Iterator;
 ///
 /// The struct itself is hold in the heap. The `Edge` is a thin wrapper around
 /// reference to the struct. So it can be cheaply copied, and the new copies are
-/// just new references to the same data
+/// just new references to the same data.
 pub struct Edge<'a>(&'a EdgeInner);
 
 pub(crate) struct EdgeInner {
@@ -19,53 +19,105 @@ pub(crate) struct EdgeInner {
     tags: Set<Tag>,
 }
 
+/// NullPtr over `EdgeInner`.
 pub(crate) type EdgePtr = core::ptr::NonNull<EdgeInner>;
 
 /// Public API
 impl<'a> Edge<'a> {
     /// Checks if these edges are two references to the same edge.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use recz_graph::Graph;
+    /// let graph = Graph::new();
+    /// let node_a = graph.node();
+    /// let node_b = graph.node();
+    /// assert!(node_a.connect(node_b).is(node_a.connect(node_b)));
+    /// assert!(!node_a.connect(node_b).is(node_b.connect(node_a)));
+    /// ```
     #[inline]
     pub fn is(self, other: Self) -> bool {
         std::ptr::eq(self.0, other.0)
     }
 
+    /// Checks if this edge is an epsilon edge (contains no symbols).
+    ///
+    /// A new edge, created by [`Node::connect`], is an epsilon edge. As you add
+    /// symbols to the edge, it becomes a non-epsilon edge.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use recz_graph::Graph;
+    /// let gr = Graph::new();
+    /// let edge = gr.node().connect(gr.node());
+    /// assert!(edge.is_epsilon());
+    /// edge.add_symbol(3);
+    /// assert!(!edge.is_epsilon());
+    /// ```
     #[inline]
     pub fn is_epsilon(&self) -> bool {
         self.0.symbols.is_empty()
     }
 
-    /// Returns an iterator over all symbols (bytes) in this edge.
-    pub fn symbols(&self) -> ByteIter {
-        self.0.symbols.iter()
-    }
-
-    /// Returns iterator over all symbol ranges in this edge instance in
-    /// ascendent order.
-    pub fn ranges(&self) -> RangeIter {
-        self.0.symbols.ranges()
-    }
-
-    #[inline]
-    pub fn tags(&self) -> impl Iterator<Item = Tag> {
-        self.0.tags.iter().copied()
-    }
-
     /// Adds a tag to this edge.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use recz_graph::Graph;
+    /// let gr = Graph::new();
+    /// let edge = gr.node().connect(gr.node());
+    /// edge.add_tag(gr.group("0").open_tag());
+    /// ```
     pub fn add_tag(&self, tag: Tag) {
         self.0.tags.insert(tag);
     }
 
     /// Adds a symbol to this edge.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use recz_graph::Graph;
+    /// let gr = Graph::new();
+    /// let edge = gr.node().connect(gr.node());
+    /// edge.add_symbol(3);
+    /// ```
     pub fn add_symbol(&self, symbol: u8) {
         self.0.symbols.insert(symbol);
     }
 
-    /// Adds symbols to this edge.
+    /// Adds a symbol collection to this edge.
+    ///
+    /// The `symbols` parameter is a symbol collection that is covertible into a
+    /// [`SetU8`]. For now, these are [`RangeU8`], [`RangeInclusive<u8>`],
+    /// `[u8]`, or just `u8`.
+    ///
+    /// ```
+    /// # use recz_graph::Graph;
+    /// let gr = Graph::new();
+    /// let edge = gr.node().connect(gr.node());
+    /// edge.add_symbols(0..=10);
+    /// edge.add_symbols([30, 40, 50]);
+    /// ```
     pub fn add_symbols(&self, symbols: impl Into<SetU8>) {
         self.0.symbols.insert_bytes(symbols);
     }
 
     /// Returns whether this edge contains the given symbol.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use recz_graph::Graph;
+    /// let gr = Graph::new();
+    /// let edge = gr.node().connect(gr.node());
+    /// edge.add_symbols(0..=10);
+    /// assert!(edge.contains_symbol(5));
+    /// assert!(!edge.contains_symbol(20));
+    /// ```
     pub fn contains_symbol(&self, symbol: u8) -> bool {
         self.0.symbols.contains(symbol)
     }
@@ -76,6 +128,20 @@ impl<'a> Edge<'a> {
     }
 
     /// Returns whether this edge contains the given tag.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use recz_graph::Graph;
+    /// use recz_graph::Tag;
+    ///
+    /// let gr = Graph::new();
+    /// let edge = gr.node().connect(gr.node());
+    /// edge.add_tag(Tag::Open(0));
+    ///
+    /// assert!(edge.contains_tag(Tag::Open(0)));
+    /// assert!(!edge.contains_tag(Tag::Close(0)));
+    /// ```
     pub fn contains_tag(&self, tag: Tag) -> bool {
         self.0.tags.contains(&tag)
     }
@@ -90,6 +156,63 @@ impl<'a> Edge<'a> {
 
     pub fn intersects(&self, other: Self) -> bool {
         !self.0.symbols.is_disjoint(&other.0.symbols) || !self.0.tags.is_disjoint(&other.0.tags)
+    }
+
+    /// Returns an iterator over all symbols (bytes) in this edge in ascending
+    /// order.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use recz_graph::Graph;
+    /// let gr = Graph::new();
+    /// let edge = gr.node().connect(gr.node());
+    /// edge.add_symbols([1, 3, 4]);
+    /// assert_eq!(edge.symbols().collect::<Vec<_>>(), [1, 3, 4]);
+    /// ```
+    pub fn symbols(&self) -> ByteIter {
+        self.0.symbols.iter()
+    }
+
+    /// Returns iterator over all symbol ranges in this edge in ascendent order.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use recz_adt::RangeU8;
+    /// use recz_graph::Graph;
+    ///
+    /// let gr = Graph::new();
+    /// let edge = gr.node().connect(gr.node());
+    /// edge.add_symbols([1, 3, 4, 5]);
+    /// assert_eq!(
+    ///     edge.ranges().collect::<Vec<_>>(),
+    ///     [RangeU8::new(1, 1), RangeU8::new(3, 5)],
+    /// );
+    /// ```
+    pub fn ranges(&self) -> RangeIter {
+        self.0.symbols.ranges()
+    }
+
+    /// Returns an iterator over all tags in this edge.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use recz_graph::Graph;
+    /// let gr = Graph::new();
+    /// let edge = gr.node().connect(gr.node());
+    /// let group = gr.group("1");
+    /// edge.add_tag(group.open_tag());
+    /// edge.add_tag(group.close_tag());
+    /// assert_eq!(
+    ///     edge.tags().collect::<Vec<_>>(),
+    ///     [group.open_tag(), group.close_tag()],
+    /// );
+    /// ```
+    #[inline]
+    pub fn tags(&self) -> impl Iterator<Item = Tag> {
+        self.0.tags.iter().copied()
     }
 }
 

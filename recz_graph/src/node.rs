@@ -7,7 +7,7 @@ use std::iter::Iterator;
 
 /// Node for an NFA graph.
 ///
-/// It contains ID (unique within its graph owner). Also it can be connected to
+/// It has an ID (unique within its graph owner). Also it can be connected to
 /// another node via [`Transition`]'s.
 pub struct Node<'a>(&'a NodeInner);
 
@@ -41,7 +41,9 @@ impl<'a> Node<'a> {
         self.0.uid
     }
 
-    /// Checks if the node is a final N/DFA state.
+    /// Checks if the node is a final NFA state.
+    ///
+    /// To change the marker, use [`Node::finalize`] or [`Node::definalize`].
     #[inline]
     pub fn is_final(&self) -> bool {
         self.0.is_final.get()

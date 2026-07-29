@@ -8,7 +8,7 @@ use std::fmt::Write;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-/// Represents a graph that holds nodes and edges between them.
+/// Represents a Tagged NFA graph that holds nodes and edges between them.
 ///
 /// A graph can creates nodes, edges (via [`Node`]'s API) and capturing groups.
 ///
