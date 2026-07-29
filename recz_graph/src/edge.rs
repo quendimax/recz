@@ -66,10 +66,11 @@ impl<'a> Edge<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use recz_graph::Graph;
+    /// use recz_graph::{Graph, Tag};
+    ///
     /// let gr = Graph::new();
     /// let edge = gr.node().connect(gr.node());
-    /// edge.add_tag(gr.group("0").open_tag());
+    /// edge.add_tag(Tag::OpenGroup(0));
     /// ```
     pub fn add_tag(&self, tag: Tag) {
         self.0.tags.insert(tag);
@@ -137,10 +138,10 @@ impl<'a> Edge<'a> {
     ///
     /// let gr = Graph::new();
     /// let edge = gr.node().connect(gr.node());
-    /// edge.add_tag(Tag::Open(0));
+    /// edge.add_tag(Tag::OpenGroup(0));
     ///
-    /// assert!(edge.contains_tag(Tag::Open(0)));
-    /// assert!(!edge.contains_tag(Tag::Close(0)));
+    /// assert!(edge.contains_tag(Tag::OpenGroup(0)));
+    /// assert!(!edge.contains_tag(Tag::CloseGroup(0)));
     /// ```
     pub fn contains_tag(&self, tag: Tag) -> bool {
         self.0.tags.contains(&tag)
@@ -199,15 +200,15 @@ impl<'a> Edge<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use recz_graph::Graph;
+    /// use recz_graph::{Graph, Tag};
+    ///
     /// let gr = Graph::new();
     /// let edge = gr.node().connect(gr.node());
-    /// let group = gr.group("1");
-    /// edge.add_tag(group.open_tag());
-    /// edge.add_tag(group.close_tag());
+    /// edge.add_tag(Tag::OpenGroup(1));
+    /// edge.add_tag(Tag::CloseGroup(1));
     /// assert_eq!(
     ///     edge.tags().collect::<Vec<_>>(),
-    ///     [group.open_tag(), group.close_tag()],
+    ///     [Tag::OpenGroup(1), Tag::CloseGroup(1)],
     /// );
     /// ```
     #[inline]

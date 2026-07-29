@@ -64,20 +64,21 @@ impl<'a> Translator<'a> {
 
     // Only this function can create a new tag
     //
-    // (○)──ε/+t0─→(○)...(○)──ε/-t0─→(○)
+    // (○)──ε/+g0─→(○)...(○)──ε/-g0─→(○)
     //
     fn translate_group(&mut self, group: &GroupHir, sub: Pair<'a>) -> Set<Tag> {
-        let tag_group = self.graph.group(group.label());
+        let open_tag = Tag::OpenGroup(group.label());
+        let close_tag = Tag::CloseGroup(group.label());
 
         let first = self.graph.node();
-        sub.first.connect(first).add_tag(tag_group.open_tag());
+        sub.first.connect(first).add_tag(open_tag);
 
         let last = self.graph.node();
-        last.connect(sub.last).add_tag(tag_group.close_tag());
+        last.connect(sub.last).add_tag(close_tag);
 
         let tags = self.translate_hir(group.inner(), pair(first, last));
-        tags.insert(tag_group.open_tag());
-        tags.insert(tag_group.close_tag());
+        tags.insert(open_tag);
+        tags.insert(close_tag);
         tags
     }
 
@@ -234,7 +235,7 @@ impl<'a> Translator<'a> {
             for (other_last, other_tags) in &branches {
                 if last != other_last {
                     for tag in other_tags {
-                        last.connect(sub.last).add_tag(tag.deleter());
+                        last.connect(sub.last).add_tag(tag.delete_group());
                         is_connected = true;
                     }
                 }

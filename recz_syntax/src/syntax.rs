@@ -262,11 +262,11 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
         self.lexer.expect(tok::l_paren_question)?;
         let l_angle = self.lexer.expect(tok::char('<'))?;
         if let Some(num) = self.try_parse_decimal()? {
-            if let Ok(num) = u32::try_from(num) {
+            if let Ok(label_num) = u32::try_from(num) {
                 self.lexer.expect(tok::char('>'))?;
                 let hir = self.parse_disjunct()?;
                 self.lexer.expect(tok::r_paren)?;
-                Ok(Hir::group(&num.to_string(), hir))
+                Ok(Hir::group(label_num, hir))
             } else {
                 let span = l_angle.span().end..self.lexer.end_pos();
                 let spell = self.lexer.slice(span.clone());

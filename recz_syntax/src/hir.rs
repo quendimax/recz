@@ -89,9 +89,9 @@ impl Hir {
         })
     }
 
-    pub fn group(label: &str, item: Hir) -> Hir {
+    pub fn group(label: u32, item: Hir) -> Hir {
         Hir::Group(GroupHir {
-            label: label.to_owned(),
+            label,
             item: Box::new(item),
         })
     }
@@ -240,7 +240,7 @@ impl RepeatHir {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupHir {
-    label: String,
+    label: u32,
     item: Box<Hir>,
 }
 
@@ -251,8 +251,8 @@ impl GroupHir {
     }
 
     #[inline]
-    pub fn label(&self) -> &str {
-        &self.label
+    pub fn label(&self) -> u32 {
+        self.label
     }
 
     #[inline]

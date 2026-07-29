@@ -1,11 +1,9 @@
 use crate::edge::{Edge, EdgeInner};
 use crate::node::{Node, NodeInner, NodePtr};
-use crate::tag::Group;
 use bumpish::BumpVec;
-use recz_adt::{Map, Set};
+use recz_adt::Set;
 use std::cell::Cell;
 use std::fmt::Write;
-use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 /// Represents a Tagged NFA graph that holds nodes and edges between them.
@@ -36,7 +34,6 @@ pub(crate) struct GraphInner {
     start_node: Cell<Option<NodePtr>>,
     bump_nodes: BumpVec<NodeInner, 0>,
     bump_edges: BumpVec<EdgeInner, 0>,
-    groups: Map<Rc<str>, Group>,
 }
 
 pub(crate) type GraphPtr = core::ptr::NonNull<GraphInner>;
@@ -72,7 +69,6 @@ impl Graph {
             start_node: Cell::new(None),
             bump_nodes: BumpVec::new(),
             bump_edges: BumpVec::new(),
-            groups: Map::new(),
         }))
     }
 
@@ -159,34 +155,6 @@ impl Graph {
         }
     }
 
-    /// Creates a new group with the given label, or returns an existing group
-    /// with the same label.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use recz_graph::Graph;
-    /// let graph = Graph::new();
-    /// let group = graph.group("foo");
-    /// assert_eq!(group.label(), "foo");
-    /// assert_eq!(group.id(), 0);
-    /// ```
-    pub fn group(&self, label: &str) -> &Group {
-        if let Some(group) = self.0.groups.get(label) {
-            return group;
-        }
-
-        let label = Rc::from(label);
-        let Ok(id) = self.0.groups.len().try_into() else {
-            panic!("group id overflow");
-        };
-        let group = Group::new(id, Rc::clone(&label));
-        self.0
-            .groups
-            .insert(label, group)
-            .expect("group label already exists")
-    }
-
     /// Returns a number of nodes belonging to this graph.
     ///
     /// It doesn't take into account if the nodes are connected.
@@ -226,25 +194,6 @@ impl Graph {
     #[inline]
     pub fn edge_count(&self) -> usize {
         self.0.bump_edges.len()
-    }
-
-    /// Returns a number of groups in this graph.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use recz_graph::Graph;
-    ///
-    /// let graph = Graph::new();
-    ///
-    /// assert_eq!(graph.group_count(), 0);
-    ///
-    /// graph.group("foo");
-    /// assert_eq!(graph.group_count(), 1);
-    /// ```
-    #[inline]
-    pub fn group_count(&self) -> usize {
-        self.0.groups.len()
     }
 }
 

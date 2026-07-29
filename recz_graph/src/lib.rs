@@ -8,7 +8,7 @@ mod node;
 pub use node::Node;
 
 mod tag;
-pub use tag::{Group, Tag};
+pub use tag::Tag;
 
 mod translator;
 pub use translator::Translator;

@@ -132,11 +132,11 @@ fn parse_named_group() {
     };
     assert_eq!(
         parse("(?<1>hello)"),
-        Ok(Hir::group("1", Hir::literal("hello")))
+        Ok(Hir::group(1, Hir::literal("hello")))
     );
     assert_eq!(
         parse("(?<12345>hello)"),
-        Ok(Hir::group("12345", Hir::literal("hello")))
+        Ok(Hir::group(12345, Hir::literal("hello")))
     );
     assert_eq!(
         parse("(?<123450000000>hello)"),

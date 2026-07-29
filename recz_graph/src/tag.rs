@@ -1,32 +1,33 @@
-use std::rc::Rc;
-
-/// Represents a tag used for marking groups in regexps.
+/// Represents tags in tagged NFA/DFA.
+///
+/// In practice, the tags are converted into actions during NFA/DFA execution,
+/// co you cann look at them as instruction of a NFA/DFA virtual machine.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Tag {
-    /// A tag used to mark the start of a group.
-    Open(u32),
-    /// A tag used to mark the end of a group.
-    Close(u32),
+    /// A tag used to mark the start of a capture group.
+    OpenGroup(u32),
+    /// A tag used to mark the end of a capture group.
+    CloseGroup(u32),
     /// A tag used to mark a group's tags for deletion.
-    Delete(u32),
+    DeleteGroup(u32),
 }
 
 impl Tag {
     /// Returns a tag that is a marker for deletion of the group associated with
-    /// this tag.
-    pub fn deleter(&self) -> Tag {
+    /// this tag's group id.
+    pub fn delete_group(&self) -> Tag {
         match self {
-            Self::Open(group_id) => Self::Delete(*group_id),
-            Self::Close(group_id) => Self::Delete(*group_id),
-            Self::Delete(group_id) => Self::Delete(*group_id),
+            Self::OpenGroup(group_id) => Self::DeleteGroup(*group_id),
+            Self::CloseGroup(group_id) => Self::DeleteGroup(*group_id),
+            Self::DeleteGroup(group_id) => Self::DeleteGroup(*group_id),
         }
     }
 
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Open(group_id) => write!(f, "+t{group_id}"),
-            Self::Close(group_id) => write!(f, "-t{group_id}"),
-            Self::Delete(group_id) => write!(f, "~t{group_id}"),
+            Self::OpenGroup(group_id) => write!(f, "+g{group_id}"),
+            Self::CloseGroup(group_id) => write!(f, "-g{group_id}"),
+            Self::DeleteGroup(group_id) => write!(f, "!g{group_id}"),
         }
     }
 }
@@ -40,45 +41,5 @@ impl std::fmt::Debug for Tag {
 impl std::fmt::Display for Tag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.fmt(f)
-    }
-}
-
-#[derive(Clone)]
-pub struct Group {
-    id: u32,
-    label: Rc<str>,
-}
-
-impl Group {
-    pub(crate) fn new(id: u32, label: Rc<str>) -> Self {
-        Self { id, label }
-    }
-
-    #[inline]
-    pub fn id(&self) -> u32 {
-        self.id
-    }
-
-    #[inline]
-    pub fn open_tag(&self) -> Tag {
-        Tag::Open(self.id)
-    }
-
-    #[inline]
-    pub fn close_tag(&self) -> Tag {
-        Tag::Close(self.id)
-    }
-
-    pub fn label(&self) -> &str {
-        &self.label
-    }
-}
-
-impl std::fmt::Debug for Group {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Group")
-            .field("id", &self.id)
-            .field("label", &self.label)
-            .finish()
     }
 }
