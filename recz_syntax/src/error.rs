@@ -41,6 +41,12 @@ pub enum Error {
 
     #[error("repetition expression `{{n,m}}` expects that `n <= m`")]
     InvalidRepetition { span: Range<usize> },
+
+    #[error("reuse group name `{group_label}` more than once is not allowed")]
+    GroupNameReuse {
+        group_label: u32,
+        span: Range<usize>,
+    },
 }
 
 impl Error {
@@ -54,6 +60,7 @@ impl Error {
             UnsupportedEscape { span, .. } => span.clone(),
             ZeroRepetition { span } => span.clone(),
             InvalidRepetition { span } => span.clone(),
+            GroupNameReuse { span, .. } => span.clone(),
         }
     }
 }
@@ -110,5 +117,9 @@ pub(crate) mod err {
 
     pub(crate) fn invalid_repetition<T>(span: Range<usize>) -> Result<T> {
         Err(Box::new(Error::InvalidRepetition { span }))
+    }
+
+    pub(crate) fn reuse_group_name<T>(group_label: u32, span: Range<usize>) -> Result<T> {
+        Err(Box::new(Error::GroupNameReuse { group_label, span }))
     }
 }

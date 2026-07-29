@@ -35,7 +35,7 @@ pub struct SetU8 {
 }
 
 impl SetU8 {
-    /// The number of chunks in the bitmap.
+    /// The number of chunks in the inner bitmap.
     pub const CHUNKS: usize = BITMAP_LEN;
 
     /// Creates a new empty byte set.

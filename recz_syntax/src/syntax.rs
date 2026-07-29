@@ -1,7 +1,7 @@
 use crate::error::{Result, err};
 use crate::hir::Hir;
 use crate::lexis::{Lexer, tok};
-use recz_adt::{RangeList, SetU8};
+use recz_adt::{RangeList, Set, SetU8};
 use recz_codec::Codec;
 
 /// A regex pattern parser that converts string patterns into high-level
@@ -61,12 +61,17 @@ impl<C: Codec> Parser<C> {
 struct ParserImpl<'s, 'c, C: Codec, const UNICODE: bool = true> {
     lexer: Lexer<'s>,
     coder: &'c C,
+    used_group_ids: Set<u32>,
 }
 
 impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     /// Creates a new parser implementation instance.
     fn new(lexer: Lexer<'s>, coder: &'c C) -> Self {
-        ParserImpl { lexer, coder }
+        ParserImpl {
+            lexer,
+            coder,
+            used_group_ids: Set::new(),
+        }
     }
 
     /// Parses the entire regex pattern and returns the resulting HIR.
@@ -140,8 +145,8 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     fn try_parse_item(&mut self) -> Result<Option<Hir>> {
         let token = self.lexer.peek();
         let mut hir = match token.kind() {
-            tok::l_paren => self.parse_group(),
-            tok::l_paren_question => self.parse_named_group(),
+            tok::l_paren => self.parse_parens(),
+            tok::l_paren_question => self.parse_group(),
             tok::dot | tok::l_square | tok::l_square_caret => self.parse_class(),
             _ => {
                 if let Some(c) = self.try_parse_term()? {
@@ -232,7 +237,7 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
         }
     }
 
-    /// Parses a group expression.
+    /// Parses parentheses.
     ///
     /// # Syntax
     ///
@@ -240,7 +245,7 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     /// group
     ///     "(" disjunct ")"
     /// ```
-    fn parse_group(&mut self) -> Result<Hir> {
+    fn parse_parens(&mut self) -> Result<Hir> {
         self.lexer.expect(tok::l_paren)?;
         let hir = self.parse_disjunct()?;
         self.lexer.expect(tok::r_paren)?;
@@ -258,12 +263,18 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     /// label
     ///     '<' decimal '>'
     /// ```
-    fn parse_named_group(&mut self) -> Result<Hir> {
+    fn parse_group(&mut self) -> Result<Hir> {
         self.lexer.expect(tok::l_paren_question)?;
         let l_angle = self.lexer.expect(tok::char('<'))?;
         if let Some(num) = self.try_parse_decimal()? {
             if let Ok(label_num) = u32::try_from(num) {
-                self.lexer.expect(tok::char('>'))?;
+                let r_angle = self.lexer.expect(tok::char('>'))?;
+                if self.used_group_ids.contains(&label_num) {
+                    let span = l_angle.span().end..r_angle.span().start;
+                    return err::reuse_group_name(label_num, span);
+                } else {
+                    self.used_group_ids.insert(label_num);
+                }
                 let hir = self.parse_disjunct()?;
                 self.lexer.expect(tok::r_paren)?;
                 Ok(Hir::group(label_num, hir))

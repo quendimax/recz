@@ -114,21 +114,21 @@ fn parse_braces() {
 }
 
 #[test]
-fn parse_group() {
+fn parse_parens() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
         let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
-        parser.parse_group()
+        parser.parse_parens()
     };
     assert_eq!(parse("(hello)"), Ok(Hir::literal("hello")));
 }
 
 #[test]
-fn parse_named_group() {
+fn parse_group() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
         let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
-        parser.parse_named_group()
+        parser.parse_group()
     };
     assert_eq!(
         parse("(?<1>hello)"),
@@ -143,6 +143,10 @@ fn parse_named_group() {
         err::out_of_range("123450000000", 3..15, "`u32` range")
     );
     assert_eq!(parse("(?<a>hello)"), err::unexpected("a", 3..4, "decimal"));
+
+    let lexer = Lexer::new("(?<0>he)(?<0>llo)");
+    let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
+    assert_eq!(parser.parse(), err::reuse_group_name(0, 11..12));
 }
 
 #[test]
