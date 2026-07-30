@@ -1,16 +1,16 @@
-use crate::visit::VisitResult::*;
+use crate::basic::VisitWay::*;
 use recz_adt::SetU8;
 use recz_graph::{Graph, Node};
 
 /// Checks if the given graph represents a valid DFA.
 pub fn verify_dfa(graph: &Graph) -> bool {
     let mut is_dfa = true;
-    crate::visit_nodes(graph.start_node(), |node| {
+    crate::visit_nodes(graph.start_node(), |node, _| {
         if !verify_dfa_node(node) {
             is_dfa = false;
             return Stop;
         }
-        Recurse
+        Descend
     });
     is_dfa
 }

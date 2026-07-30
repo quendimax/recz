@@ -1,5 +1,5 @@
 #[path = "itest/verify.rs"]
 mod verify;
 
-#[path = "itest/visit.rs"]
-mod visit;
+#[path = "itest/basic.rs"]
+mod basic;
