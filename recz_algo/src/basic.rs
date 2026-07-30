@@ -62,6 +62,7 @@ pub fn e_close<'a>(
 ) -> (OrdSet<Node<'a>>, Map<Node<'a>, Set<Tag>>) {
     let mut stack = Vec::new();
     let tag_table = Map::<Node<'a>, Set<Tag>>::default();
+    let sym_table = Map::<u8, (Set<Tag>, OrdSet<Node<'a>>)>::default();
     for node in nodes {
         for (edge, target) in node.targets() {
             if edge.is_epsilon() {
@@ -80,6 +81,12 @@ pub fn e_close<'a>(
         for (edge, target) in node.targets() {
             if edge.is_epsilon() {
                 stack.push((target, node));
+            } else {
+                for symbol in edge.symbols() {
+                    let (sym_tags, closure) = sym_table.entry(symbol).or_default();
+                    sym_tags.lazy_extend(tags.iter().copied());
+                    closure.insert(target);
+                }
             }
         }
     }
