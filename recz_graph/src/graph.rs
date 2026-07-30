@@ -195,6 +195,23 @@ impl Graph {
     pub fn edge_count(&self) -> usize {
         self.0.bump_edges.len()
     }
+
+    /// Returns `true` if the graph is empty (contains no nodes and edges).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use recz_graph::Graph;
+    ///
+    /// let graph = Graph::new();
+    /// assert!(graph.is_empty());
+    ///
+    /// graph.node();
+    /// assert!(!graph.is_empty());
+    /// ```
+    pub fn is_empty(&self) -> bool {
+        self.0.bump_nodes.is_empty() && self.0.bump_edges.is_empty()
+    }
 }
 
 /// Private API
