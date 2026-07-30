@@ -91,6 +91,10 @@ fn e_close() {
     let closure = recz_algo::e_close([a]);
     assert_eq!(
         format!("{closure:?}"),
-        "{node(0): {}, node(2): {+g2}, node(4): {-g2, +g2}, node(5): {-g2, +g2, -g1, +g1}, node(1): {+g1}, node(3): {-g1, +g1}}"
+        concat!(
+            "({node(0), node(1), node(2), node(3), node(4), node(5)}, ",
+            "{node(0): {}, node(2): {+g2}, node(4): {-g2, +g2}, ",
+            "node(5): {-g2, +g2, -g1, +g1}, node(1): {+g1}, node(3): {-g1, +g1}})"
+        )
     );
 }
