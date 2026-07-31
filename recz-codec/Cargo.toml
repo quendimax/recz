@@ -1,5 +1,5 @@
 [package]
-name = "recz_codec"
+name = "recz-codec"
 version = "0.1.0"
 
 authors.workspace = true
@@ -8,7 +8,7 @@ repository.workspace = true
 
 [dependencies]
 arrayvec.workspace = true
-recz_adt = { path = "../recz_adt" }
+recz-adt = { path = "../recz-adt" }
 thiserror.workspace = true
 
 [dev-dependencies]

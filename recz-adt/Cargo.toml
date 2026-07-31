@@ -1,5 +1,5 @@
 [package]
-name = "recz_graph"
+name = "recz-adt"
 version = "0.1.0"
 
 authors.workspace = true
@@ -8,9 +8,7 @@ repository.workspace = true
 
 [dependencies]
 bumpish.workspace = true
-recz_adt = { path = "../recz_adt" }
-recz_syntax = { path = "../recz_syntax" }
+num-traits.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true
-smallvec.workspace = true
