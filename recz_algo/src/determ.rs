@@ -1,10 +1,10 @@
 use recz_adt::{Map, OrdSet, Set};
 use recz_graph::{Graph, Node, Tag};
 
-pub fn determinate(nfa: &Graph) -> Graph {
+pub fn determine(nfa: Graph) -> Graph {
     let dfa = Graph::new();
-    let mut determ = Determinator::new(nfa, &dfa);
-    determ.determinate();
+    let mut determ = Determinator::new(&nfa, &dfa);
+    determ.determine();
     drop(determ);
     dfa
 }
@@ -26,7 +26,7 @@ impl<'d, 'n> Determinator<'d, 'n> {
         }
     }
 
-    fn determinate(&mut self) {
+    fn determine(&mut self) {
         let start_closure = e_close([self.nfa.start_node()]);
         self.lambda(start_closure);
     }

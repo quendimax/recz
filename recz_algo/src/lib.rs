@@ -1,5 +1,5 @@
 mod determ;
-pub use determ::determinate;
+pub use determ::determine;
 
 mod verify;
 pub use verify::verify_dfa;
