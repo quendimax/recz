@@ -1,0 +1,13 @@
+[package]
+name = "recz-cli"
+version = "0.1.0"
+
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow = "1"
+argh = "0.1.19"
+recz-graph = { path = "../recz-graph" }
+recz-syntax = { path = "../recz-syntax" }

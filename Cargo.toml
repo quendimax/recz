@@ -3,6 +3,7 @@ members = [
     "recz-adt",
     "recz-algo",
     "recz-bench",
+    "recz-cli",
     "recz-codec",
     "recz-graph",
     "recz-syntax",
@@ -10,6 +11,7 @@ members = [
 default-members = [
     "recz-adt",
     "recz-algo",
+    "recz-cli",
     "recz-codec",
     "recz-graph",
     "recz-syntax",
