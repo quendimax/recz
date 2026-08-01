@@ -72,8 +72,9 @@ impl<'a> Edge<'a> {
     /// let edge = gr.node().connect(gr.node());
     /// edge.add_tag(Tag::OpenGroup(0));
     /// ```
-    pub fn add_tag(&self, tag: Tag) {
+    pub fn add_tag(&self, tag: Tag) -> Self {
         self.0.tags.insert(tag);
+        *self
     }
 
     /// Adds a symbol to this edge.
@@ -86,8 +87,9 @@ impl<'a> Edge<'a> {
     /// let edge = gr.node().connect(gr.node());
     /// edge.add_symbol(3);
     /// ```
-    pub fn add_symbol(&self, symbol: u8) {
+    pub fn add_symbol(&self, symbol: u8) -> Self {
         self.0.symbols.insert(symbol);
+        *self
     }
 
     /// Adds a symbol collection to this edge.
@@ -103,8 +105,9 @@ impl<'a> Edge<'a> {
     /// edge.add_symbols(0..=10);
     /// edge.add_symbols([30, 40, 50]);
     /// ```
-    pub fn add_symbols(&self, symbols: impl Into<SetU8>) {
+    pub fn add_symbols(&self, symbols: impl Into<SetU8>) -> Self {
         self.0.symbols.insert_bytes(symbols);
+        *self
     }
 
     /// Returns whether this edge contains the given symbol.
@@ -159,6 +162,17 @@ impl<'a> Edge<'a> {
         !self.0.symbols.is_disjoint(&other.0.symbols) || !self.0.tags.is_disjoint(&other.0.tags)
     }
 
+    /// Returns the number of tags on this edge.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use recz_graph::Graph;
+    /// let gr = Graph::new();
+    /// let edge = gr.node().connect(gr.node());
+    /// edge.add_tag(Tag::OpenGroup(0));
+    /// assert_eq!(edge.tag_count(), 1);
+    /// ```
     pub fn tag_count(&self) -> usize {
         self.0.tags.len()
     }
