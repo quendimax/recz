@@ -1,5 +1,6 @@
 use crate::legible::Legible;
 use crate::step::Step;
+use owo_colors::OwoColorize;
 use std::fmt::Write;
 
 /// Inclusive range of symbols with invariant `start` is always less or equal to `end`.
@@ -199,41 +200,32 @@ impl<T: Copy + PartialOrd> std::convert::From<std::ops::RangeInclusive<T>> for R
     }
 }
 
-macro_rules! impl_fmt {
-    (std::fmt::$trait:ident) => {
-        impl<T: Copy + PartialEq + std::fmt::$trait> std::fmt::$trait for Range<T> {
-            #[inline]
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                std::fmt::$trait::fmt(&self.start(), f)?;
-                if self.start() != self.last() {
-                    f.write_char('-')?;
-                    std::fmt::$trait::fmt(&self.last(), f)?;
-                }
-                Ok(())
-            }
+impl<T: Copy + PartialEq + std::fmt::Debug> std::fmt::Debug for Range<T> {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.start().fmt(f)?;
+        if self.start() != self.last() {
+            f.write_char('-')?;
+            self.last().fmt(f)?;
         }
-    };
-}
-
-impl_fmt!(std::fmt::Debug);
-impl_fmt!(std::fmt::Binary);
-impl_fmt!(std::fmt::Octal);
-impl_fmt!(std::fmt::LowerHex);
-impl_fmt!(std::fmt::UpperHex);
-
-impl Legible for Range<u8> {
-    fn display(&self) -> impl std::fmt::Display {
-        ByteRangeLegible(*self)
+        Ok(())
     }
 }
 
-pub struct ByteRangeLegible(Range<u8>);
-
-impl std::fmt::Display for ByteRangeLegible {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0.start().display())?;
-        if self.0.start() != self.0.last() {
-            write!(f, "-{}", self.0.last().display())?;
+impl Range<u8> {
+    pub(crate) fn fmt(&self, f: &mut std::fmt::Formatter<'_>, colored: bool) -> std::fmt::Result {
+        if colored {
+            write!(f, "{}", self.start().colored())?;
+            if self.start() != self.last() {
+                write!(f, "{}", '-'.white())?;
+                write!(f, "{}", self.last().colored())?;
+            }
+        } else {
+            write!(f, "{}", self.start().legible())?;
+            if self.start() != self.last() {
+                f.write_char('-')?;
+                write!(f, "{}", self.last().legible())?;
+            }
         }
         Ok(())
     }
@@ -241,6 +233,22 @@ impl std::fmt::Display for ByteRangeLegible {
 
 impl std::fmt::Display for Range<u8> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.display().fmt(f)
+        Self::fmt(self, f, false)
+    }
+}
+
+impl Legible for Range<u8> {
+    fn legible(&self) -> impl std::fmt::Display {
+        self
+    }
+
+    fn colored(&self) -> impl std::fmt::Display {
+        struct Colored(Range<u8>);
+        impl std::fmt::Display for Colored {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                Range::<u8>::fmt(&self.0, f, true)
+            }
+        }
+        Colored(*self)
     }
 }

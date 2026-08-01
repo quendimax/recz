@@ -130,10 +130,9 @@ fn range_list_fmt() {
     list.merge(Range::new(13, 13));
     list.merge(Range::new(61, u8::MAX));
 
-    assert_eq!(format!("{list}"), "03h-0Ah | 0Dh | '='-FFh");
-    assert_eq!(format!("{list:?}"), "3-10 | 13 | 61-255");
-    assert_eq!(format!("{list:b}"), "11-1010 | 1101 | 111101-11111111");
-    assert_eq!(format!("{list:o}"), "3-12 | 15 | 75-377");
-    assert_eq!(format!("{list:x}"), "3-a | d | 3d-ff");
-    assert_eq!(format!("{list:X}"), "3-A | D | 3D-FF");
+    assert_eq!(
+        format!("{list}"),
+        "['\\x03'-'\\x0A' | '\\x0D' | '='-'\\xFF']"
+    );
+    assert_eq!(format!("{list:?}"), "[3-10 | 13 | 61-255]");
 }

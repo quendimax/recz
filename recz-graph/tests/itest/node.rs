@@ -126,11 +126,11 @@ fn node_modify_tr_during_iteration() {
 fn node_finalize() {
     let graph = Graph::new();
     let a = graph.node();
-    assert_eq!(format!("{a:?}"), "node(0)");
+    assert_eq!(format!("{a:?}"), "no_0");
     a.finalize();
-    assert_eq!(format!("{a:?}"), "node((0))");
+    assert_eq!(format!("{a:?}"), "fi_0");
     a.definalize();
-    assert_eq!(format!("{a:?}"), "node(0)");
+    assert_eq!(format!("{a:?}"), "no_0");
 }
 
 #[test]
@@ -139,7 +139,7 @@ fn node_fmt_debug() {
     let a = graph.node();
     let b = graph.node();
     let c = graph.node().finalize();
-    assert_eq!(format!("{a:?}"), "node(0)");
-    assert_eq!(format!("{b:?}"), "node(1)");
-    assert_eq!(format!("{c:?}"), "node((2))");
+    assert_eq!(format!("{a:?}"), "no_0");
+    assert_eq!(format!("{b:?}"), "no_1");
+    assert_eq!(format!("{c:?}"), "fi_2");
 }

@@ -1,5 +1,6 @@
+use core::fmt::{Display, Write};
+use owo_colors::OwoColorize;
 use recz_adt::{Legible, SetU8};
-use std::fmt::Write;
 
 /// Hir represents a high-level intermediate representation of a regular
 /// expression, that contains bytes already encoded from unicode code points,
@@ -164,6 +165,42 @@ impl Hir {
     }
 }
 
+impl Display for Hir {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Hir::Literal(bytes) => Display::fmt(&bytes.legible(), f),
+            Hir::Class(set) => Display::fmt(set, f),
+            Hir::Group(group) => Display::fmt(group, f),
+            Hir::Repeat(repeat) => Display::fmt(repeat, f),
+            Hir::Concat(concat) => Display::fmt(concat, f),
+            Hir::Disjunct(disjunct) => Display::fmt(disjunct, f),
+        }
+    }
+}
+
+impl Legible for Hir {
+    fn legible(&self) -> impl Display {
+        self
+    }
+
+    fn colored(&self) -> impl Display {
+        struct Colored<'a>(&'a Hir);
+        impl Display for Colored<'_> {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                match self.0 {
+                    Hir::Literal(bytes) => bytes.colored().fmt(f),
+                    Hir::Class(set) => set.colored().fmt(f),
+                    Hir::Group(group) => group.colored().fmt(f),
+                    Hir::Repeat(repeat) => repeat.colored().fmt(f),
+                    Hir::Concat(concat) => concat.colored().fmt(f),
+                    Hir::Disjunct(disjunct) => disjunct.colored().fmt(f),
+                }
+            }
+        }
+        Colored(self)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct DisjunctHir {
     alters: Vec<Hir>,
@@ -188,6 +225,53 @@ impl DisjunctHir {
     }
 }
 
+impl Display for DisjunctHir {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let alters = &self.alters;
+        for i in 0..alters.len() {
+            if alters[i].is_concat() {
+                f.write_char('(')?;
+            }
+            Display::fmt(&alters[i], f)?;
+            if alters[i].is_concat() {
+                f.write_char(')')?;
+            }
+            if i + 1 < alters.len() {
+                f.write_str(" | ")?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Legible for DisjunctHir {
+    fn legible(&self) -> impl Display {
+        self
+    }
+
+    fn colored(&self) -> impl Display {
+        struct Colored<'a>(&'a DisjunctHir);
+        impl Display for Colored<'_> {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                for i in 0..self.0.alters.len() {
+                    if self.0.alters[i].is_concat() {
+                        '('.white().fmt(f)?;
+                    }
+                    self.0.alters[i].colored().fmt(f)?;
+                    if self.0.alters[i].is_concat() {
+                        ')'.white().fmt(f)?;
+                    }
+                    if i + 1 < self.0.alters.len() {
+                        " | ".bold().white().fmt(f)?;
+                    }
+                }
+                Ok(())
+            }
+        }
+        Colored(self)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConcatHir {
     items: Vec<Hir>,
@@ -204,6 +288,54 @@ impl ConcatHir {
     #[inline]
     pub fn len_hint(&self) -> (usize, Option<usize>) {
         (self.min_len, self.max_len)
+    }
+}
+
+impl Display for ConcatHir {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let items = &self.items;
+        for i in 0..items.len() {
+            if items[i].is_disjunct() {
+                f.write_char('(')?;
+            }
+            Display::fmt(&items[i], f)?;
+            if items[i].is_disjunct() {
+                f.write_char(')')?;
+            }
+            if i + 1 < items.len() {
+                f.write_str(" & ")?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Legible for ConcatHir {
+    fn legible(&self) -> impl Display {
+        self
+    }
+
+    fn colored(&self) -> impl Display {
+        struct Colored<'a>(&'a ConcatHir);
+        impl Display for Colored<'_> {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                let items = &self.0.items;
+                for i in 0..items.len() {
+                    if items[i].is_disjunct() {
+                        '('.white().fmt(f)?;
+                    }
+                    items[i].colored().fmt(f)?;
+                    if items[i].is_disjunct() {
+                        ')'.white().fmt(f)?;
+                    }
+                    if i + 1 < items.len() {
+                        " & ".bold().white().fmt(f)?;
+                    }
+                }
+                Ok(())
+            }
+        }
+        Colored(self)
     }
 }
 
@@ -238,6 +370,74 @@ impl RepeatHir {
     }
 }
 
+impl Display for RepeatHir {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let item = &self.item;
+        let needs_parens = item.is_concat() || item.is_disjunct();
+        if needs_parens {
+            f.write_char('(')?;
+        }
+        Display::fmt(&item, f)?;
+        if needs_parens {
+            f.write_char(')')?;
+        }
+        match (self.lower, self.upper) {
+            (0, None) => f.write_char('*'),
+            (1, None) => f.write_char('+'),
+            (0, Some(1)) => f.write_char('?'),
+            (lower, None) => write!(f, "{{{lower},}}"),
+            (lower, Some(upper)) if lower == upper => write!(f, "{{{lower}}}"),
+            (lower, Some(upper)) => write!(f, "{{{lower},{upper}}}"),
+        }
+    }
+}
+
+impl Legible for RepeatHir {
+    fn legible(&self) -> impl Display {
+        self
+    }
+
+    fn colored(&self) -> impl Display {
+        struct Colored<'a>(&'a RepeatHir);
+        impl Display for Colored<'_> {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                let item = &self.0.item;
+                let needs_parens = item.is_concat() || item.is_disjunct();
+                if needs_parens {
+                    '('.white().fmt(f)?;
+                }
+                item.colored().fmt(f)?;
+                if needs_parens {
+                    ')'.white().fmt(f)?;
+                }
+                match (self.0.lower, self.0.upper) {
+                    (0, None) => '*'.bold().bright_yellow().fmt(f),
+                    (1, None) => '+'.bold().bright_yellow().fmt(f),
+                    (0, Some(1)) => '?'.bold().bright_yellow().fmt(f),
+                    (lower, None) => {
+                        '{'.white().fmt(f)?;
+                        lower.cyan().fmt(f)?;
+                        ",}".white().fmt(f)
+                    }
+                    (lower, Some(upper)) if lower == upper => {
+                        '{'.white().fmt(f)?;
+                        lower.cyan().fmt(f)?;
+                        "}".white().fmt(f)
+                    }
+                    (lower, Some(upper)) => {
+                        '{'.white().fmt(f)?;
+                        lower.cyan().fmt(f)?;
+                        ','.white().fmt(f)?;
+                        upper.cyan().fmt(f)?;
+                        "}".white().fmt(f)
+                    }
+                }
+            }
+        }
+        Colored(self)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupHir {
     label: u32,
@@ -261,68 +461,29 @@ impl GroupHir {
     }
 }
 
-impl std::fmt::Display for Hir {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Hir::Literal(bytes) => {
-                std::fmt::Display::fmt(&bytes.display(), f)?;
-            }
-            Hir::Class(set) => {
-                std::fmt::Display::fmt(&set, f)?;
-            }
-            Hir::Group(group) => {
-                write!(f, "(?<{}> {} )", group.label, group.item)?;
-            }
-            Hir::Repeat(repeat) => {
-                let item = &repeat.item;
-                let needs_parens = item.is_concat() || item.is_disjunct();
-                if needs_parens {
-                    f.write_char('(')?;
-                }
-                std::fmt::Display::fmt(&item, f)?;
-                if needs_parens {
-                    f.write_char(')')?;
-                }
-                match (repeat.lower, repeat.upper) {
-                    (0, None) => f.write_char('*')?,
-                    (1, None) => f.write_char('+')?,
-                    (0, Some(1)) => f.write_char('?')?,
-                    (lower, None) => write!(f, "{{{lower},}}")?,
-                    (lower, Some(upper)) if lower == upper => write!(f, "{{{lower}}}")?,
-                    (lower, Some(upper)) => write!(f, "{{{lower},{upper}}}")?,
-                }
-            }
-            Hir::Concat(concat) => {
-                let items = &concat.items;
-                for i in 0..items.len() {
-                    if items[i].is_disjunct() {
-                        f.write_char('(')?;
-                    }
-                    std::fmt::Display::fmt(&items[i], f)?;
-                    if items[i].is_disjunct() {
-                        f.write_char(')')?;
-                    }
-                    if i + 1 < items.len() {
-                        f.write_str(" & ")?;
-                    }
-                }
-            }
-            Hir::Disjunct(disjunct) => {
-                let alters = &disjunct.alters;
-                for i in 0..alters.len() {
-                    if alters[i].is_concat() {
-                        f.write_char('(')?;
-                    }
-                    std::fmt::Display::fmt(&alters[i], f)?;
-                    if alters[i].is_concat() {
-                        f.write_char(')')?;
-                    }
-                    if i + 1 < alters.len() {
-                        f.write_str(" | ")?;
-                    }
-                }
+impl Display for GroupHir {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "(?<{}> {} )", self.label, self.item)
+    }
+}
+
+impl Legible for GroupHir {
+    fn legible(&self) -> impl Display {
+        self
+    }
+
+    fn colored(&self) -> impl Display {
+        struct Colored<'a>(&'a GroupHir);
+        impl<'a> Display for Colored<'a> {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                "(<".white().fmt(f)?;
+                "?".bright_yellow().fmt(f)?;
+                self.0.label.bright_cyan().fmt(f)?;
+                "> ".white().fmt(f)?;
+                self.0.item.colored().fmt(f)?;
+                " )".white().fmt(f)
             }
         }
-        Ok(())
+        Colored(self)
     }
 }

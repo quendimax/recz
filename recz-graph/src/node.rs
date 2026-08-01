@@ -1,9 +1,10 @@
 use crate::edge::{Edge, EdgePtr};
 use crate::graph::{GraphInner, GraphPtr};
-use recz_adt::Map;
-use std::cell::Cell;
-use std::fmt::Write;
-use std::iter::Iterator;
+use core::cell::Cell;
+use core::fmt;
+use core::iter::Iterator;
+use owo_colors::OwoColorize;
+use recz_adt::{Legible, Map};
 
 /// Node for an NFA graph.
 ///
@@ -79,6 +80,16 @@ impl<'a> Node<'a> {
         }
     }
 
+    #[inline]
+    pub fn target_count(&self) -> usize {
+        self.0.targets.len()
+    }
+
+    #[inline]
+    pub fn source_count(&self) -> usize {
+        self.0.sources.len()
+    }
+
     /// Returns an iterator over target nodes, i.e. nodes that this node has
     /// transitions to.
     ///
@@ -117,6 +128,26 @@ impl<'a> Node<'a> {
 
     pub(crate) fn as_ptr(&self) -> NodePtr {
         NodePtr::from(self.0)
+    }
+
+    pub(crate) fn fmt(&self, f: &mut std::fmt::Formatter<'_>, colored: bool) -> std::fmt::Result {
+        if self.is_final() {
+            if colored {
+                write!(f, "{}", "fi_".bold().bright_yellow())?;
+                write!(f, "{}", self.nid().bold().bright_yellow())
+            } else {
+                write!(f, "fi_")?;
+                write!(f, "{}", self.nid())
+            }
+        } else {
+            if colored {
+                write!(f, "{}", "no_".bright_yellow())?;
+                write!(f, "{}", self.nid().bright_yellow())
+            } else {
+                write!(f, "no_")?;
+                write!(f, "{}", self.nid())
+            }
+        }
     }
 }
 
@@ -175,29 +206,30 @@ impl std::hash::Hash for Node<'_> {
     }
 }
 
-macro_rules! impl_fmt {
-    (std::fmt::$trait:ident) => {
-        impl std::fmt::$trait for Node<'_> {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                if self.is_final() {
-                    f.write_str("node((")?;
-                } else {
-                    f.write_str("node(")?;
-                }
-                std::fmt::$trait::fmt(&self.nid(), f)?;
-                if self.is_final() {
-                    f.write_str("))")
-                } else {
-                    f.write_char(')')
-                }
-            }
-        }
-    };
+impl std::fmt::Debug for Node<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Self::fmt(self, f, false)
+    }
 }
 
-impl_fmt!(std::fmt::Display);
-impl_fmt!(std::fmt::Debug);
-impl_fmt!(std::fmt::Binary);
-impl_fmt!(std::fmt::Octal);
-impl_fmt!(std::fmt::UpperHex);
-impl_fmt!(std::fmt::LowerHex);
+impl core::fmt::Display for Node<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Self::fmt(self, f, false)
+    }
+}
+
+impl Legible for Node<'_> {
+    fn legible(&self) -> impl core::fmt::Display {
+        self
+    }
+
+    fn colored(&self) -> impl fmt::Display {
+        struct Colored<'a, 'b>(&'a Node<'b>);
+        impl core::fmt::Display for Colored<'_, '_> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                Node::fmt(self.0, f, false)
+            }
+        }
+        Colored(self)
+    }
+}

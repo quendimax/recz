@@ -680,13 +680,13 @@ fn set_u8_display_single_printable_byte() {
 #[test]
 fn set_u8_display_single_nonprintable_byte() {
     let set = SetU8::from(0u8);
-    assert_eq!(format!("{set}"), "[00h]");
+    assert_eq!(format!("{set}"), "['\\x00']");
 }
 
 #[test]
 fn set_u8_display_byte_255() {
     let set = SetU8::from(255u8);
-    assert_eq!(format!("{set}"), "[FFh]");
+    assert_eq!(format!("{set}"), "['\\xFF']");
 }
 
 #[test]
@@ -698,14 +698,14 @@ fn set_u8_display_contiguous_printable_range() {
 #[test]
 fn set_u8_display_nonprintable_range() {
     let set = SetU8::from(1u8..=3u8);
-    assert_eq!(format!("{set}"), "[01h-03h]");
+    assert_eq!(format!("{set}"), "['\\x01'-'\\x03']");
 }
 
 #[test]
 fn set_u8_display_mixed_printable_nonprintable_range() {
     // 0x00 to 'Z' (0x5A): starts non-printable, ends printable
     let set = SetU8::from(0u8..=b'Z');
-    assert_eq!(format!("{set}"), "[00h-'Z']");
+    assert_eq!(format!("{set}"), "['\\x00'-'Z']");
 }
 
 #[test]
@@ -717,7 +717,7 @@ fn set_u8_display_disjoint_ranges() {
 #[test]
 fn set_u8_display_three_disjoint_ranges() {
     let a = SetU8::from([1u8, 5, 200]);
-    assert_eq!(format!("{a}"), "[01h | 05h | C8h]");
+    assert_eq!(format!("{a}"), "['\\x01' | '\\x05' | '\\xC8']");
 }
 
 #[test]
@@ -739,7 +739,7 @@ fn set_u8_display_does_not_merge_non_adjacent_across_boundary() {
 
     // Similarly across chunk boundary at 128: bytes 127 and 129 (gap at 128).
     set = SetU8::from([127u8, 129]);
-    assert_eq!(format!("{set}"), "[7Fh | 81h]");
+    assert_eq!(format!("{set}"), "['\\x7F' | '\\x81']");
 }
 
 #[test]
@@ -825,7 +825,7 @@ fn set_u8_full_ranges_is_single_span() {
 fn set_u8_full_display() {
     // All bytes are adjacent, so Display collapses everything to one range.
     // 0 = 00h, 255 = FFh.
-    assert_eq!(format!("{}", SetU8::full()), "[00h-FFh]");
+    assert_eq!(format!("{}", SetU8::full()), "['\\x00'-'\\xFF']");
 }
 
 // ── is_disjoint ───────────────────────────────────────────────────────────────

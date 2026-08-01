@@ -258,7 +258,7 @@ fn edge_instruct() {
     edge_a.add_symbol(b'c');
     edge_a.add_symbol(b'e');
 
-    assert_eq!(format!("{edge_a}"), "['a'-'c' | 'e'] / +g1");
+    assert_eq!(format!("{edge_a}"), "'a'-'c' | 'e' / +g1");
 }
 
 #[test]
@@ -266,26 +266,26 @@ fn edge_display_fmt() {
     fn tr(bytes: &[u8]) -> String {
         handle_edge_from_symbols(bytes, |tr| format!("{tr}"))
     }
-    assert_eq!(tr(b""), "[Epsilon]");
-    assert_eq!(tr(b"abc"), "['a'-'c']");
-    assert_eq!(tr(b"abc"), "['a'-'c']");
-    assert_eq!(tr(b"abcE"), "['E' | 'a'-'c']");
-    assert_eq!(tr(b"?@"), "['?'-'@']");
+    assert_eq!(tr(b""), "E");
+    assert_eq!(tr(b"abc"), "'a'-'c'");
+    assert_eq!(tr(b"abc"), "'a'-'c'");
+    assert_eq!(tr(b"abcE"), "'E' | 'a'-'c'");
+    assert_eq!(tr(b"?@"), "'?'-'@'");
 
     handle_edge(|edge| {
         edge.add_symbols(range(2, 4));
         edge.add_symbols(range(5, 6));
-        assert_eq!(format!("{edge}"), "[02h-06h]");
+        assert_eq!(format!("{edge}"), "'\\x02'-'\\x06'");
     });
 }
 
 #[test]
 fn edge_display_fmt_with_epsilon() {
-    handle_epsilon(|edge| assert_eq!(format!("{}", edge), "[Epsilon]"));
+    handle_epsilon(|edge| assert_eq!(format!("{}", edge), "E"));
     handle_edge_from_symbols(b"abc", |edge| {
-        assert_eq!(format!("{edge}"), "['a'-'c']");
+        assert_eq!(format!("{edge}"), "'a'-'c'");
         edge.add_symbol(u8::MAX);
-        assert_eq!(format!("{edge}"), "['a'-'c' | FFh]");
+        assert_eq!(format!("{edge}"), "'a'-'c' | '\\xFF'");
     });
 }
 
@@ -294,25 +294,25 @@ fn edge_debug_fmt() {
     fn tr(bytes: &[u8]) -> String {
         handle_edge_from_symbols(bytes, |edge| format!("{edge:?}"))
     }
-    assert_eq!(tr(b""), "[Epsilon]");
-    assert_eq!(tr(b"abc"), "[97-99]");
-    assert_eq!(tr(b"abc"), "[97-99]");
-    assert_eq!(tr(b"abcE"), "[69 | 97-99]");
-    assert_eq!(tr(b"?@"), "[63-64]");
+    assert_eq!(tr(b""), "E");
+    assert_eq!(tr(b"abc"), "'a'-'c'");
+    assert_eq!(tr(b"abc"), "'a'-'c'");
+    assert_eq!(tr(b"abcE"), "'E' | 'a'-'c'");
+    assert_eq!(tr(b"?@"), "'?'-'@'");
 
     handle_edge(|edge| {
         edge.add_symbols(range(2, 4));
         edge.add_symbols(range(5, 6));
-        assert_eq!(format!("{edge}"), "[02h-06h]");
+        assert_eq!(format!("{edge}"), "'\\x02'-'\\x06'");
     });
 }
 
 #[test]
 fn edge_debug_fmt_with_epsilon() {
-    handle_epsilon(|edge| assert_eq!(format!("{edge:?}"), "[Epsilon]"));
+    handle_epsilon(|edge| assert_eq!(format!("{edge:?}"), "E"));
     handle_edge_from_symbols(b"?@ABC", |edge| {
-        assert_eq!(format!("{edge:?}"), "[63-67]");
+        assert_eq!(format!("{edge:?}"), "'?'-'C'");
         edge.add_symbol(u8::MAX);
-        assert_eq!(format!("{edge:?}"), "[63-67 | 255]");
+        assert_eq!(format!("{edge:?}"), "'?'-'C' | '\\xFF'");
     });
 }

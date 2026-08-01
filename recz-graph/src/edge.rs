@@ -1,6 +1,6 @@
 use crate::tag::Tag;
-use recz_adt::{ByteIter, Legible, RangeIter, RangeU8, Set, SetU8, Step};
-use std::fmt::Write;
+use owo_colors::OwoColorize;
+use recz_adt::{ByteIter, Legible, RangeIter, Set, SetU8};
 use std::iter::Iterator;
 
 /// Edge is a transition from one node to another that contains symbols and
@@ -159,6 +159,10 @@ impl<'a> Edge<'a> {
         !self.0.symbols.is_disjoint(&other.0.symbols) || !self.0.tags.is_disjoint(&other.0.tags)
     }
 
+    pub fn tag_count(&self) -> usize {
+        self.0.tags.len()
+    }
+
     /// Returns an iterator over all symbols (bytes) in this edge in ascending
     /// order.
     ///
@@ -227,6 +231,59 @@ impl<'a> Edge<'a> {
     pub(crate) fn as_ptr(&self) -> EdgePtr {
         EdgePtr::from(self.0)
     }
+
+    pub(crate) fn fmt(&self, f: &mut std::fmt::Formatter<'_>, colored: bool) -> std::fmt::Result {
+        if self.is_epsilon() {
+            if colored {
+                write!(f, "{}", 'Ɛ'.bold().bright_magenta())?;
+            } else {
+                write!(f, "E")?;
+            }
+        } else {
+            let mut first_iter = true;
+            for range in self.ranges() {
+                if first_iter {
+                    first_iter = false;
+                } else {
+                    if colored {
+                        write!(f, "{}", " | ".white())?;
+                    } else {
+                        write!(f, " | ")?;
+                    }
+                }
+                if colored {
+                    write!(f, "{}", range.colored())?;
+                } else {
+                    write!(f, "{}", range.legible())?;
+                }
+            }
+        }
+        if self.tag_count() > 0 {
+            if colored {
+                write!(f, "{}", " / ".white())?;
+            } else {
+                write!(f, " / ")?;
+            }
+            let mut first_iter = true;
+            for tag in self.tags() {
+                if first_iter {
+                    first_iter = false;
+                } else {
+                    if colored {
+                        write!(f, "{}", ", ".white())?;
+                    } else {
+                        write!(f, ", ")?;
+                    }
+                }
+                if colored {
+                    write!(f, "{}", tag.colored())?;
+                } else {
+                    write!(f, "{}", tag)?;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Copy for Edge<'_> {}
@@ -247,79 +304,33 @@ impl std::cmp::PartialEq for Edge<'_> {
     }
 }
 
-impl std::fmt::Display for Edge<'_> {
+impl std::fmt::Debug for Edge<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // symbols
-        f.write_char('[')?;
-        if self.is_epsilon() {
-            f.write_str("Epsilon")?;
-        } else {
-            let mut iter = self.ranges();
-            let mut range = iter.next();
-            while let Some(cur_range) = range {
-                if let Some(next_range) = iter.next() {
-                    if cur_range.last().steps_between(next_range.start()) == 1 {
-                        range = Some(RangeU8::new(cur_range.start(), next_range.last()));
-                        continue;
-                    } else {
-                        std::fmt::Display::fmt(&cur_range.display(), f)?;
-                        f.write_str(" | ")?;
-                        range = Some(next_range);
-                    }
-                } else {
-                    std::fmt::Display::fmt(&cur_range.display(), f)?;
-                    break;
-                }
-            }
-        }
-        f.write_char(']')?;
-
-        // tags
-        if !self.0.tags.is_empty() {
-            f.write_str(" / ")?;
-            let mut first_tag = true;
-            for tag in self.tags() {
-                if first_tag {
-                    first_tag = false;
-                } else {
-                    f.write_char(',')?;
-                }
-                std::fmt::Display::fmt(&tag, f)?;
-            }
-        }
-        Ok(())
+        Self::fmt(self, f, false)
     }
 }
 
-macro_rules! impl_fmt {
-    (std::fmt::$trait:ident) => {
-        impl std::fmt::$trait for Edge<'_> {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.write_char('[')?;
-                if self.is_epsilon() {
-                    f.write_str("Epsilon")?;
-                } else {
-                    let mut first_iter = true;
-                    for range in self.ranges() {
-                        if first_iter {
-                            first_iter = false;
-                        } else {
-                            f.write_str(" | ")?;
-                        }
-                        ::std::fmt::$trait::fmt(&range, f)?;
-                    }
-                }
-                f.write_char(']')
-            }
-        }
-    };
+impl core::fmt::Display for Edge<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        Self::fmt(self, f, false)
+    }
 }
 
-impl_fmt!(std::fmt::Debug);
-impl_fmt!(std::fmt::Binary);
-impl_fmt!(std::fmt::Octal);
-impl_fmt!(std::fmt::LowerHex);
-impl_fmt!(std::fmt::UpperHex);
+impl Legible for Edge<'_> {
+    fn legible(&self) -> impl core::fmt::Display {
+        self
+    }
+
+    fn colored(&self) -> impl core::fmt::Display {
+        struct Colored<'a, 'b>(&'b Edge<'a>);
+        impl std::fmt::Display for Colored<'_, '_> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                Edge::fmt(self.0, f, true)
+            }
+        }
+        Colored(self)
+    }
+}
 
 impl EdgeInner {
     /// Creates a new empty edge.

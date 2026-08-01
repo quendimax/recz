@@ -92,9 +92,9 @@ fn e_close() {
     assert_eq!(
         format!("{closure:?}"),
         concat!(
-            "({node(0), node(1), node(2), node(3), node(4), node(5)}, ",
-            "{node(0): {}, node(2): {+g2}, node(4): {-g2, +g2}, ",
-            "node(5): {-g2, +g2, -g1, +g1}, node(1): {+g1}, node(3): {-g1, +g1}})"
+            "({no_0, no_1, no_2, no_3, no_4, no_5}, ",
+            "{no_0: {}, no_2: {+g2}, no_4: {-g2, +g2}, no_5: {-g2, +g2, -g1, +g1}, ",
+            "no_1: {+g1}, no_3: {-g1, +g1}})"
         )
     );
 }

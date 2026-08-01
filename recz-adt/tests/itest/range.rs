@@ -204,41 +204,15 @@ fn symbol_range_debug_fmt() {
 }
 
 #[test]
-fn symbol_range_binary_fmt() {
-    assert_eq!(format!("{:b}", range::<u8>(b'a', b'a')), r"1100001");
-    assert_eq!(format!("{:b}", range::<u8>(b'\0', b'Z')), r"0-1011010");
-    assert_eq!(format!("{:b}", range::<u8>(b'\x7E', b'~')), r"1111110");
-}
-
-#[test]
-fn symbol_range_octal_fmt() {
-    assert_eq!(format!("{:o}", range::<u8>(b'a', b'a')), r"141");
-    assert_eq!(format!("{:o}", range::<u8>(b'\0', b'Z')), r"0-132");
-    assert_eq!(format!("{:o}", range::<u8>(b'\x7E', b'~')), r"176");
-}
-
-#[test]
-fn symbol_range_lowerhex_fmt() {
-    assert_eq!(format!("{:x}", range::<u8>(b'\0', b'Z')), r"0-5a");
-    assert_eq!(format!("{:x}", range::<u8>(b'\x7E', b'~')), r"7e");
-}
-
-#[test]
-fn symbol_range_upperhex_fmt() {
-    assert_eq!(format!("{:X}", range::<u8>(b'\0', b'Z')), r"0-5A");
-    assert_eq!(format!("{:X}", range::<u8>(b'\x7E', b'~')), r"7E");
-}
-
-#[test]
 fn symbol_range_legible_display() {
-    assert_eq!(format!("{}", Range::from(b'a'..=b'a').display()), r"'a'");
+    assert_eq!(format!("{}", Range::from(b'a'..=b'a').legible()), r"'a'");
     assert_eq!(
-        format!("{}", Range::from(b'\0'..=b'Z').display()),
-        r"00h-'Z'"
+        format!("{}", Range::from(b'\0'..=b'Z').legible()),
+        r"'\x00'-'Z'"
     );
-    assert_eq!(format!("{}", Range::from(b'\x7E'..=b'~').display()), r"'~'");
+    assert_eq!(format!("{}", Range::from(b'\x7E'..=b'~').legible()), r"'~'");
 
     assert_eq!(format!("{}", Range::from(b'a'..=b'a')), r"'a'");
-    assert_eq!(format!("{}", Range::from(b'\0'..=b'Z')), r"00h-'Z'");
+    assert_eq!(format!("{}", Range::from(b'\0'..=b'Z')), r"'\x00'-'Z'");
     assert_eq!(format!("{}", Range::from(b'\x7E'..=b'~')), r"'~'");
 }

@@ -17,22 +17,20 @@ fn translate_literal() {
     assert_eq!(
         tr(b""),
         lit!(
-            ///node(0) {
-            ///    [Epsilon] -> node(1)
+            ///graph {
+            ///  no_0 { E -> no_1 }
+            ///  no_1 {}
             ///}
-            ///node(1) {}
         )
     );
     assert_eq!(
         tr(b"ab"),
         lit!(
-            ///node(0) {
-            ///    ['a'] -> node(2)
+            ///graph {
+            ///  no_0 { 'a' -> no_2 }
+            ///  no_1 {}
+            ///  no_2 { 'b' -> no_1 }
             ///}
-            ///node(2) {
-            ///    ['b'] -> node(1)
-            ///}
-            ///node(1) {}
         )
     );
 }
@@ -53,10 +51,10 @@ fn translate_class() {
     assert_eq!(
         tr(&set),
         lit!(
-            ///node(0) {
-            ///    [04h-'2' | 'd'] -> node(1)
+            ///graph {
+            ///  no_0 { '\x04'-'2' | 'd' -> no_1 }
+            ///  no_1 {}
             ///}
-            ///node(1) {}
         )
     );
 }
@@ -80,18 +78,18 @@ fn translate_repeat() {
     assert_eq!(
         tr(&hir),
         lit!(
-            ///node(0) {
-            ///    [Epsilon] -> node(2)
-            ///    [Epsilon] -> node(1)
+            ///graph {
+            ///  no_0 {
+            ///    E -> no_2
+            ///    E -> no_1
+            ///  }
+            ///  no_1 {}
+            ///  no_2 { 'a' -> no_3 }
+            ///  no_3 {
+            ///    E -> no_1
+            ///    E -> no_2
+            ///  }
             ///}
-            ///node(2) {
-            ///    ['a'] -> node(3)
-            ///}
-            ///node(3) {
-            ///    [Epsilon] -> node(1)
-            ///    [Epsilon] -> node(2)
-            ///}
-            ///node(1) {}
         )
     );
 
@@ -100,17 +98,15 @@ fn translate_repeat() {
     assert_eq!(
         tr(&hir),
         lit!(
-            ///node(0) {
-            ///    [Epsilon] -> node(2)
+            ///graph {
+            ///  no_0 { E -> no_2 }
+            ///  no_1 {}
+            ///  no_2 { 'a' -> no_3 }
+            ///  no_3 {
+            ///    E -> no_1
+            ///    E -> no_2
+            ///  }
             ///}
-            ///node(2) {
-            ///    ['a'] -> node(3)
-            ///}
-            ///node(3) {
-            ///    [Epsilon] -> node(1)
-            ///    [Epsilon] -> node(2)
-            ///}
-            ///node(1) {}
         )
     );
 
@@ -119,23 +115,17 @@ fn translate_repeat() {
     assert_eq!(
         tr(&hir),
         lit!(
-            ///node(0) {
-            ///    ['a'] -> node(2)
+            ///graph {
+            ///  no_0 { 'a' -> no_2 }
+            ///  no_1 {}
+            ///  no_2 { 'a' -> no_3 }
+            ///  no_3 { E -> no_4 }
+            ///  no_4 { 'a' -> no_5 }
+            ///  no_5 {
+            ///    E -> no_1
+            ///    E -> no_4
+            ///  }
             ///}
-            ///node(2) {
-            ///    ['a'] -> node(3)
-            ///}
-            ///node(3) {
-            ///    [Epsilon] -> node(4)
-            ///}
-            ///node(4) {
-            ///    ['a'] -> node(5)
-            ///}
-            ///node(5) {
-            ///    [Epsilon] -> node(1)
-            ///    [Epsilon] -> node(4)
-            ///}
-            ///node(1) {}
         )
     );
 
@@ -144,10 +134,10 @@ fn translate_repeat() {
     assert_eq!(
         tr(&hir),
         lit!(
-            ///node(0) {
-            ///    [Epsilon] -> node(1)
+            ///graph {
+            ///  no_0 { E -> no_1 }
+            ///  no_1 {}
             ///}
-            ///node(1) {}
         )
     );
 
@@ -156,16 +146,12 @@ fn translate_repeat() {
     assert_eq!(
         tr(&hir),
         lit!(
-            ///node(0) {
-            ///    ['a'] -> node(2)
+            ///graph {
+            ///  no_0 { 'a' -> no_2 }
+            ///  no_1 {}
+            ///  no_2 { 'a' -> no_3 }
+            ///  no_3 { 'a' -> no_1 }
             ///}
-            ///node(2) {
-            ///    ['a'] -> node(3)
-            ///}
-            ///node(3) {
-            ///    ['a'] -> node(1)
-            ///}
-            ///node(1) {}
         )
     );
 
@@ -174,33 +160,23 @@ fn translate_repeat() {
     assert_eq!(
         tr(&hir),
         lit!(
-            ///node(0) {
-            ///    ['a'] -> node(2)
+            ///graph {
+            ///  no_0 { 'a' -> no_2 }
+            ///  no_1 {}
+            ///  no_2 {
+            ///    E -> no_3
+            ///    E -> no_1
+            ///  }
+            ///  no_3 { 'a' -> no_4 }
+            ///  no_4 { E -> no_5 }
+            ///  no_5 {
+            ///    E -> no_6
+            ///    E -> no_1
+            ///  }
+            ///  no_6 { 'a' -> no_7 }
+            ///  no_7 { E -> no_8 }
+            ///  no_8 { E -> no_1 }
             ///}
-            ///node(2) {
-            ///    [Epsilon] -> node(3)
-            ///    [Epsilon] -> node(1)
-            ///}
-            ///node(3) {
-            ///    ['a'] -> node(4)
-            ///}
-            ///node(4) {
-            ///    [Epsilon] -> node(5)
-            ///}
-            ///node(5) {
-            ///    [Epsilon] -> node(6)
-            ///    [Epsilon] -> node(1)
-            ///}
-            ///node(6) {
-            ///    ['a'] -> node(7)
-            ///}
-            ///node(7) {
-            ///    [Epsilon] -> node(8)
-            ///}
-            ///node(8) {
-            ///    [Epsilon] -> node(1)
-            ///}
-            ///node(1) {}
         )
     );
 }
@@ -232,10 +208,10 @@ fn translate_concat() {
     assert_eq!(
         graph.to_string(),
         lit!(
-            ///node(0) {
-            ///    [Epsilon] -> node(1)
+            ///graph {
+            ///  no_0 { E -> no_1 }
+            ///  no_1 {}
             ///}
-            ///node(1) {}
         )
     );
 
@@ -250,16 +226,12 @@ fn translate_concat() {
     assert_eq!(
         graph.to_string(),
         lit!(
-            ///node(0) {
-            ///    ['a'] -> node(2)
+            ///graph {
+            ///  no_0 { 'a' -> no_2 }
+            ///  no_1 {}
+            ///  no_2 { 'b' -> no_3 }
+            ///  no_3 { 'c' -> no_1 }
             ///}
-            ///node(2) {
-            ///    ['b'] -> node(3)
-            ///}
-            ///node(3) {
-            ///    ['c'] -> node(1)
-            ///}
-            ///node(1) {}
         )
     );
 }
@@ -277,29 +249,19 @@ fn translate_disjunct() {
     assert_eq!(
         graph.to_string(),
         lit!(
-            ///node(0) {
-            ///    [Epsilon] -> node(2)
-            ///    [Epsilon] -> node(4)
-            ///    [Epsilon] -> node(6)
-            ///}
-            ///node(2) {
-            ///    ['a'] -> node(3)
-            ///}
-            ///node(3) {
-            ///    [Epsilon] -> node(1)
-            ///}
-            ///node(1) {}
-            ///node(4) {
-            ///    ['b'] -> node(5)
-            ///}
-            ///node(5) {
-            ///    [Epsilon] -> node(1)
-            ///}
-            ///node(6) {
-            ///    ['c'] -> node(7)
-            ///}
-            ///node(7) {
-            ///    [Epsilon] -> node(1)
+            ///graph {
+            ///  no_0 {
+            ///    E -> no_2
+            ///    E -> no_4
+            ///    E -> no_6
+            ///  }
+            ///  no_1 {}
+            ///  no_2 { 'a' -> no_3 }
+            ///  no_3 { E -> no_1 }
+            ///  no_4 { 'b' -> no_5 }
+            ///  no_5 { E -> no_1 }
+            ///  no_6 { 'c' -> no_7 }
+            ///  no_7 { E -> no_1 }
             ///}
         )
     );

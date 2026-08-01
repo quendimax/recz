@@ -9,5 +9,9 @@ repository.workspace = true
 [dependencies]
 anyhow = "1"
 argh = "0.1.19"
+owo-colors.workspace = true
+recz-adt = { path = "../recz-adt" }
+recz-algo = { path = "../recz-algo" }
 recz-graph = { path = "../recz-graph" }
 recz-syntax = { path = "../recz-syntax" }
+supports-color.workspace = true

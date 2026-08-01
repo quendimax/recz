@@ -2,26 +2,26 @@ use recz_adt::Legible;
 
 #[test]
 fn u8_display() {
-    assert_eq!(0.display().to_string(), r"00h");
-    assert_eq!(b'\t'.display().to_string(), r"09h");
-    assert_eq!(b'\r'.display().to_string(), r"0Dh");
-    assert_eq!(b'\n'.display().to_string(), r"0Ah");
-    assert_eq!(b'\''.display().to_string(), r"'\''");
-    assert_eq!(b'"'.display().to_string(), r#"'"'"#);
-    assert_eq!(b'\\'.display().to_string(), r"'\\'");
-    assert_eq!(0x1B.display().to_string(), r"1Bh");
-    assert_eq!(0x1f.display().to_string(), r"1Fh");
-    assert_eq!(b' '.display().to_string(), "' '");
-    assert_eq!(b'a'.display().to_string(), "'a'");
-    assert_eq!(0x7F.display().to_string(), r"7Fh");
-    assert_eq!(129.display().to_string(), r"81h");
-    assert_eq!(255.display().to_string(), r"FFh");
+    assert_eq!(0.legible().to_string(), r"'\x00'");
+    assert_eq!(b'\t'.legible().to_string(), r"'\x09'");
+    assert_eq!(b'\r'.legible().to_string(), r"'\x0D'");
+    assert_eq!(b'\n'.legible().to_string(), r"'\x0A'");
+    assert_eq!(b'\''.legible().to_string(), r"'\''");
+    assert_eq!(b'"'.legible().to_string(), r#"'"'"#);
+    assert_eq!(b'\\'.legible().to_string(), r"'\\'");
+    assert_eq!(0x1B.legible().to_string(), r"'\x1B'");
+    assert_eq!(0x1f.legible().to_string(), r"'\x1F'");
+    assert_eq!(b' '.legible().to_string(), "' '");
+    assert_eq!(b'a'.legible().to_string(), "'a'");
+    assert_eq!(0x7F.legible().to_string(), r"'\x7F'");
+    assert_eq!(129.legible().to_string(), r"'\x81'");
+    assert_eq!(255.legible().to_string(), r"'\xFF'");
 }
 
 #[test]
 fn u8_arr_display() {
     assert_eq!(
-        [0, 1, 2, b'\'', b'"', b'\\'].display().to_string(),
+        [0, 1, 2, b'\'', b'"', b'\\'].legible().to_string(),
         r#""\x00\x01\x02'\"\\""#
     );
 }

@@ -37,7 +37,7 @@ fn hir_class() {
     assert!(!class.is_literal());
     assert_eq!(class.len_hint(), (1, Some(1)));
     assert_eq!(class.exact_len(), Some(1));
-    assert_str_eq!(class.to_string(), r"[00h | 1Bh-'\'']");
+    assert_str_eq!(class.to_string(), r"['\x00' | '\x1B'-'\'']");
 }
 
 #[test]

@@ -52,20 +52,18 @@ fn graph_display_fmt_0() {
     assert_eq!(
         graph.to_string(),
         lit!(
-            ///node(0) {
-            ///    ['a'-FFh] -> node(1)
-            ///}
-            ///node(1) {
-            ///    [Epsilon] -> node(2)
-            ///    [Epsilon] -> node(0)
-            ///}
-            ///node(2) {
-            ///    ['c'] -> node(3)
-            ///}
-            ///node(3) {
-            ///    [Epsilon] -> node(0)
-            ///    [Epsilon] -> node(1)
-            ///    [Epsilon] -> node(2)
+            ///graph {
+            ///  no_0 { 'a'-'\xFF' -> no_1 }
+            ///  no_1 {
+            ///    E -> no_2
+            ///    E -> no_0
+            ///  }
+            ///  no_2 { 'c' -> no_3 }
+            ///  no_3 {
+            ///    E -> no_0
+            ///    E -> no_1
+            ///    E -> no_2
+            ///  }
             ///}
         )
     );
@@ -89,21 +87,19 @@ fn graph_display_fmt_1() {
     assert_eq!(
         graph.to_string(),
         lit!(
-            ///node(0) {
-            ///    ['a'-'b' | 'd'-'z'] -> node(1)
+            ///graph {
+            ///  no_0 { 'a'-'b' | 'd'-'z' -> no_1 }
+            ///  no_1 {
+            ///    E -> no_2
+            ///    E -> no_4
+            ///  }
+            ///  no_2 { 'a' -> no_3 }
+            ///  no_3 {
+            ///    E -> no_4
+            ///    E -> no_2
+            ///  }
+            ///  no_4 {}
             ///}
-            ///node(1) {
-            ///    [Epsilon] -> node(2)
-            ///    [Epsilon] -> node(4)
-            ///}
-            ///node(2) {
-            ///    ['a'] -> node(3)
-            ///}
-            ///node(3) {
-            ///    [Epsilon] -> node(4)
-            ///    [Epsilon] -> node(2)
-            ///}
-            ///node(4) {}
         )
     );
 }
@@ -130,28 +126,18 @@ fn graph_display_fmt_2() {
     assert_eq!(
         graph.to_string(),
         lit!(
-            ///node(0) {
-            ///    [Epsilon] -> node(2)
-            ///    [Epsilon] -> node(5)
-            ///}
-            ///node(2) {
-            ///    ['a'] -> node(3)
-            ///}
-            ///node(3) {
-            ///    ['b'] -> node(4)
-            ///}
-            ///node(4) {
-            ///    [Epsilon] -> node(1)
-            ///}
-            ///node(1) {}
-            ///node(5) {
-            ///    ['c'] -> node(6)
-            ///}
-            ///node(6) {
-            ///    ['d'] -> node(7)
-            ///}
-            ///node(7) {
-            ///    [Epsilon] -> node(1)
+            ///graph {
+            ///  no_0 {
+            ///    E -> no_2
+            ///    E -> no_5
+            ///  }
+            ///  no_1 {}
+            ///  no_2 { 'a' -> no_3 }
+            ///  no_3 { 'b' -> no_4 }
+            ///  no_4 { E -> no_1 }
+            ///  no_5 { 'c' -> no_6 }
+            ///  no_6 { 'd' -> no_7 }
+            ///  no_7 { E -> no_1 }
             ///}
         )
     );
@@ -169,14 +155,14 @@ fn graph_display_fmt_3() {
     assert_eq!(
         format!("{graph:?}"),
         lit!(
-            ///node(0) {
-            ///    [1] -> node(1)
+            ///graph {
+            ///  no_0 { '\x01' -> no_1 }
+            ///  no_1 {
+            ///    '\x03' -> self
+            ///    '\x01' -> no_2
+            ///  }
+            ///  no_2 {}
             ///}
-            ///node(1) {
-            ///    [3] -> self
-            ///    [1] -> node(2)
-            ///}
-            ///node(2) {}
         )
     );
 }

@@ -1,5 +1,8 @@
+use crate::Legible;
 use crate::range::Range;
 use crate::step::Step;
+use core::fmt::Write;
+use owo_colors::OwoColorize;
 
 /// A set of non-overlapping inclusive ranges, stored in increasing order.
 #[derive(PartialEq, Eq)]
@@ -190,7 +193,7 @@ impl<T: Step + Ord> RangeList<T> {
     }
 }
 
-impl<T> std::default::Default for RangeList<T> {
+impl<T> core::default::Default for RangeList<T> {
     /// Creates an empty range list.
     #[inline]
     fn default() -> Self {
@@ -198,7 +201,7 @@ impl<T> std::default::Default for RangeList<T> {
     }
 }
 
-impl<T> std::convert::From<Range<T>> for RangeList<T> {
+impl<T> core::convert::From<Range<T>> for RangeList<T> {
     /// Creates a range list containing a single range.
     fn from(range: Range<T>) -> Self {
         Self {
@@ -207,7 +210,7 @@ impl<T> std::convert::From<Range<T>> for RangeList<T> {
     }
 }
 
-impl<T, R, I> std::convert::From<I> for RangeList<T>
+impl<T, R, I> core::convert::From<I> for RangeList<T>
 where
     T: Step + Ord,
     R: AsRef<Range<T>>,
@@ -226,42 +229,62 @@ where
     }
 }
 
-macro_rules! impl_fmt {
-    (std::fmt::$trait:ident) => {
-        impl<T: Copy + PartialEq + std::fmt::$trait> std::fmt::$trait for RangeList<T> {
-            /// Formats the range list by displaying each range separated by " | ".
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                for (i, range) in self.ranges.iter().enumerate() {
-                    std::fmt::$trait::fmt(&range, f)?;
-                    if i < self.ranges.len() - 1 {
-                        f.write_str(" | ")?;
-                    }
-                }
-                Ok(())
-            }
-        }
-    };
-}
-
-impl_fmt!(std::fmt::Debug);
-impl_fmt!(std::fmt::Binary);
-impl_fmt!(std::fmt::Octal);
-impl_fmt!(std::fmt::LowerHex);
-impl_fmt!(std::fmt::UpperHex);
-
-impl std::fmt::Display for RangeList<u8> {
-    /// Formats the range list for display by showing each range separated by
-    /// ` | `.
-    ///
-    /// This implementation is specialized for `u8` ranges to provide more
-    /// readable output for byte ranges.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T: Copy + PartialEq + core::fmt::Debug> core::fmt::Debug for RangeList<T> {
+    /// Formats the range list by displaying each range separated by " | ".
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_char('[')?;
         for (i, range) in self.ranges.iter().enumerate() {
-            std::fmt::Display::fmt(&range, f)?;
+            range.fmt(f)?;
             if i < self.ranges.len() - 1 {
                 f.write_str(" | ")?;
             }
         }
-        Ok(())
+        f.write_char(']')
+    }
+}
+
+impl RangeList<u8> {
+    pub(crate) fn fmt(&self, f: &mut core::fmt::Formatter<'_>, colored: bool) -> core::fmt::Result {
+        if colored {
+            write!(f, "{}", '['.white())?;
+        } else {
+            f.write_char('[')?;
+        }
+        for (i, range) in self.ranges.iter().enumerate() {
+            range.fmt(f, colored)?;
+            if i < self.ranges.len() - 1 {
+                if colored {
+                    write!(f, "{}", " | ".white())?;
+                } else {
+                    f.write_str(" | ")?;
+                }
+            }
+        }
+        if colored {
+            write!(f, "{}", ']'.white())
+        } else {
+            f.write_char(']')
+        }
+    }
+}
+impl core::fmt::Display for RangeList<u8> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        Self::fmt(self, f, false)
+    }
+}
+
+impl Legible for RangeList<u8> {
+    fn legible(&self) -> impl core::fmt::Display {
+        self
+    }
+
+    fn colored(&self) -> impl core::fmt::Display {
+        struct Colored<'a>(&'a RangeList<u8>);
+        impl core::fmt::Display for Colored<'_> {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                RangeList::fmt(self.0, f, true)
+            }
+        }
+        Colored(self)
     }
 }

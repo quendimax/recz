@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 bumpish.workspace = true
+owo-colors.workspace = true
 recz-adt = { path = "../recz-adt" }
 recz-syntax = { path = "../recz-syntax" }
 

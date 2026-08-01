@@ -1,7 +1,8 @@
 use crate::edge::{Edge, EdgeInner};
 use crate::node::{Node, NodeInner, NodePtr};
 use bumpish::BumpVec;
-use recz_adt::Set;
+use owo_colors::OwoColorize;
+use recz_adt::Legible;
 use std::cell::Cell;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -212,6 +213,87 @@ impl Graph {
     pub fn is_empty(&self) -> bool {
         self.0.bump_nodes.is_empty() && self.0.bump_edges.is_empty()
     }
+
+    /// Returns an iterator over the nodes in the graph.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use recz_graph::Graph;
+    ///
+    /// let graph = Graph::new();
+    /// assert!(graph.nodes().next().is_none());
+    ///
+    /// let node = graph.node();
+    /// assert!(graph.nodes().next().is_some());
+    /// ```
+    pub fn nodes(&self) -> impl Iterator<Item = Node<'_>> {
+        self.0.bump_nodes.iter().map(Node::from_ref)
+    }
+}
+
+impl Graph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>, colored: bool) -> std::fmt::Result {
+        let white = |f: &mut std::fmt::Formatter<'_>, s: &str| {
+            if colored {
+                write!(f, "{}", s.white())
+            } else {
+                write!(f, "{}", s)
+            }
+        };
+        if colored {
+            write!(f, "{}", "graph".bold().bright_yellow())?;
+        } else {
+            write!(f, "graph")?;
+        }
+        white(f, " {")?;
+        if !self.is_empty() {
+            for node in self.nodes() {
+                f.write_str("\n  ")?;
+                node.fmt(f, colored)?;
+                write!(f, " ")?;
+                match node.target_count() {
+                    0 => white(f, "{}")?,
+                    1 => {
+                        white(f, "{ ")?;
+                        let (edge, target) = node.targets().next().unwrap();
+                        edge.fmt(f, colored)?;
+                        white(f, " -> ")?;
+                        if node == target {
+                            if colored {
+                                write!(f, "{}", "self".bright_yellow())?;
+                            } else {
+                                write!(f, "self")?;
+                            }
+                        } else {
+                            target.fmt(f, colored)?;
+                        }
+                        white(f, " }")?;
+                    }
+                    _ => {
+                        white(f, "{")?;
+                        for (tr, target) in node.targets() {
+                            f.write_str("\n    ")?;
+                            tr.fmt(f, colored)?;
+                            white(f, " -> ")?;
+                            if node == target {
+                                if colored {
+                                    write!(f, "{}", "self".bright_yellow())?;
+                                } else {
+                                    write!(f, "self")?;
+                                }
+                            } else {
+                                target.fmt(f, colored)?;
+                            }
+                        }
+                        white(f, "\n  }")?;
+                    }
+                }
+            }
+            f.write_char('\n')?;
+        }
+        white(f, "}")
+    }
 }
 
 /// Private API
@@ -232,60 +314,33 @@ impl std::default::Default for Graph {
     }
 }
 
-macro_rules! impl_fmt {
-    (std::fmt::$trait:ident) => {
-        impl ::std::fmt::$trait for Graph {
-            #[allow(clippy::mutable_key_type)]
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                fn recurse<'a>(node: Node<'a>, visited: &mut Set<Node<'a>>) {
-                    visited.insert(node);
-                    for (_tr, target) in node.targets() {
-                        if !visited.contains(&target) {
-                            recurse(target, visited);
-                        }
-                    }
-                }
-                if self.0.start_node.get().is_none() {
-                    return Ok(());
-                }
-                let start_node = self.start_node();
-                let mut visited = Set::default();
-                recurse(start_node, &mut visited);
-                let mut first = true;
-                for node in visited.iter().copied() {
-                    if first {
-                        first = false;
-                    } else {
-                        f.write_char('\n')?;
-                    }
-                    let mut is_empty = true;
-                    ::std::fmt::$trait::fmt(&node, f)?;
-                    f.write_str(" {")?;
-                    for (tr, target) in node.targets() {
-                        f.write_str("\n    ")?;
-                        ::std::fmt::$trait::fmt(&tr, f)?;
-                        f.write_str(" -> ")?;
-                        if node == target {
-                            f.write_str("self")?;
-                        } else {
-                            ::std::fmt::$trait::fmt(&target, f)?;
-                        }
-                        is_empty = false;
-                    }
-                    if !is_empty {
-                        f.write_char('\n')?;
-                    }
-                    f.write_char('}')?;
-                }
-                Ok(())
-            }
-        }
-    };
+impl core::fmt::Debug for Graph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Graph::fmt(self, f, false)
+    }
 }
 
-impl_fmt!(std::fmt::Display);
-impl_fmt!(std::fmt::Debug);
-impl_fmt!(std::fmt::Binary);
-impl_fmt!(std::fmt::Octal);
-impl_fmt!(std::fmt::UpperHex);
-impl_fmt!(std::fmt::LowerHex);
+impl core::fmt::Display for Graph {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Graph::fmt(self, f, false)
+    }
+}
+
+impl Legible for Graph {
+    #[inline]
+    fn legible(&self) -> impl std::fmt::Display {
+        self
+    }
+
+    #[inline]
+    fn colored(&self) -> impl std::fmt::Display {
+        struct ColoredGraph<'a>(&'a Graph);
+        impl<'a> core::fmt::Display for ColoredGraph<'a> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                Graph::fmt(self.0, f, true)
+            }
+        }
+        ColoredGraph(self)
+    }
+}

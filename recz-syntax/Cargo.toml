@@ -7,6 +7,7 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+owo-colors.workspace = true
 recz-adt = { path = "../recz-adt" }
 recz-codec = { path = "../recz-codec" }
 static_assertions.workspace = true

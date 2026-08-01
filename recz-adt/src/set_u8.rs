@@ -1,4 +1,5 @@
 use crate::{Legible, RangeU8};
+use owo_colors::OwoColorize;
 use std::cell::Cell;
 use std::fmt::Write;
 
@@ -676,19 +677,53 @@ impl std::ops::Not for SetU8 {
     }
 }
 
-impl std::fmt::Display for SetU8 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_char('[')?;
+impl SetU8 {
+    pub(crate) fn fmt(&self, f: &mut std::fmt::Formatter<'_>, colored: bool) -> std::fmt::Result {
+        if colored {
+            write!(f, "{}", '['.white())?;
+        } else {
+            f.write_char('[')?;
+        }
         let mut first = true;
         for range in self.ranges() {
             if first {
                 first = false;
             } else {
-                f.write_str(" | ")?;
+                if colored {
+                    write!(f, "{}", " | ".white())?;
+                } else {
+                    f.write_str(" | ")?;
+                }
             }
-            std::fmt::Display::fmt(&range.display(), f)?;
+            range.fmt(f, colored)?;
         }
-        f.write_char(']')
+        if colored {
+            write!(f, "{}", ']'.white())
+        } else {
+            f.write_char(']')
+        }
+    }
+}
+
+impl std::fmt::Display for SetU8 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Self::fmt(self, f, false)
+    }
+}
+
+impl Legible for SetU8 {
+    fn legible(&self) -> impl std::fmt::Display {
+        self
+    }
+
+    fn colored(&self) -> impl core::fmt::Display {
+        struct Colored<'a>(&'a SetU8);
+        impl core::fmt::Display for Colored<'_> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                SetU8::fmt(self.0, f, true)
+            }
+        }
+        Colored(self)
     }
 }
 
