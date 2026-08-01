@@ -60,16 +60,16 @@ impl<C: Codec> Parser<C> {
 /// Internal parser implementation that handles the actual parsing logic.
 struct ParserImpl<'s, 'c, C: Codec, const UNICODE: bool = true> {
     lexer: Lexer<'s>,
-    coder: &'c C,
+    codec: &'c C,
     used_group_ids: Set<u32>,
 }
 
 impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     /// Creates a new parser implementation instance.
-    fn new(lexer: Lexer<'s>, coder: &'c C) -> Self {
+    fn new(lexer: Lexer<'s>, codec: &'c C) -> Self {
         ParserImpl {
             lexer,
-            coder,
+            codec,
             used_group_ids: Set::new(),
         }
     }
@@ -151,7 +151,7 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
             _ => {
                 if let Some(c) = self.try_parse_term()? {
                     let mut literal = vec![0, 0, 0, 0, 0, 0, 0, 0];
-                    match self.coder.encode_ucp(c, &mut literal[..]) {
+                    match self.codec.encode_ucp(c, &mut literal[..]) {
                         Ok(len) => literal.resize(len, 0),
                         Err(error) => return err::encoder_error(error, token.span()),
                     }
@@ -311,7 +311,7 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     /// ```
     fn parse_class(&mut self) -> Result<Hir> {
         let token = self.lexer.peek();
-        let range_set = match token.kind() {
+        let range_list = match token.kind() {
             tok::dot => self.parse_dot(),
             tok::l_square => self.parse_squares(),
             tok::l_square_caret => self.parse_squares_negated(),
@@ -321,12 +321,12 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
             }
         }?;
 
-        if range_set.is_empty() {
+        if range_list.is_empty() {
             return Ok(Hir::empty());
         }
 
         let mut alternatives = Vec::new();
-        for cp_range in range_set.ranges() {
+        for cp_range in range_list.ranges() {
             let hir = self.convert(cp_range.start(), cp_range.last());
             alternatives.push(hir);
         }
@@ -336,7 +336,7 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     /// Parses a dot (`.`) character class that matches any character.
     fn parse_dot(&mut self) -> Result<RangeList<u32>> {
         self.lexer.expect(tok::dot)?;
-        let encoding = self.coder.encoding();
+        let encoding = self.codec.encoding();
         Ok(RangeList::from(encoding.codepoint_ranges()))
     }
 
@@ -346,14 +346,14 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
         let mut ranges = RangeList::default();
         loop {
             let token = self.lexer.peek();
-            let range_set = match token.kind() {
+            let range_list = match token.kind() {
                 tok::dot => self.parse_dot(),
                 tok::l_square => self.parse_squares(),
                 tok::l_square_caret => self.parse_squares_negated(),
                 tok::r_square => break,
                 _ => self.parse_range(),
             }?;
-            for range in range_set.ranges() {
+            for range in range_list.ranges() {
                 ranges.merge(range);
             }
         }
@@ -364,7 +364,7 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     /// Parses a negated character class with square brackets `[^...]`.
     fn parse_squares_negated(&mut self) -> Result<RangeList<u32>> {
         self.lexer.expect(tok::l_square_caret)?;
-        let encoding = self.coder.encoding();
+        let encoding = self.codec.encoding();
         let mut ranges = RangeList::from(encoding.codepoint_ranges());
         loop {
             let token = self.lexer.peek();
@@ -631,7 +631,7 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     /// Converts a range of code points to a Hir.
     fn convert(&self, first_codepoint: u32, last_codepoint: u32) -> Hir {
         let mut alternatives = Vec::new();
-        self.coder
+        self.codec
             .encode_range(first_codepoint, last_codepoint, |seq| {
                 let mut items = Vec::new();
                 for b_range in seq {
