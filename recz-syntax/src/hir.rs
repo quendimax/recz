@@ -476,12 +476,12 @@ impl Legible for GroupHir {
         struct Colored<'a>(&'a GroupHir);
         impl<'a> Display for Colored<'a> {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                "(<".white().fmt(f)?;
-                "?".bright_yellow().fmt(f)?;
-                self.0.label.bright_cyan().fmt(f)?;
+                "(".bold().white().fmt(f)?;
+                "<?".white().fmt(f)?;
+                self.0.label.bold().bright_cyan().fmt(f)?;
                 "> ".white().fmt(f)?;
                 self.0.item.colored().fmt(f)?;
-                " )".white().fmt(f)
+                " )".bold().white().fmt(f)
             }
         }
         Colored(self)

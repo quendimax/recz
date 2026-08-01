@@ -6,7 +6,8 @@ use recz_graph::{Graph, Translator};
 use recz_syntax::{Parser, codec::Utf8Codec};
 use supports_color::Stream;
 
-/// dev tools for analyzing `recz`'s inner NFA/DFA graphs.
+/// A tool to facilitate development of `recz` crate. It allows you to see inner
+/// representation of regex patterns: HIR, NFA, DFA, etc.
 #[derive(FromArgs)]
 struct Cli {
     /// the regex pattern to analyze
@@ -45,7 +46,6 @@ fn dysplay<T: Legible>(item: &T) -> impl std::fmt::Display {
 fn main() -> Result<()> {
     let cli: Cli = argh::from_env();
     let parser = Parser::new(Utf8Codec);
-
     let hir = parser.parse(&cli.regex)?;
 
     if cli.print_hir {
