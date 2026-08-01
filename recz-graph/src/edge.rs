@@ -167,7 +167,8 @@ impl<'a> Edge<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use recz_graph::Graph;
+    /// use recz_graph::{Graph, Tag};
+    ///
     /// let gr = Graph::new();
     /// let edge = gr.node().connect(gr.node());
     /// edge.add_tag(Tag::OpenGroup(0));
@@ -284,9 +285,9 @@ impl<'a> Edge<'a> {
                     first_iter = false;
                 } else {
                     if colored {
-                        write!(f, "{}", ", ".white())?;
+                        write!(f, "{}", ",".white())?;
                     } else {
-                        write!(f, ", ")?;
+                        write!(f, ",")?;
                     }
                 }
                 if colored {
