@@ -5,12 +5,14 @@ members = [
     "recz-cli",
     "recz-codec",
     "recz-graph",
+    "recz-macro",
     "recz-syntax",
 ]
 default-members = [
     "recz-adt",
     "recz-codec",
     "recz-graph",
+    "recz-macro",
     "recz-syntax",
 ]
 resolver = "3"
