@@ -1,7 +1,6 @@
 use std::fmt::Write;
 
 use crate::error::{Result, err};
-use static_assertions::const_assert;
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -96,9 +95,6 @@ pub struct Token {
     kind: TokenKind,
     span: (u32, u32),
 }
-
-// To be sure that `u32` is convertible to `usize`.
-const_assert!(std::mem::size_of::<u32>() <= std::mem::size_of::<usize>());
 
 impl Token {
     fn new(kind: TokenKind, start: usize, end: usize) -> Self {
