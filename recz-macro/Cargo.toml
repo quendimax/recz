@@ -10,6 +10,8 @@ repository.workspace = true
 proc-macro = true
 
 [dependencies]
+proc-macro2.workspace = true
 recz-cogen = { path = "../recz-cogen" }
 recz-graph = { path = "../recz-graph" }
+recz-syntax = { path = "../recz-syntax" }
 syn.workspace = true
