@@ -1,7 +1,7 @@
 use crate::{Legible, RangeU8};
+use core::cell::Cell;
+use core::fmt::Write;
 use owo_colors::OwoColorize;
-use std::cell::Cell;
-use std::fmt::Write;
 
 type Chunk = usize;
 
@@ -30,7 +30,7 @@ const fn chunk_mask(byte: u8) -> Chunk {
 }
 
 /// A set of symbols that can be used to represent any byte.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SetU8 {
     bitmap: [Cell<Chunk>; BITMAP_LEN],
 }
@@ -537,7 +537,7 @@ impl SetU8 {
     }
 }
 
-impl std::default::Default for SetU8 {
+impl core::default::Default for SetU8 {
     /// Creates a new empty symbol set.
     #[inline]
     fn default() -> Self {
@@ -545,7 +545,7 @@ impl std::default::Default for SetU8 {
     }
 }
 
-impl std::convert::From<u8> for SetU8 {
+impl core::convert::From<u8> for SetU8 {
     fn from(value: u8) -> Self {
         let set = Self::new();
         set.insert(value);
@@ -553,20 +553,20 @@ impl std::convert::From<u8> for SetU8 {
     }
 }
 
-impl std::convert::From<std::ops::RangeInclusive<u8>> for SetU8 {
-    fn from(value: std::ops::RangeInclusive<u8>) -> Self {
+impl core::convert::From<core::ops::RangeInclusive<u8>> for SetU8 {
+    fn from(value: core::ops::RangeInclusive<u8>) -> Self {
         Self::from(&RangeU8::from(value))
     }
 }
 
-impl std::convert::From<RangeU8> for SetU8 {
+impl core::convert::From<RangeU8> for SetU8 {
     #[inline]
     fn from(value: RangeU8) -> Self {
         Self::from(&value)
     }
 }
 
-impl std::convert::From<&RangeU8> for SetU8 {
+impl core::convert::From<&RangeU8> for SetU8 {
     fn from(range: &RangeU8) -> Self {
         let mut ls_mask = chunk_mask(range.start());
         ls_mask = !(ls_mask - 1);
@@ -591,7 +591,7 @@ impl std::convert::From<&RangeU8> for SetU8 {
     }
 }
 
-impl std::convert::From<&[u8]> for SetU8 {
+impl core::convert::From<&[u8]> for SetU8 {
     fn from(value: &[u8]) -> Self {
         let set = Self::default();
         for byte in value {
@@ -601,26 +601,26 @@ impl std::convert::From<&[u8]> for SetU8 {
     }
 }
 
-impl<const N: usize> std::convert::From<&[u8; N]> for SetU8 {
+impl<const N: usize> core::convert::From<&[u8; N]> for SetU8 {
     fn from(value: &[u8; N]) -> Self {
         Self::from(&value[..])
     }
 }
 
-impl<const N: usize> std::convert::From<[u8; N]> for SetU8 {
+impl<const N: usize> core::convert::From<[u8; N]> for SetU8 {
     fn from(value: [u8; N]) -> Self {
         Self::from(&value[..])
     }
 }
 
-impl std::convert::From<&SetU8> for SetU8 {
+impl core::convert::From<&SetU8> for SetU8 {
     fn from(value: &SetU8) -> Self {
         value.clone()
     }
 }
 
-impl std::hash::Hash for SetU8 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl core::hash::Hash for SetU8 {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.bitmap.iter().for_each(|chunk| chunk.get().hash(state));
     }
 }
@@ -628,10 +628,10 @@ impl std::hash::Hash for SetU8 {
 macro_rules! impl_ops {
     ($op_assign_trait:ident, $op_assign_fn:ident, $op_trait:ident, $op_fn:ident for $($rhs_ty:ty),+ $(,)?) => {
         $(
-            impl ::std::ops::$op_assign_trait<$rhs_ty> for SetU8 {
+            impl ::core::ops::$op_assign_trait<$rhs_ty> for SetU8 {
                 #[inline]
                 fn $op_assign_fn(&mut self, rhs: $rhs_ty) {
-                    use ::std::ops::$op_trait;
+                    use ::core::ops::$op_trait;
                     let rhs = Self::from(rhs);
                     for i in 0..BITMAP_LEN {
                         self.bitmap[i].update(|ch| $op_trait::$op_fn(ch, rhs.bitmap[i].get()));
@@ -639,12 +639,12 @@ macro_rules! impl_ops {
                 }
             }
 
-            impl ::std::ops::$op_trait<$rhs_ty> for SetU8 {
+            impl ::core::ops::$op_trait<$rhs_ty> for SetU8 {
                 type Output = Self;
 
                 #[inline]
                 fn $op_fn(self, rhs: $rhs_ty) -> Self {
-                    use ::std::ops::$op_trait;
+                    use ::core::ops::$op_trait;
                     let rhs = Self::from(rhs);
                     let new = Self::new();
                     for i in 0..BITMAP_LEN {
@@ -658,13 +658,13 @@ macro_rules! impl_ops {
 }
 
 impl_ops!(BitAndAssign, bitand_assign, BitAnd, bitand for
-    u8, RangeU8, &RangeU8, std::ops::RangeInclusive<u8>, SetU8, &SetU8);
+    u8, RangeU8, &RangeU8, core::ops::RangeInclusive<u8>, SetU8, &SetU8);
 impl_ops!(BitOrAssign, bitor_assign, BitOr, bitor for
-    u8, RangeU8, &RangeU8, std::ops::RangeInclusive<u8>, SetU8, &SetU8);
+    u8, RangeU8, &RangeU8, core::ops::RangeInclusive<u8>, SetU8, &SetU8);
 impl_ops!(BitXorAssign, bitxor_assign, BitXor, bitxor for
-    u8, RangeU8, &RangeU8, std::ops::RangeInclusive<u8>, SetU8, &SetU8);
+    u8, RangeU8, &RangeU8, core::ops::RangeInclusive<u8>, SetU8, &SetU8);
 
-impl std::ops::Not for SetU8 {
+impl core::ops::Not for SetU8 {
     type Output = Self;
 
     #[inline]
@@ -678,7 +678,7 @@ impl std::ops::Not for SetU8 {
 }
 
 impl SetU8 {
-    pub(crate) fn fmt(&self, f: &mut std::fmt::Formatter<'_>, colored: bool) -> std::fmt::Result {
+    pub(crate) fn fmt(&self, f: &mut core::fmt::Formatter<'_>, colored: bool) -> core::fmt::Result {
         if colored {
             write!(f, "{}", '['.white())?;
         } else {
@@ -705,21 +705,27 @@ impl SetU8 {
     }
 }
 
-impl std::fmt::Display for SetU8 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for SetU8 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        Self::fmt(self, f, false)
+    }
+}
+
+impl core::fmt::Display for SetU8 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         Self::fmt(self, f, false)
     }
 }
 
 impl Legible for SetU8 {
-    fn legible(&self) -> impl std::fmt::Display {
+    fn legible(&self) -> impl core::fmt::Display {
         self
     }
 
     fn colored(&self) -> impl core::fmt::Display {
         struct Colored<'a>(&'a SetU8);
         impl core::fmt::Display for Colored<'_> {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 SetU8::fmt(self.0, f, true)
             }
         }
@@ -736,14 +742,9 @@ impl ByteIter {
     fn new(set: SetU8) -> Self {
         Self { set, shift: 0 }
     }
-
-    /// Consumes this iterator, returning the underlying [`SetU8`].
-    pub fn into_set(self) -> SetU8 {
-        self.set
-    }
 }
 
-impl std::iter::Iterator for ByteIter {
+impl core::iter::Iterator for ByteIter {
     type Item = u8;
 
     #[inline]
@@ -769,6 +770,31 @@ impl std::iter::Iterator for ByteIter {
     }
 }
 
+impl core::convert::From<ByteIter> for SetU8 {
+    /// Converts a [`ByteIter`] into a [`SetU8`].
+    ///
+    /// Pay attention, the new [`SetU8`] contains only the elements that
+    /// [`ByteIter`] has not yet consumed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use recz_adt::{SetU8, ByteIter};
+    ///
+    /// let set = SetU8::from([1, 2, 3]);
+    /// let mut iter = set.bytes();
+    /// assert_eq!(iter.next(), Some(1));
+    ///
+    /// let iter_set = iter.into();
+    /// assert_ne!(set, iter_set);
+    /// assert_eq!(iter_set, SetU8::from([2, 3]));
+    /// ```
+    #[inline]
+    fn from(iter: ByteIter) -> Self {
+        iter.set
+    }
+}
+
 pub struct RangeIter {
     set: SetU8,
     shift: u32,
@@ -782,11 +808,6 @@ impl RangeIter {
             shift: 0,
             range: None,
         }
-    }
-
-    /// Consumes this iterator, returning the underlying [`SetU8`].
-    pub fn into_set(self) -> SetU8 {
-        self.set
     }
 
     #[inline]
@@ -818,7 +839,7 @@ impl RangeIter {
     }
 }
 
-impl std::iter::Iterator for RangeIter {
+impl core::iter::Iterator for RangeIter {
     type Item = RangeU8;
 
     #[inline]
@@ -833,5 +854,34 @@ impl std::iter::Iterator for RangeIter {
             }
         }
         Some(range)
+    }
+}
+
+impl core::convert::From<RangeIter> for SetU8 {
+    /// Converts a [`RangeIter`] into a [`SetU8`].
+    ///
+    /// Pay attention, the new [`SetU8`] contains only the elements that
+    /// [`RangeIter`] has not yet consumed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use recz_adt::{SetU8, RangeIter, RangeU8};
+    ///
+    /// let set = SetU8::from([1, 2, 3, 14, 15, 16]);
+    /// let mut iter = set.ranges();
+    /// assert_eq!(iter.next(), Some(RangeU8::new(1, 3)));
+    ///
+    /// let iter_set = iter.into();
+    /// assert_ne!(set, iter_set);
+    /// assert_eq!(iter_set, SetU8::from([14, 15, 16]));
+    /// ```
+    #[inline]
+    fn from(iter: RangeIter) -> Self {
+        let set = iter.set;
+        if let Some(range) = iter.range {
+            set.insert_bytes(range);
+        }
+        set
     }
 }

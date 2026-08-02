@@ -438,7 +438,7 @@ fn set_u8_iter_empty() {
 fn set_u8_iter_into_set() {
     let set = SetU8::from([1, 5, 89]);
     let iter = set.iter();
-    let set2 = iter.into_set();
+    let set2 = iter.into();
     assert_eq!(set, set2);
 }
 
@@ -487,7 +487,7 @@ fn set_u8_ranges_empty() {
 fn set_u8_ranges_into_set() {
     let set = SetU8::from([1, 5, 89]);
     let iter = set.ranges();
-    let set2 = iter.into_set();
+    let set2 = iter.into();
     assert_eq!(set, set2);
 }
 
