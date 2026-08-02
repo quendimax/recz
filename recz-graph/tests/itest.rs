@@ -1,3 +1,6 @@
+#[path = "itest/algo.rs"]
+mod algo;
+
 #[path = "itest/edge.rs"]
 mod edge;
 
