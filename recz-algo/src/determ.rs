@@ -42,8 +42,7 @@ impl<'d, 'n> Determinator<'d, 'n> {
                 if node.is_final() {
                     node.definalize();
                     let edge = node.connect(final_node);
-                    let final_tags = &self.final_tags[&node];
-                    final_tags.iter().for_each(|tag| _ = edge.add_tag(*tag));
+                    edge.add_tags(self.final_tags[&node].iter().copied());
                 }
             }
             final_node.finalize();
@@ -69,7 +68,7 @@ impl<'d, 'n> Determinator<'d, 'n> {
             let sym_dfa_node = self.lambda(sym_closure);
             let edge = dfa_node.connect(sym_dfa_node);
             edge.add_symbol(symbol);
-            tags.iter().for_each(|tag| _ = edge.add_tag(*tag));
+            edge.add_tags(tags);
         }
 
         dfa_node

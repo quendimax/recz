@@ -77,6 +77,26 @@ impl<'a> Edge<'a> {
         *self
     }
 
+    /// Adds multiple tags to this edge.
+    ///
+    /// If equivalent tag is already present, it won't be replaced.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use recz_graph::{Graph, Tag};
+    ///
+    /// let gr = Graph::new();
+    /// let edge = gr.node().connect(gr.node());
+    /// edge.add_tags([Tag::OpenGroup(0), Tag::CloseGroup(0)]);
+    /// ```
+    pub fn add_tags(&self, tags: impl IntoIterator<Item = Tag>) -> Self {
+        for tag in tags {
+            self.0.tags.insert(tag);
+        }
+        *self
+    }
+
     /// Adds a symbol to this edge.
     ///
     /// # Examples
