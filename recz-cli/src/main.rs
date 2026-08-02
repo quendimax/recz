@@ -1,9 +1,10 @@
 use anyhow::Result;
 use argh::FromArgs;
+use core::fmt;
+use owo_colors::{OwoColorize, Stream};
 use recz_adt::Legible;
 use recz_graph::{Graph, Translator, algo};
 use recz_syntax::{Parser, codec::Utf8Codec};
-use supports_color::Stream;
 
 /// A tool to facilitate development of `recz` crate. It allows you to see inner
 /// representation of regex patterns: HIR, NFA, DFA, etc.
@@ -26,16 +27,14 @@ struct Cli {
     print_dfa: bool,
 }
 
-fn dysplay<T: Legible>(item: &T) -> impl std::fmt::Display {
+fn dysplay<T: fmt::Display + Legible>(item: &T) -> impl fmt::Display {
     struct DisplayWrapper<'a, T>(&'a T);
 
-    impl<'a, T: Legible> std::fmt::Display for DisplayWrapper<'a, T> {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            if supports_color::on(Stream::Stdout).is_some() {
-                self.0.colored().fmt(f)
-            } else {
-                self.0.legible().fmt(f)
-            }
+    impl<'a, T: fmt::Display + Legible> fmt::Display for DisplayWrapper<'a, T> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            self.0
+                .if_supports_color(Stream::Stdout, |v| v.colored())
+                .fmt(f)
         }
     }
 
