@@ -150,8 +150,20 @@ impl<'d, 'n> Determinator<'d, 'n> {
     fn verify_dfa(&self) {
         for node in self.dfa.nodes() {
             let outgoing_symbols = SetU8::default();
+            let mut has_epsilon = false;
             for (edge, target) in node.targets() {
-                if !edge.is_epsilon() {
+                if edge.is_epsilon() {
+                    if has_epsilon {
+                        panic!("multiple epsilon edges are not allowed")
+                    }
+                    has_epsilon = true;
+                    if !target.is_final() {
+                        panic!("only final node can be the target of epsilon edge")
+                    }
+                    if node.is_final() {
+                        panic!("final node cannot have outgoing epsilon transitions")
+                    }
+                } else {
                     if outgoing_symbols.is_disjoint(&edge.symbols().into()) {
                         outgoing_symbols.insert_bytes(edge.symbols());
                     } else {
@@ -160,13 +172,6 @@ impl<'d, 'n> Determinator<'d, 'n> {
                             "DFA node has overlapping symbols: {} for nodes {} and {}",
                             overlap, node, target
                         );
-                    }
-                } else {
-                    if !target.is_final() {
-                        panic!("only final node can be the target of epsilon edge")
-                    }
-                    if node.is_final() {
-                        panic!("final node cannot have outgoing epsilon transitions")
                     }
                 }
             }
