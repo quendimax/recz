@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "recz-adt",
-    "recz-algo",
     "recz-bench",
     "recz-cli",
     "recz-codec",
@@ -10,7 +9,6 @@ members = [
 ]
 default-members = [
     "recz-adt",
-    "recz-algo",
     "recz-cli",
     "recz-codec",
     "recz-graph",

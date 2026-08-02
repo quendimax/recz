@@ -1,3 +1,5 @@
+pub mod algo;
+
 mod edge;
 pub use edge::Edge;
 

@@ -1,5 +1,5 @@
+use crate::{Graph, Node, Tag};
 use recz_adt::{Map, OrdSet, Set, SetU8};
-use recz_graph::{Graph, Node, Tag};
 
 pub fn determine(nfa: Graph) -> Graph {
     let dfa = Graph::new();

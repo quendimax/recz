@@ -1,8 +1,7 @@
 use anyhow::Result;
 use argh::FromArgs;
 use recz_adt::Legible;
-use recz_algo::determine;
-use recz_graph::{Graph, Translator};
+use recz_graph::{Graph, Translator, algo};
 use recz_syntax::{Parser, codec::Utf8Codec};
 use supports_color::Stream;
 
@@ -69,7 +68,7 @@ fn main() -> Result<()> {
         println!();
     }
 
-    let dfa = determine(nfa);
+    let dfa = algo::determine(nfa);
     if cli.print_dfa {
         println!("--- DFA ---------------------------------------------------");
         println!();
