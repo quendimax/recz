@@ -1,11 +1,10 @@
 use argh::FromArgs;
 use core::fmt;
-use miette::{Diagnostic, SourceSpan};
+use miette::Report;
 use owo_colors::{OwoColorize, Stream};
 use recz_adt::Legible;
 use recz_graph::{Graph, Translator, algo};
 use recz_syntax::{Error as SyntaxError, Parser, codec::Utf8Codec};
-use thiserror::Error;
 
 /// A tool to facilitate development of `recz` crate. It allows you to see inner
 /// representation of regex patterns: HIR, NFA, DFA, etc.
@@ -42,24 +41,9 @@ fn dysplay<T: fmt::Display + Legible>(item: &T) -> impl fmt::Display {
     DisplayWrapper(item)
 }
 
-fn error_report(source: &str, err: Box<SyntaxError>) -> miette::Result<()> {
-    #[derive(Error, Debug, Diagnostic)]
-    #[error("invalid regular expression format")]
-    struct MyBad {
-        msg: String,
-
-        #[source_code]
-        src: String,
-
-        #[label("{msg}")]
-        span: SourceSpan,
-    }
-    Err(MyBad {
-        msg: err.to_string(),
-        src: source.to_owned(),
-        span: err.error_span().into(),
-    })?;
-    Ok(())
+fn error_report(source: &str, err: SyntaxError) -> miette::Result<()> {
+    let report: Report = err.into();
+    Err(report.with_source_code(source.to_owned()))
 }
 
 fn main() -> miette::Result<()> {
@@ -68,8 +52,7 @@ fn main() -> miette::Result<()> {
     let hir = match parser.parse(&cli.regex) {
         Ok(hir) => hir,
         Err(err) => {
-            error_report(&cli.regex, err)?;
-            return Ok(());
+            return error_report(&cli.regex, *err);
         }
     };
 

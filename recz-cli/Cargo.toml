@@ -13,4 +13,3 @@ owo-colors = { workspace = true, features = ["supports-colors"] }
 recz-adt = { path = "../recz-adt" }
 recz-graph = { path = "../recz-graph" }
 recz-syntax = { path = "../recz-syntax" }
-thiserror = { workspace = true }

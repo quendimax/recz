@@ -9,7 +9,6 @@ members = [
 ]
 default-members = [
     "recz-adt",
-    "recz-cli",
     "recz-codec",
     "recz-graph",
     "recz-syntax",

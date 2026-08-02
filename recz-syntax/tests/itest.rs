@@ -1,6 +1,3 @@
-#[path = "itest/error.rs"]
-mod error;
-
 #[path = "itest/hir.rs"]
 mod hir;
 
