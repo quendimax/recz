@@ -22,8 +22,10 @@ edition = "2024"
 repository = "https://github.com/quendimax/re"
 
 [workspace.dependencies]
+argh = "0.1.19"
 arrayvec = "0.7.6"
 bumpish = { git = "https://codeberg.org/quendimax/bumpish.git"}
+miette = "7"
 ntest = "0.9"
 num-traits = "0.2"
 owo-colors = "4"
