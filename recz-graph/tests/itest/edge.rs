@@ -266,7 +266,7 @@ fn edge_display_fmt() {
     fn tr(bytes: &[u8]) -> String {
         handle_edge_from_symbols(bytes, |tr| format!("{tr}"))
     }
-    assert_eq!(tr(b""), "E");
+    assert_eq!(tr(b""), "EPS");
     assert_eq!(tr(b"abc"), "'a'-'c'");
     assert_eq!(tr(b"abc"), "'a'-'c'");
     assert_eq!(tr(b"abcE"), "'E' | 'a'-'c'");
@@ -281,7 +281,7 @@ fn edge_display_fmt() {
 
 #[test]
 fn edge_display_fmt_with_epsilon() {
-    handle_epsilon(|edge| assert_eq!(format!("{}", edge), "E"));
+    handle_epsilon(|edge| assert_eq!(format!("{}", edge), "EPS"));
     handle_edge_from_symbols(b"abc", |edge| {
         assert_eq!(format!("{edge}"), "'a'-'c'");
         edge.add_symbol(u8::MAX);
@@ -294,7 +294,7 @@ fn edge_debug_fmt() {
     fn tr(bytes: &[u8]) -> String {
         handle_edge_from_symbols(bytes, |edge| format!("{edge:?}"))
     }
-    assert_eq!(tr(b""), "E");
+    assert_eq!(tr(b""), "EPS");
     assert_eq!(tr(b"abc"), "'a'-'c'");
     assert_eq!(tr(b"abc"), "'a'-'c'");
     assert_eq!(tr(b"abcE"), "'E' | 'a'-'c'");
@@ -309,7 +309,7 @@ fn edge_debug_fmt() {
 
 #[test]
 fn edge_debug_fmt_with_epsilon() {
-    handle_epsilon(|edge| assert_eq!(format!("{edge:?}"), "E"));
+    handle_epsilon(|edge| assert_eq!(format!("{edge:?}"), "EPS"));
     handle_edge_from_symbols(b"?@ABC", |edge| {
         assert_eq!(format!("{edge:?}"), "'?'-'C'");
         edge.add_symbol(u8::MAX);

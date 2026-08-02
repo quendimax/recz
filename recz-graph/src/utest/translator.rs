@@ -18,7 +18,7 @@ fn translate_literal() {
         tr(b""),
         lit!(
             ///graph {
-            ///  no_0 { E -> no_1 }
+            ///  no_0 { EPS -> no_1 }
             ///  no_1 {}
             ///}
         )
@@ -80,14 +80,14 @@ fn translate_repeat() {
         lit!(
             ///graph {
             ///  no_0 {
-            ///    E -> no_2
-            ///    E -> no_1
+            ///    EPS -> no_2
+            ///    EPS -> no_1
             ///  }
             ///  no_1 {}
             ///  no_2 { 'a' -> no_3 }
             ///  no_3 {
-            ///    E -> no_1
-            ///    E -> no_2
+            ///    EPS -> no_1
+            ///    EPS -> no_2
             ///  }
             ///}
         )
@@ -99,12 +99,12 @@ fn translate_repeat() {
         tr(&hir),
         lit!(
             ///graph {
-            ///  no_0 { E -> no_2 }
+            ///  no_0 { EPS -> no_2 }
             ///  no_1 {}
             ///  no_2 { 'a' -> no_3 }
             ///  no_3 {
-            ///    E -> no_1
-            ///    E -> no_2
+            ///    EPS -> no_1
+            ///    EPS -> no_2
             ///  }
             ///}
         )
@@ -119,11 +119,11 @@ fn translate_repeat() {
             ///  no_0 { 'a' -> no_2 }
             ///  no_1 {}
             ///  no_2 { 'a' -> no_3 }
-            ///  no_3 { E -> no_4 }
+            ///  no_3 { EPS -> no_4 }
             ///  no_4 { 'a' -> no_5 }
             ///  no_5 {
-            ///    E -> no_1
-            ///    E -> no_4
+            ///    EPS -> no_1
+            ///    EPS -> no_4
             ///  }
             ///}
         )
@@ -135,7 +135,7 @@ fn translate_repeat() {
         tr(&hir),
         lit!(
             ///graph {
-            ///  no_0 { E -> no_1 }
+            ///  no_0 { EPS -> no_1 }
             ///  no_1 {}
             ///}
         )
@@ -164,18 +164,18 @@ fn translate_repeat() {
             ///  no_0 { 'a' -> no_2 }
             ///  no_1 {}
             ///  no_2 {
-            ///    E -> no_3
-            ///    E -> no_1
+            ///    EPS -> no_3
+            ///    EPS -> no_1
             ///  }
             ///  no_3 { 'a' -> no_4 }
-            ///  no_4 { E -> no_5 }
+            ///  no_4 { EPS -> no_5 }
             ///  no_5 {
-            ///    E -> no_6
-            ///    E -> no_1
+            ///    EPS -> no_6
+            ///    EPS -> no_1
             ///  }
             ///  no_6 { 'a' -> no_7 }
-            ///  no_7 { E -> no_8 }
-            ///  no_8 { E -> no_1 }
+            ///  no_7 { EPS -> no_8 }
+            ///  no_8 { EPS -> no_1 }
             ///}
         )
     );
@@ -209,7 +209,7 @@ fn translate_concat() {
         graph.to_string(),
         lit!(
             ///graph {
-            ///  no_0 { E -> no_1 }
+            ///  no_0 { EPS -> no_1 }
             ///  no_1 {}
             ///}
         )
@@ -251,17 +251,17 @@ fn translate_disjunct() {
         lit!(
             ///graph {
             ///  no_0 {
-            ///    E -> no_2
-            ///    E -> no_4
-            ///    E -> no_6
+            ///    EPS -> no_2
+            ///    EPS -> no_4
+            ///    EPS -> no_6
             ///  }
             ///  no_1 {}
             ///  no_2 { 'a' -> no_3 }
-            ///  no_3 { E -> no_1 }
+            ///  no_3 { EPS -> no_1 }
             ///  no_4 { 'b' -> no_5 }
-            ///  no_5 { E -> no_1 }
+            ///  no_5 { EPS -> no_1 }
             ///  no_6 { 'c' -> no_7 }
-            ///  no_7 { E -> no_1 }
+            ///  no_7 { EPS -> no_1 }
             ///}
         )
     );

@@ -55,14 +55,14 @@ fn graph_display_fmt_0() {
             ///graph {
             ///  no_0 { 'a'-'\xFF' -> no_1 }
             ///  no_1 {
-            ///    E -> no_2
-            ///    E -> no_0
+            ///    EPS -> no_2
+            ///    EPS -> no_0
             ///  }
             ///  no_2 { 'c' -> no_3 }
             ///  no_3 {
-            ///    E -> no_0
-            ///    E -> no_1
-            ///    E -> no_2
+            ///    EPS -> no_0
+            ///    EPS -> no_1
+            ///    EPS -> no_2
             ///  }
             ///}
         )
@@ -90,13 +90,13 @@ fn graph_display_fmt_1() {
             ///graph {
             ///  no_0 { 'a'-'b' | 'd'-'z' -> no_1 }
             ///  no_1 {
-            ///    E -> no_2
-            ///    E -> no_4
+            ///    EPS -> no_2
+            ///    EPS -> no_4
             ///  }
             ///  no_2 { 'a' -> no_3 }
             ///  no_3 {
-            ///    E -> no_4
-            ///    E -> no_2
+            ///    EPS -> no_4
+            ///    EPS -> no_2
             ///  }
             ///  no_4 {}
             ///}
@@ -128,16 +128,16 @@ fn graph_display_fmt_2() {
         lit!(
             ///graph {
             ///  no_0 {
-            ///    E -> no_2
-            ///    E -> no_5
+            ///    EPS -> no_2
+            ///    EPS -> no_5
             ///  }
             ///  no_1 {}
             ///  no_2 { 'a' -> no_3 }
             ///  no_3 { 'b' -> no_4 }
-            ///  no_4 { E -> no_1 }
+            ///  no_4 { EPS -> no_1 }
             ///  no_5 { 'c' -> no_6 }
             ///  no_6 { 'd' -> no_7 }
-            ///  no_7 { E -> no_1 }
+            ///  no_7 { EPS -> no_1 }
             ///}
         )
     );

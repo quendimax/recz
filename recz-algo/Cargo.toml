@@ -9,6 +9,8 @@ repository.workspace = true
 [dependencies]
 recz-adt = { path = "../recz-adt" }
 recz-graph = { path = "../recz-graph" }
+recz-syntax = { path = "../recz-syntax" }
+
 
 [dev-dependencies]
 pretty_assertions.workspace = true

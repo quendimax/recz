@@ -270,9 +270,9 @@ impl<'a> Edge<'a> {
     pub(crate) fn fmt(&self, f: &mut std::fmt::Formatter<'_>, colored: bool) -> std::fmt::Result {
         if self.is_epsilon() {
             if colored {
-                write!(f, "{}", 'Ɛ'.bold().bright_magenta())?;
+                write!(f, "{}", "EPS".bold().bright_magenta())?;
             } else {
-                write!(f, "E")?;
+                write!(f, "EPS")?;
             }
         } else {
             let mut first_iter = true;

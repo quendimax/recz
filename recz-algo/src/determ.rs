@@ -1,4 +1,4 @@
-use recz_adt::{Map, OrdSet, Set};
+use recz_adt::{Map, OrdSet, Set, SetU8};
 use recz_graph::{Graph, Node, Tag};
 
 pub fn determine(nfa: Graph) -> Graph {
@@ -16,6 +16,22 @@ struct Determinator<'d, 'n> {
     conv_table: Map<OrdSet<Node<'n>>, Node<'d>>,
     final_tags: Map<Node<'d>, Set<Tag>>,
     stack: Vec<(Node<'n>, Node<'n>)>,
+}
+
+struct EClosure<'n> {
+    /// Epsilon closure of the nodes.
+    nodes: OrdSet<Node<'n>>,
+
+    /// All tags from this Espsilon closure.
+    tags: Set<Tag>,
+
+    /// The table that contains corresponding to every symbol a set of nodes
+    /// that have outgoing edges with this symbols, and tags that are associated
+    /// with those nodes.
+    sym_table: Map<u8, (Set<Tag>, OrdSet<Node<'n>>)>,
+
+    /// If any of `nodes` is a final node, this is `true`.
+    is_final: bool,
 }
 
 impl<'d, 'n> Determinator<'d, 'n> {
@@ -47,6 +63,9 @@ impl<'d, 'n> Determinator<'d, 'n> {
             }
             final_node.finalize();
         }
+
+        // #[cfg(debug_assertions)]
+        self.verify_dfa();
     }
 
     fn lambda(&mut self, closure: EClosure<'n>) -> Node<'d> {
@@ -127,20 +146,30 @@ impl<'d, 'n> Determinator<'d, 'n> {
             is_final,
         }
     }
-}
 
-struct EClosure<'n> {
-    /// Epsilon closure of the nodes.
-    nodes: OrdSet<Node<'n>>,
-
-    /// All tags from this Espsilon closure.
-    tags: Set<Tag>,
-
-    /// The table that contains corresponding to every symbol a set of nodes
-    /// that have outgoing edges with this symbols, and tags that are associated
-    /// with those nodes.
-    sym_table: Map<u8, (Set<Tag>, OrdSet<Node<'n>>)>,
-
-    /// If any of `nodes` is a final node, this is `true`.
-    is_final: bool,
+    fn verify_dfa(&self) {
+        for node in self.dfa.nodes() {
+            let outgoing_symbols = SetU8::default();
+            for (edge, target) in node.targets() {
+                if !edge.is_epsilon() {
+                    if outgoing_symbols.is_disjoint(&edge.symbols().into()) {
+                        outgoing_symbols.insert_bytes(edge.symbols());
+                    } else {
+                        let overlap = outgoing_symbols.intersection(&edge.symbols().into());
+                        panic!(
+                            "DFA node has overlapping symbols: {} for nodes {} and {}",
+                            overlap, node, target
+                        );
+                    }
+                } else {
+                    if !target.is_final() {
+                        panic!("only final node can be the target of epsilon edge")
+                    }
+                    if node.is_final() {
+                        panic!("final node cannot have outgoing epsilon transitions")
+                    }
+                }
+            }
+        }
+    }
 }
