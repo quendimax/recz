@@ -236,7 +236,7 @@ fn translate_group_4() {
             ///  no_15 { 'e' -> no_16 }
             ///  no_16 { EPS / -g5 -> no_14 }
             ///  no_17 { 'b' -> no_19 }
-            ///  no_18 { EPS / !g3,!g5,!g2 -> no_3 }
+            ///  no_18 { EPS / !g2,!g3,!g5 -> no_3 }
             ///  no_19 { EPS / +g4 -> no_20 }
             ///  no_20 { 'a' -> no_21 }
             ///  no_21 { EPS / -g4 -> no_18 }

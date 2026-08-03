@@ -144,17 +144,37 @@ fn ambiguity_0() {
     assert_eq!(
         parse(r"a*(?<0>a*)"),
         lit!(
-        ///graph {
-        ///  fi_0 {
-        ///    'a' / +g0 -> fi_1
-        ///    EPS / +g0,-g0 -> eg_2
-        ///  }
-        ///  fi_1 {
-        ///    'a' / +g0 -> self
-        ///    EPS / +g0,-g0 -> eg_2
-        ///  }
-        ///  eg_2 {}
-        ///}
+            ///graph {
+            ///  fi_0 {
+            ///    'a' / +g0 -> fi_1
+            ///    EPS / +g0,-g0 -> eg_2
+            ///  }
+            ///  fi_1 {
+            ///    'a' / +g0 -> self
+            ///    EPS / +g0,-g0 -> eg_2
+            ///  }
+            ///  eg_2 {}
+            ///}
+        )
+    );
+}
+
+#[test]
+fn ambiguity_1() {
+    assert_eq!(
+        parse(r"(?<0>a*)a*"),
+        lit!(
+            ///graph {
+            ///  fi_0 {
+            ///    'a' / +g0,-g0 -> fi_1
+            ///    EPS / +g0,-g0 -> eg_2
+            ///  }
+            ///  fi_1 {
+            ///    'a' / -g0 -> self
+            ///    EPS / -g0 -> eg_2
+            ///  }
+            ///  eg_2 {}
+            ///}
         )
     );
 }

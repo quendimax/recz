@@ -299,8 +299,10 @@ impl<'a> Edge<'a> {
             } else {
                 write!(f, " / ")?;
             }
+            let mut tags = self.tags().collect::<Vec<_>>();
+            tags.sort();
             let mut first_iter = true;
-            for tag in self.tags() {
+            for tag in tags {
                 if first_iter {
                     first_iter = false;
                 } else {
