@@ -49,7 +49,7 @@ fn determine_1() {
         format!("{dfa}"),
         lit!(
             ///graph {
-            ///  fi_0 { EPS / +g1,+g3,-g3,-g1,+g2,-g2 -> eg_1 }
+            ///  fi_0 { EPS / +g1,+g2,+g3,-g1,-g2,-g3 -> eg_1 }
             ///  eg_1 {}
             ///}
         )
@@ -82,8 +82,8 @@ fn determine_2() {
             ///    'a' / +g1 -> fi_1
             ///    'b' / +g1 -> fi_2
             ///  }
-            ///  fi_1 { EPS / -g2,-g1 -> eg_3 }
-            ///  fi_2 { EPS / -g3,-g1 -> eg_3 }
+            ///  fi_1 { EPS / -g1,-g2 -> eg_3 }
+            ///  fi_2 { EPS / -g1,-g3 -> eg_3 }
             ///  eg_3 {}
             ///}
         )

@@ -25,7 +25,7 @@ struct EClosure<'n> {
     nodes: Rc<OrdSet<Node<'n>>>,
 
     /// All tags from this Espsilon closure.
-    tags: Set<Tag>,
+    tags: OrdSet<Tag>,
 
     /// The table that contains corresponding to every symbol a set of nodes
     /// that have outgoing edges with this symbols, and tags that are associated
@@ -107,7 +107,7 @@ impl<'d, 'n> Determinator<'d, 'n> {
             return Rc::clone(closure);
         }
 
-        let all_tags = Set::default();
+        let mut all_tags = OrdSet::default();
         let tag_table = Map::<Node<'n>, Set<Tag>>::default();
         let sym_table = Map::<u8, (Set<Tag>, Rc<OrdSet<Node<'n>>>)>::default();
         let mut is_final = false;
@@ -135,7 +135,7 @@ impl<'d, 'n> Determinator<'d, 'n> {
             let tags = tag_table.entry(node).or_default();
             tags.lazy_extend(edge.tags());
             tags.lazy_extend(tag_table[&source].iter().copied());
-            all_tags.lazy_extend(edge.tags());
+            all_tags.extend(edge.tags());
 
             for (edge, target) in node.targets() {
                 if edge.is_epsilon() {

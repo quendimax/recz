@@ -229,7 +229,7 @@ impl std::cmp::PartialOrd for Node<'_> {
 
 impl std::hash::Hash for Node<'_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.nid().hash(state)
+        (self.0 as *const NodeInner).hash(state)
     }
 }
 
