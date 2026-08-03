@@ -1,5 +1,6 @@
 use crate::{Graph, Node, Tag};
 use recz_adt::{Map, OrdSet, Set, SetU8};
+use std::rc::Rc;
 
 pub fn determine(nfa: Graph) -> Graph {
     let dfa = Graph::new();
@@ -13,14 +14,15 @@ struct Determinator<'d, 'n> {
     nfa: &'n Graph,
     dfa: &'d Graph,
     has_final_nodes: bool,
-    conv_table: Map<OrdSet<Node<'n>>, Node<'d>>,
+    conv_table: Map<Rc<OrdSet<Node<'n>>>, Node<'d>>,
+    e_closure_table: Map<Rc<OrdSet<Node<'n>>>, Rc<EClosure<'n>>>,
     final_tags: Map<Node<'d>, Set<Tag>>,
     stack: Vec<(Node<'n>, Node<'n>)>,
 }
 
 struct EClosure<'n> {
     /// Epsilon closure of the nodes.
-    nodes: OrdSet<Node<'n>>,
+    nodes: Rc<OrdSet<Node<'n>>>,
 
     /// All tags from this Espsilon closure.
     tags: Set<Tag>,
@@ -28,7 +30,7 @@ struct EClosure<'n> {
     /// The table that contains corresponding to every symbol a set of nodes
     /// that have outgoing edges with this symbols, and tags that are associated
     /// with those nodes.
-    sym_table: Map<u8, (Set<Tag>, OrdSet<Node<'n>>)>,
+    sym_table: Map<u8, (Set<Tag>, Rc<OrdSet<Node<'n>>>)>,
 
     /// If any of `nodes` is a final node, this is `true`.
     is_final: bool,
@@ -46,6 +48,7 @@ impl<'d, 'n> Determinator<'d, 'n> {
             dfa,
             has_final_nodes: false,
             conv_table: Map::default(),
+            e_closure_table: Map::default(),
             final_tags: Map::default(),
             stack: Vec::with_capacity(nfa.node_count()),
         }
@@ -56,7 +59,7 @@ impl<'d, 'n> Determinator<'d, 'n> {
             return;
         }
 
-        let start_closure = self.e_close([self.nfa.start_node()]);
+        let start_closure = self.e_close(Rc::new([self.nfa.start_node()].into()));
         self.lambda(start_closure);
 
         if self.has_final_nodes {
@@ -74,39 +77,43 @@ impl<'d, 'n> Determinator<'d, 'n> {
         self.verify_dfa();
     }
 
-    fn lambda(&mut self, closure: EClosure<'n>) -> Node<'d> {
+    fn lambda(&mut self, closure: Rc<EClosure<'n>>) -> Node<'d> {
         if let Some(dfa_node) = self.conv_table.get(&closure.nodes) {
             return *dfa_node;
         }
 
         let dfa_node = self.dfa.node();
-        self.conv_table.insert(closure.nodes, dfa_node);
+        self.conv_table.insert(Rc::clone(&closure.nodes), dfa_node);
         if closure.is_final {
             self.has_final_nodes = true;
             dfa_node.finalize();
             let tags = self.final_tags.entry(dfa_node).or_default();
-            tags.lazy_extend(closure.tags);
+            tags.lazy_extend(closure.tags.iter().copied());
         }
 
-        for (symbol, (tags, nodes)) in closure.sym_table {
-            let sym_closure = self.e_close(nodes);
+        for (symbol, (tags, nodes)) in &closure.sym_table {
+            let sym_closure = self.e_close(Rc::clone(nodes));
             let sym_dfa_node = self.lambda(sym_closure);
             let edge = dfa_node.connect(sym_dfa_node);
-            edge.add_symbol(symbol);
-            edge.add_tags(tags);
+            edge.add_symbol(*symbol);
+            edge.add_tags(tags.iter().copied());
         }
 
         dfa_node
     }
 
-    fn e_close(&mut self, nodes: impl Into<OrdSet<Node<'n>>>) -> EClosure<'n> {
-        let nodes = nodes.into();
+    fn e_close(&mut self, nodes: Rc<OrdSet<Node<'n>>>) -> Rc<EClosure<'n>> {
+        if let Some(closure) = self.e_closure_table.get(&nodes) {
+            return Rc::clone(closure);
+        }
+
         let all_tags = Set::default();
         let tag_table = Map::<Node<'n>, Set<Tag>>::default();
-        let sym_table = Map::<u8, (Set<Tag>, OrdSet<Node<'n>>)>::default();
+        let sym_table = Map::<u8, (Set<Tag>, Rc<OrdSet<Node<'n>>>)>::default();
         let mut is_final = false;
 
-        for node in nodes {
+        for node in nodes.raw_iter() {
+            let node = *node;
             tag_table.insert(node, Set::default());
             for (edge, target) in node.targets() {
                 if edge.is_epsilon() {
@@ -145,12 +152,19 @@ impl<'d, 'n> Determinator<'d, 'n> {
                 is_final = true;
             }
         }
-        EClosure {
-            nodes: OrdSet::from_iter(tag_table.keys().copied()),
-            tags: all_tags,
-            sym_table,
-            is_final,
-        }
+        let closure = self
+            .e_closure_table
+            .insert(
+                nodes,
+                Rc::new(EClosure {
+                    nodes: Rc::new(OrdSet::from_iter(tag_table.keys().copied())),
+                    tags: all_tags,
+                    sym_table,
+                    is_final,
+                }),
+            )
+            .unwrap();
+        Rc::clone(closure)
     }
 
     fn verify_dfa(&self) {
