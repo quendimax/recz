@@ -51,8 +51,8 @@ fn determine_1() {
         format!("{dfa}"),
         lit!(
             ///graph {
-            ///  no_0 { EPS / +g1,+g3,-g3,-g1,+g2,-g2 -> fi_1 }
-            ///  fi_1 {}
+            ///  fi_0 { EPS / +g1,+g3,-g3,-g1,+g2,-g2 -> eg_1 }
+            ///  eg_1 {}
             ///}
         )
     );
@@ -81,12 +81,12 @@ fn determine_2() {
         lit!(
             ///graph {
             ///  no_0 {
-            ///    'a' / +g1 -> no_1
-            ///    'b' / +g1 -> no_2
+            ///    'a' / +g1 -> fi_1
+            ///    'b' / +g1 -> fi_2
             ///  }
-            ///  no_1 { EPS / -g2,-g1 -> fi_3 }
-            ///  no_2 { EPS / -g3,-g1 -> fi_3 }
-            ///  fi_3 {}
+            ///  fi_1 { EPS / -g2,-g1 -> eg_3 }
+            ///  fi_2 { EPS / -g3,-g1 -> eg_3 }
+            ///  eg_3 {}
             ///}
         )
     );
@@ -112,9 +112,9 @@ fn determine_3() {
             ///  no_1 { 'e' -> no_2 }
             ///  no_2 { 'l' -> no_3 }
             ///  no_3 { 'l' -> no_4 }
-            ///  no_4 { 'o' -> no_5 }
-            ///  no_5 { EPS -> fi_6 }
-            ///  fi_6 {}
+            ///  no_4 { 'o' -> fi_5 }
+            ///  fi_5 { EPS -> eg_6 }
+            ///  eg_6 {}
             ///}
         )
     );
@@ -126,16 +126,16 @@ fn determine_4() {
         parse(r"aa*"),
         lit!(
             ///graph {
-            ///  no_0 { 'a' -> no_1 }
-            ///  no_1 {
-            ///    'a' -> no_2
-            ///    EPS -> fi_3
+            ///  no_0 { 'a' -> fi_1 }
+            ///  fi_1 {
+            ///    'a' -> fi_2
+            ///    EPS -> eg_3
             ///  }
-            ///  no_2 {
+            ///  fi_2 {
             ///    'a' -> self
-            ///    EPS -> fi_3
+            ///    EPS -> eg_3
             ///  }
-            ///  fi_3 {}
+            ///  eg_3 {}
             ///}
         )
     );

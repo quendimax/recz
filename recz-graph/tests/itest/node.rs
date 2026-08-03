@@ -129,7 +129,7 @@ fn node_finalize() {
     assert_eq!(format!("{a:?}"), "no_0");
     a.finalize();
     assert_eq!(format!("{a:?}"), "fi_0");
-    a.definalize();
+    a.normalize();
     assert_eq!(format!("{a:?}"), "no_0");
 }
 

@@ -6,6 +6,13 @@ use core::iter::Iterator;
 use owo_colors::OwoColorize;
 use recz_adt::{Legible, Map};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NodeKind {
+    Normal,
+    Final,
+    Epilogue,
+}
+
 /// Node for an NFA graph.
 ///
 /// It has an ID (unique within its graph owner). Also it can be connected to
@@ -14,7 +21,7 @@ pub struct Node<'a>(&'a NodeInner);
 
 pub(crate) struct NodeInner {
     uid: u64,
-    is_final: Cell<bool>,
+    kind: Cell<NodeKind>,
     sources: Map<NodePtr, EdgePtr>,
     targets: Map<NodePtr, EdgePtr>,
     graph_ptr: GraphPtr,
@@ -42,23 +49,48 @@ impl<'a> Node<'a> {
         self.0.uid
     }
 
+    #[inline]
+    pub fn kind(&self) -> NodeKind {
+        self.0.kind.get()
+    }
+
+    #[inline]
+    pub fn set_kind(&self, kind: NodeKind) {
+        self.0.kind.set(kind);
+    }
+
     /// Checks if the node is a final NFA state.
     ///
     /// To change the marker, use [`Node::finalize`] or [`Node::definalize`].
     #[inline]
     pub fn is_final(&self) -> bool {
-        self.0.is_final.get()
+        self.0.kind.get() == NodeKind::Final
     }
 
-    /// Make the node final.
-    pub fn finalize(&self) -> Self {
-        self.0.is_final.set(true);
+    /// Checks if the node is an epilogue DFA state.
+    #[inline]
+    pub fn is_epilogue(&self) -> bool {
+        self.0.kind.get() == NodeKind::Epilogue
+    }
+
+    /// Make the node normal.
+    #[inline]
+    pub fn normalize(&self) -> Self {
+        self.set_kind(NodeKind::Normal);
         *self
     }
 
-    /// Make the node non-final.
-    pub fn definalize(&self) -> Self {
-        self.0.is_final.set(false);
+    /// Make the node final.
+    #[inline]
+    pub fn finalize(&self) -> Self {
+        self.set_kind(NodeKind::Final);
+        *self
+    }
+
+    /// Make the node epilogized.
+    #[inline]
+    pub fn epilogize(&self) -> Self {
+        self.set_kind(NodeKind::Epilogue);
         *self
     }
 
@@ -131,21 +163,33 @@ impl<'a> Node<'a> {
     }
 
     pub(crate) fn fmt(&self, f: &mut std::fmt::Formatter<'_>, colored: bool) -> std::fmt::Result {
-        if self.is_final() {
-            if colored {
-                write!(f, "{}", "fi_".bold().bright_yellow())?;
-                write!(f, "{}", self.nid().bold().bright_yellow())
-            } else {
-                write!(f, "fi_")?;
-                write!(f, "{}", self.nid())
+        match self.kind() {
+            NodeKind::Normal => {
+                if colored {
+                    write!(f, "{}", "no_".bright_yellow())?;
+                    write!(f, "{}", self.nid().bright_yellow())
+                } else {
+                    write!(f, "no_")?;
+                    write!(f, "{}", self.nid())
+                }
             }
-        } else {
-            if colored {
-                write!(f, "{}", "no_".bright_yellow())?;
-                write!(f, "{}", self.nid().bright_yellow())
-            } else {
-                write!(f, "no_")?;
-                write!(f, "{}", self.nid())
+            NodeKind::Final => {
+                if colored {
+                    write!(f, "{}", "fi_".bold().yellow())?;
+                    write!(f, "{}", self.nid().bold().yellow())
+                } else {
+                    write!(f, "fi_")?;
+                    write!(f, "{}", self.nid())
+                }
+            }
+            NodeKind::Epilogue => {
+                if colored {
+                    write!(f, "{}", "eg_".bold().bright_yellow())?;
+                    write!(f, "{}", self.nid().bold().bright_yellow())
+                } else {
+                    write!(f, "eg_")?;
+                    write!(f, "{}", self.nid())
+                }
             }
         }
     }
@@ -158,7 +202,7 @@ impl NodeInner {
         let uid = ((gid as u64) << Node::ID_BITS) | nid as u64;
         NodeInner {
             uid,
-            is_final: Cell::new(false),
+            kind: Cell::new(NodeKind::Normal),
             sources: Default::default(),
             targets: Default::default(),
             graph_ptr: GraphPtr::from(graph),

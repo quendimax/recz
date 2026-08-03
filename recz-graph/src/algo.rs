@@ -53,15 +53,14 @@ impl<'d, 'n> Determinator<'d, 'n> {
         self.lambda(start_closure);
 
         if self.has_final_nodes {
-            let final_node = self.dfa.node();
+            let epilogue_node = self.dfa.node();
             for node in self.dfa.nodes() {
                 if node.is_final() {
-                    node.definalize();
-                    let edge = node.connect(final_node);
+                    let edge = node.connect(epilogue_node);
                     edge.add_tags(self.final_tags[&node].iter().copied());
                 }
             }
-            final_node.finalize();
+            epilogue_node.epilogize();
         }
 
         // #[cfg(debug_assertions)]
@@ -154,14 +153,16 @@ impl<'d, 'n> Determinator<'d, 'n> {
             for (edge, target) in node.targets() {
                 if edge.is_epsilon() {
                     if has_epsilon {
-                        panic!("multiple epsilon edges are not allowed")
+                        panic!("multiple outgoing epsilon edges are not allowed")
                     }
                     has_epsilon = true;
-                    if !target.is_final() {
-                        panic!("only final node can be the target of epsilon edge")
+                    if !target.is_epilogue() {
+                        panic!("only the epilogue node can be the target of epsilon edge")
                     }
-                    if node.is_final() {
-                        panic!("final node cannot have outgoing epsilon transitions")
+                    if !node.is_final() {
+                        panic!(
+                            "only final nodes can have outgoing epsilon edges to the epilogue node"
+                        )
                     }
                 } else {
                     if outgoing_symbols.is_disjoint(&edge.symbols().into()) {

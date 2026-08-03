@@ -7,7 +7,7 @@ mod graph;
 pub use graph::Graph;
 
 mod node;
-pub use node::Node;
+pub use node::{Node, NodeKind};
 
 mod tag;
 pub use tag::Tag;
