@@ -10,11 +10,7 @@ fn node_copy_and_clone() {
     let cloned_node = node.clone();
     let copied_node = node;
     assert_eq!(node.nid(), cloned_node.nid());
-    assert_eq!(node.gid(), cloned_node.gid());
-    assert_eq!(node.uid(), cloned_node.uid());
     assert_eq!(node.nid(), copied_node.nid());
-    assert_eq!(node.gid(), copied_node.gid());
-    assert_eq!(node.uid(), copied_node.uid());
 }
 
 #[test]
@@ -24,22 +20,16 @@ fn node_id() {
     let b = graph_0.node();
 
     assert_eq!(a.nid(), 0);
-    assert_eq!(a.uid(), (a.gid() as u64) << (u64::BITS / 2));
 
     assert_eq!(b.nid(), 1);
-    assert_eq!(b.uid(), ((b.gid() as u64) << (u64::BITS / 2)) | 1);
 
     let graph_1 = Graph::new();
     let c = graph_1.node();
     let d = graph_1.node();
 
     assert_eq!(c.nid(), 0);
-    assert_ne!(c.gid(), a.gid());
-    assert_eq!(c.uid(), (c.gid() as u64) << (u64::BITS / 2));
 
     assert_eq!(d.nid(), 1);
-    assert_ne!(d.gid(), a.gid());
-    assert_eq!(d.uid(), ((c.gid() as u64) << (u64::BITS / 2)) | 1);
 }
 
 #[test]

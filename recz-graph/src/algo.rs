@@ -36,7 +36,10 @@ struct EClosure<'n> {
 
 impl<'d, 'n> Determinator<'d, 'n> {
     fn new(nfa: &'n Graph, dfa: &'d Graph) -> Self {
-        assert_ne!(nfa.gid(), dfa.gid());
+        assert!(
+            !nfa.is(dfa),
+            "NFA and DFA must be different graph instances"
+        );
         assert!(dfa.is_empty(), "DFA must be empty");
         Self {
             nfa,
@@ -49,6 +52,10 @@ impl<'d, 'n> Determinator<'d, 'n> {
     }
 
     fn determine(&mut self) {
+        if self.nfa.is_empty() {
+            return;
+        }
+
         let start_closure = self.e_close([self.nfa.start_node()]);
         self.lambda(start_closure);
 

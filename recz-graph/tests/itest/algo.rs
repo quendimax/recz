@@ -22,9 +22,7 @@ fn determine_0() {
     assert_eq!(
         format!("{dfa}"),
         lit!(
-            ///graph {
-            ///  no_0 {}
-            ///}
+            ///graph {}
         )
     );
 }

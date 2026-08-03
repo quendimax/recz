@@ -5,7 +5,6 @@ use owo_colors::OwoColorize;
 use recz_adt::Legible;
 use std::cell::Cell;
 use std::fmt::Write;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 /// Represents a Tagged NFA graph that holds nodes and edges between them.
 ///
@@ -30,7 +29,6 @@ use std::sync::atomic::{AtomicU32, Ordering};
 pub struct Graph(Box<GraphInner>);
 
 pub(crate) struct GraphInner {
-    gid: u32,
     next_nid: Cell<u32>,
     start_node: Cell<Option<NodePtr>>,
     bump_nodes: BumpVec<NodeInner, 0>,
@@ -41,11 +39,7 @@ pub(crate) type GraphPtr = core::ptr::NonNull<GraphInner>;
 
 /// Public API
 impl Graph {
-    /// Creates a new graph with a unique ID (`u32`) for the current process.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the graph ID overflows.
+    /// Creates a new graph.
     ///
     /// # Examples
     ///
@@ -57,15 +51,7 @@ impl Graph {
     /// assert_eq!(graph.edge_count(), 0);
     /// ```
     pub fn new() -> Self {
-        static NEXT_GRAPH_ID: AtomicU32 = AtomicU32::new(1);
-
-        let gid = NEXT_GRAPH_ID.fetch_add(1, Ordering::Relaxed);
-        if gid == 0 {
-            panic!("graph id overflow");
-        }
-
         Self(Box::new(GraphInner {
-            gid,
             next_nid: Cell::new(0),
             start_node: Cell::new(None),
             bump_nodes: BumpVec::new(),
@@ -73,23 +59,21 @@ impl Graph {
         }))
     }
 
-    /// Unique identifier for this graph, and every node of this graph.
+    /// Returns `true` if both graphs are the same instance.
     ///
     /// # Examples
     ///
     /// ```
     /// use recz_graph::Graph;
     ///
-    /// let graph_a = Graph::new();
-    /// let graph_b = Graph::new();
-    /// assert_ne!(graph_a.gid(), graph_b.gid());
+    /// let graph1 = Graph::new();
+    /// assert!(graph1.is(&graph1));
     ///
-    /// assert_eq!(graph_a.gid(), graph_a.node().gid());
-    /// assert_eq!(graph_b.gid(), graph_b.node().gid());
+    /// let graph2 = Graph::new();
+    /// assert!(!graph1.is(&graph2));
     /// ```
-    #[inline]
-    pub fn gid(&self) -> u32 {
-        self.0.gid
+    pub fn is(&self, other: &Graph) -> bool {
+        core::ptr::eq(self, other)
     }
 
     /// Creates a new node.
@@ -123,10 +107,7 @@ impl Graph {
                 .checked_add(1)
                 .expect("node id overflow"),
         );
-        let node_ref = self
-            .0
-            .bump_nodes
-            .push(NodeInner::new(self.0.as_ref(), self.0.gid, nid));
+        let node_ref = self.0.bump_nodes.push(NodeInner::new(self.0.as_ref(), nid));
         let node_ptr = NodePtr::from(node_ref);
 
         if self.0.start_node.get().is_none() {
