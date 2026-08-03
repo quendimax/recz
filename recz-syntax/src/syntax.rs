@@ -1,8 +1,9 @@
 use crate::error::{Result, err};
 use crate::hir::Hir;
 use crate::lexis::{Lexer, tok};
-use recz_adt::{RangeList, Set, SetU8};
+use recz_adt::{RangeList, SetU8};
 use recz_codec::Codec;
+use std::collections::HashSet as Set;
 
 /// A regex pattern parser that converts string patterns into high-level
 /// intermediate representation (HIR).
@@ -70,7 +71,7 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
         ParserImpl {
             lexer,
             codec,
-            used_group_ids: Set::new(),
+            used_group_ids: Set::default(),
         }
     }
 

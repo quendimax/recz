@@ -25,6 +25,7 @@ edition = "2024"
 repository = "https://github.com/quendimax/recz"
 
 [workspace.dependencies]
+ahash = "0.8"
 argh = "0.1.19"
 arrayvec = "0.7.6"
 bumpish = { git = "https://codeberg.org/quendimax/bumpish.git"}

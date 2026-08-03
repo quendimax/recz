@@ -372,8 +372,8 @@ impl EdgeInner {
     #[inline(always)]
     pub(crate) fn new() -> EdgeInner {
         EdgeInner {
-            symbols: SetU8::new(),
-            tags: Set::new(),
+            symbols: SetU8::default(),
+            tags: Set::default(),
         }
     }
 }
