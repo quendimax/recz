@@ -23,7 +23,7 @@ fn encode_range(range: RangeInclusive<u32>) -> Result<Sequences> {
     let end = *range.end();
     Utf8Codec.encode_range(start, end, |ranges| {
         seq.push(Sequence::try_from(ranges).unwrap())
-    });
+    })?;
     Ok(seq)
 }
 

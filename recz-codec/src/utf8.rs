@@ -18,7 +18,7 @@ impl Utf8Codec {
 impl Default for Utf8Codec {
     #[inline]
     fn default() -> Self {
-        Utf8Codec::new()
+        Self::new()
     }
 }
 
@@ -45,21 +45,25 @@ impl Codec for Utf8Codec {
 
     fn encode_str(&self, s: &str, buffer: &mut [u8]) -> Result<usize> {
         let expected_len = s.len();
-        if buffer.len() < expected_len {
-            Err(SmallBuffer)
-        } else {
-            buffer[..expected_len].copy_from_slice(s.as_bytes());
+        if let Some(slice) = buffer.get_mut(..expected_len) {
+            slice.copy_from_slice(s.as_bytes());
             Ok(expected_len)
+        } else {
+            Err(SmallBuffer)
         }
     }
 
-    fn encode_range<F>(&self, start_ucp: u32, end_ucp: u32, handler: F)
+    fn encode_range<F>(&self, start_ucp: u32, end_ucp: u32, handler: F) -> Result<()>
     where
         F: FnMut(&[Range<u8>]),
     {
-        let range = Range::new(start_ucp, end_ucp);
+        let start_char = char_try_from(start_ucp)?;
+        let end_char = char_try_from(end_ucp)?;
+        // this arrange chars in ascending order
+        let range = Range::new(start_char.into(), end_char.into());
         let mut handler = handler;
         encode_range(range, &mut handler);
+        Ok(())
     }
 
     fn encode_entire_range<F>(&self, handler: F)
@@ -206,18 +210,17 @@ fn run_handler<const N: usize>(start: u32, end: u32, handler: &mut impl FnMut(&[
 }
 
 fn char_try_from(codepoint: u32) -> Result<char> {
-    if let Ok(c) = char::try_from(codepoint) {
-        Ok(c)
-    } else if codepoint <= 0x10FFFF {
-        Err(SurrogateUnsupported {
+    // i >= 0x110000 || (i >= 0xD800 && i < 0xE000).
+    match codepoint {
+        0x00..=0xD7FF | 0xE000..=0x10FFFF => Ok(unsafe { core::mem::transmute(codepoint) }),
+        0xD801..0xE000 => Err(SurrogateUnsupported {
             codepoint,
             encoding: ENCODING,
-        })
-    } else {
-        Err(InvalidCodePoint {
+        }),
+        _ => Err(InvalidCodePoint {
             codepoint,
             encoding: ENCODING,
-        })
+        }),
     }
 }
 

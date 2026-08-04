@@ -20,7 +20,7 @@ pub trait Codec {
     ///
     /// If input range contains invalid code points, the method should ignore
     /// them.
-    fn encode_range<F>(&self, start_ucp: u32, end_ucp: u32, handler: F)
+    fn encode_range<F>(&self, start_ucp: u32, end_ucp: u32, handler: F) -> Result<()>
     where
         F: FnMut(&[Range<u8>]);
 

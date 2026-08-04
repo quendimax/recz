@@ -1,3 +1,6 @@
+mod ascii;
+pub use ascii::AsciiCodec;
+
 mod codec;
 pub use codec::Codec;
 
