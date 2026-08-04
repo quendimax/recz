@@ -78,10 +78,6 @@ impl<'d, 'n> Determinator<'d, 'n> {
     }
 
     fn lambda(&mut self, closure: Rc<EClosure<'n>>) -> Node<'d> {
-        if let Some(dfa_node) = self.conv_table.get(&closure.nodes) {
-            return *dfa_node;
-        }
-
         let dfa_node = self.dfa.node();
         self.conv_table.insert(Rc::clone(&closure.nodes), dfa_node);
         if closure.is_final {
@@ -93,7 +89,11 @@ impl<'d, 'n> Determinator<'d, 'n> {
 
         for (symbol, (tags, nodes)) in &closure.sym_table {
             let sym_closure = self.e_close(Rc::clone(nodes));
-            let sym_dfa_node = self.lambda(sym_closure);
+            let sym_dfa_node = self
+                .conv_table
+                .get(&sym_closure.nodes)
+                .copied()
+                .unwrap_or_else(|| self.lambda(sym_closure));
             let edge = dfa_node.connect(sym_dfa_node);
             edge.add_symbol(*symbol);
             edge.add_tags(tags.iter().copied());
