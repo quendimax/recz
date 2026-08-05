@@ -178,3 +178,41 @@ fn ambiguity_1() {
         )
     );
 }
+
+#[test]
+fn ambiguity_2() {
+    assert_eq!(
+        parse(r"(?<1>a)a*"),
+        lit!(
+            ///graph {
+            ///  no_0 { 'a' / +g1 -> fi_1 }
+            ///  fi_1 {
+            ///    'a' / -g1 -> fi_2
+            ///    EPS / -g1 -> eg_3
+            ///  }
+            ///  fi_2 {
+            ///    'a' -> self
+            ///    EPS -> eg_3
+            ///  }
+            ///  eg_3 {}
+            ///}
+        )
+    );
+}
+
+#[test]
+fn ambiguity_3() {
+    assert_eq!(
+        parse(r"a*(?<1>a)"),
+        lit!(
+            ///graph {
+            ///  no_0 { 'a' / +g1 -> fi_1 }
+            ///  fi_1 {
+            ///    'a' / +g1 -> self
+            ///    EPS / -g1 -> eg_2
+            ///  }
+            ///  eg_2 {}
+            ///}
+        )
+    );
+}

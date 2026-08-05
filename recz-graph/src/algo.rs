@@ -16,7 +16,7 @@ struct Determinator<'d, 'n> {
     has_final_nodes: bool,
     conv_table: Map<Rc<OrdSet<Node<'n>>>, Node<'d>>,
     e_closure_table: Map<Rc<OrdSet<Node<'n>>>, Rc<EClosure<'n>>>,
-    final_tags: Map<Node<'d>, Set<Tag>>,
+    final_tags: Map<Node<'d>, Vec<Tag>>,
     stack: Vec<(Node<'n>, Node<'n>)>,
 }
 
@@ -24,8 +24,8 @@ struct EClosure<'n> {
     /// Epsilon closure of the nodes.
     nodes: Rc<OrdSet<Node<'n>>>,
 
-    /// All tags from this Espsilon closure.
-    tags: Set<Tag>,
+    /// All tags that are going to the final nodes.
+    final_tags: Set<Tag>,
 
     /// The table that contains corresponding to every symbol a set of nodes
     /// that have outgoing edges with this symbols, and tags that are associated
@@ -83,8 +83,9 @@ impl<'d, 'n> Determinator<'d, 'n> {
         if closure.is_final {
             self.has_final_nodes = true;
             dfa_node.finalize();
-            let tags = self.final_tags.entry(dfa_node).or_default();
-            tags.lazy_extend(closure.tags.iter().copied());
+            let mut final_tags = Vec::with_capacity(closure.final_tags.len());
+            final_tags.extend(closure.final_tags.iter().copied());
+            self.final_tags.insert(dfa_node, final_tags);
         }
 
         for (symbol, (tags, nodes)) in &closure.sym_table {
@@ -107,7 +108,6 @@ impl<'d, 'n> Determinator<'d, 'n> {
             return Rc::clone(closure);
         }
 
-        let mut all_tags = Set::default();
         let tag_table = Map::<Node<'n>, Set<Tag>>::default();
         let sym_table = Map::<u8, (Set<Tag>, Rc<OrdSet<Node<'n>>>)>::default();
         let mut is_final = false;
@@ -135,7 +135,6 @@ impl<'d, 'n> Determinator<'d, 'n> {
             let tags = tag_table.entry(node).or_default();
             tags.lazy_extend(edge.tags());
             tags.lazy_extend(tag_table[&source].iter().copied());
-            all_tags.extend(edge.tags());
 
             for (edge, target) in node.targets() {
                 if edge.is_epsilon() {
@@ -152,13 +151,21 @@ impl<'d, 'n> Determinator<'d, 'n> {
                 is_final = true;
             }
         }
+
+        let final_tags = Set::default();
+        for (node, tags) in &tag_table {
+            if node.is_final() {
+                final_tags.lazy_extend(tags.iter().copied());
+            }
+        }
+
         let closure = self
             .e_closure_table
             .insert(
                 nodes,
                 Rc::new(EClosure {
                     nodes: Rc::new(OrdSet::from_iter(tag_table.keys().copied())),
-                    tags: all_tags,
+                    final_tags,
                     sym_table,
                     is_final,
                 }),
