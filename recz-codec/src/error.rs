@@ -11,7 +11,7 @@ pub enum Error {
     /// Surrogate code points are code points in the range U+D800 to U+DFFF,
     /// which are reserved for use in UTF-16 and cannot be represented in some
     /// encodings.
-    #[error("surrogate code point {codepoint:X}h is not supported by {}", encoding.name())]
+    #[error("surrogate code point U+{codepoint:X} is not supported by {}", encoding.name())]
     SurrogateUnsupported { codepoint: u32, encoding: Encoding },
 
     /// Error returned when the provided output buffer is too small to hold the
@@ -26,6 +26,6 @@ pub enum Error {
     ///
     /// This error isn't evolved for surrogate code points. Look at
     /// [`Error::SurrogateUnsupported`] for that.
-    #[error("invalid unicode code point '\\u{{{codepoint:X}}}' for {} encoding", encoding.name())]
+    #[error("invalid unicode code point U+{codepoint:X} for {} encoding", encoding.name())]
     InvalidCodePoint { codepoint: u32, encoding: Encoding },
 }

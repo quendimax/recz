@@ -77,6 +77,11 @@ impl Codec for Utf8Codec {
             &mut handler,
         );
     }
+
+    fn verify_codepoint(&self, codepoint: u32) -> Result<()> {
+        let _ = char_try_from(codepoint)?;
+        Ok(())
+    }
 }
 
 fn encode_range<F, R>(range: R, handler: &mut F)
@@ -211,16 +216,19 @@ fn run_handler<const N: usize>(start: u32, end: u32, handler: &mut impl FnMut(&[
 
 fn char_try_from(codepoint: u32) -> Result<char> {
     // i >= 0x110000 || (i >= 0xD800 && i < 0xE000).
-    match codepoint {
-        0x00..=0xD7FF | 0xE000..=0x10FFFF => Ok(unsafe { core::mem::transmute(codepoint) }),
-        0xD801..0xE000 => Err(SurrogateUnsupported {
+    if let Some(char) = char::from_u32(codepoint) {
+        return Ok(char);
+    }
+    if codepoint < ENCODING.max_codepoint() {
+        Err(SurrogateUnsupported {
             codepoint,
             encoding: ENCODING,
-        }),
-        _ => Err(InvalidCodePoint {
+        })
+    } else {
+        Err(InvalidCodePoint {
             codepoint,
             encoding: ENCODING,
-        }),
+        })
     }
 }
 

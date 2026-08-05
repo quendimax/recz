@@ -154,7 +154,7 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
                     let mut literal = vec![0, 0, 0, 0, 0, 0, 0, 0];
                     match self.codec.encode_ucp(c, &mut literal[..]) {
                         Ok(len) => literal.resize(len, 0),
-                        Err(error) => return err::encoder_error(error, token.span()),
+                        Err(error) => return err::codec_error(error, token.span()),
                     }
                     Ok(Hir::literal(literal))
                 } else {
@@ -473,6 +473,12 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
             }
             _ => None,
         };
+        if let Some(codepoint) = codepoint {
+            match self.codec.verify_codepoint(codepoint) {
+                Ok(()) => (),
+                Err(e) => return err::codec_error(e, token.span()),
+            }
+        }
         Ok(codepoint)
     }
 
@@ -645,7 +651,8 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
                 } else {
                     alternatives.push(Hir::concat(items));
                 }
-            });
+            })
+            .unwrap();
         Hir::disjunct(alternatives)
     }
 }

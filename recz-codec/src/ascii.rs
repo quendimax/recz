@@ -28,46 +28,34 @@ impl Codec for AsciiCodec {
     }
 
     fn encode_char(&self, c: char, buffer: &mut [u8]) -> Result<usize> {
-        if let Ok(c) = c.try_into() {
-            if buffer.is_empty() {
-                Err(SmallBuffer)
-            } else {
-                buffer[0] = c;
-                Ok(1)
-            }
+        let c = ucp_to_ascii(c as u32)?;
+        if buffer.is_empty() {
+            Err(SmallBuffer)
         } else {
-            Err(InvalidCodePoint {
-                codepoint: c as u32,
-                encoding: ENCODING,
-            })
+            buffer[0] = c;
+            Ok(1)
         }
     }
 
     fn encode_ucp(&self, codepoint: u32, buffer: &mut [u8]) -> Result<usize> {
-        if let Ok(c) = codepoint.try_into() {
-            if buffer.is_empty() {
-                Err(SmallBuffer)
-            } else {
-                buffer[0] = c;
-                Ok(1)
-            }
+        let c = ucp_to_ascii(codepoint)?;
+        if buffer.is_empty() {
+            Err(SmallBuffer)
         } else {
-            Err(InvalidCodePoint {
-                codepoint,
-                encoding: ENCODING,
-            })
+            buffer[0] = c;
+            Ok(1)
         }
     }
 
     fn encode_str(&self, s: &str, buffer: &mut [u8]) -> Result<usize> {
         let mut count = 0;
+        let buf_len = buffer.len();
         for c in s.chars() {
-            if let Some(slice) = buffer.get_mut(count..) {
-                self.encode_char(c, slice)?;
-                count += 1;
-            } else {
+            if count >= buf_len {
                 return Err(SmallBuffer);
             }
+            self.encode_char(c, &mut buffer[count..])?;
+            count += 1;
         }
         Ok(count)
     }
@@ -92,6 +80,11 @@ impl Codec for AsciiCodec {
             ENCODING.min_codepoint() as u8,
             ENCODING.max_codepoint() as u8,
         )]);
+    }
+
+    fn verify_codepoint(&self, codepoint: u32) -> Result<()> {
+        let _ = ucp_to_ascii(codepoint)?;
+        Ok(())
     }
 }
 

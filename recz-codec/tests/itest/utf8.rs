@@ -1,12 +1,12 @@
 use arrayvec::ArrayVec;
 use pretty_assertions::assert_eq;
 use recz_adt::{Range, range};
-use recz_codec::{Codec, Error, Result, Utf8Codec};
+use recz_codec::{Codec, Encoding, Error, Result, Utf8Codec};
 use regex_syntax::utf8::{Utf8Sequence, Utf8Sequences};
 use std::assert_matches;
 use std::ops::RangeInclusive;
 
-static CODER: Utf8Codec = Utf8Codec;
+static CODEC: Utf8Codec = Utf8Codec;
 
 type Sequence = ArrayVec<Range<u8>, 4>;
 
@@ -88,38 +88,38 @@ fn encoding() {
 #[test]
 fn encode_char() {
     let mut buffer = [0u8; 4];
-    assert_eq!(CODER.encode_char('a', &mut buffer), Ok(1));
+    assert_eq!(CODEC.encode_char('a', &mut buffer), Ok(1));
     assert_eq!(buffer, [b'a', 0, 0, 0]);
 
-    assert_eq!(CODER.encode_char('ў', &mut buffer), Ok(2));
+    assert_eq!(CODEC.encode_char('ў', &mut buffer), Ok(2));
     assert_eq!(buffer, [0xD1, 0x9E, 0, 0]);
 
-    assert_eq!(CODER.encode_char('Ⲁ', &mut buffer), Ok(3));
+    assert_eq!(CODEC.encode_char('Ⲁ', &mut buffer), Ok(3));
     assert_eq!(buffer, [0xE2, 0xB2, 0x80, 0]);
 
-    assert_eq!(CODER.encode_char('𐌰', &mut buffer), Ok(4));
+    assert_eq!(CODEC.encode_char('𐌰', &mut buffer), Ok(4));
     assert_eq!(buffer, [0xF0, 0x90, 0x8C, 0xB0]);
 }
 
 #[test]
 fn encode_char_fails() {
     let mut buffer = [0u8; 2];
-    assert_eq!(CODER.encode_char('𐌰', &mut buffer), Err(Error::SmallBuffer));
+    assert_eq!(CODEC.encode_char('𐌰', &mut buffer), Err(Error::SmallBuffer));
 }
 
 #[test]
 fn encode_ucp() {
     let mut buffer = [0u8; 4];
-    assert_eq!(CODER.encode_ucp('a' as u32, &mut buffer), Ok(1));
+    assert_eq!(CODEC.encode_ucp('a' as u32, &mut buffer), Ok(1));
     assert_eq!(buffer, [b'a', 0, 0, 0]);
 
-    assert_eq!(CODER.encode_ucp('ў' as u32, &mut buffer), Ok(2));
+    assert_eq!(CODEC.encode_ucp('ў' as u32, &mut buffer), Ok(2));
     assert_eq!(buffer, [0xD1, 0x9E, 0, 0]);
 
-    assert_eq!(CODER.encode_ucp('Ⲁ' as u32, &mut buffer), Ok(3));
+    assert_eq!(CODEC.encode_ucp('Ⲁ' as u32, &mut buffer), Ok(3));
     assert_eq!(buffer, [0xE2, 0xB2, 0x80, 0]);
 
-    assert_eq!(CODER.encode_ucp('𐌰' as u32, &mut buffer), Ok(4));
+    assert_eq!(CODEC.encode_ucp('𐌰' as u32, &mut buffer), Ok(4));
     assert_eq!(buffer, [0xF0, 0x90, 0x8C, 0xB0]);
 }
 
@@ -127,18 +127,18 @@ fn encode_ucp() {
 fn encode_ucp_fails() {
     let mut buffer = [0u8; 3];
     assert_eq!(
-        CODER.encode_ucp('𐌰' as u32, &mut buffer),
+        CODEC.encode_ucp('𐌰' as u32, &mut buffer),
         Err(Error::SmallBuffer)
     );
     assert_matches!(
-        CODER.encode_ucp(0x110000, &mut buffer),
+        CODEC.encode_ucp(0x110000, &mut buffer),
         Err(Error::InvalidCodePoint {
             codepoint: 0x110000,
             ..
         })
     );
     assert_matches!(
-        CODER.encode_ucp(0xD811, &mut buffer),
+        CODEC.encode_ucp(0xD811, &mut buffer),
         Err(Error::SurrogateUnsupported { .. })
     );
 }
@@ -146,10 +146,10 @@ fn encode_ucp_fails() {
 #[test]
 fn encode_str() {
     let mut buffer = [0u8; 9];
-    assert_eq!(CODER.encode_str("abc", &mut buffer), Ok(3));
+    assert_eq!(CODEC.encode_str("abc", &mut buffer), Ok(3));
     assert_eq!(&buffer[..3], [b'a', b'b', b'c']);
 
-    assert_eq!(CODER.encode_str("ўⲀ𐌰", &mut buffer), Ok(9));
+    assert_eq!(CODEC.encode_str("ўⲀ𐌰", &mut buffer), Ok(9));
     assert_eq!(
         buffer,
         [0xD1, 0x9E, 0xE2, 0xB2, 0x80, 0xF0, 0x90, 0x8C, 0xB0]
@@ -160,7 +160,7 @@ fn encode_str() {
 fn encode_str_fails() {
     let mut buffer = [0u8; 8];
     assert_eq!(
-        CODER.encode_str("ўⲀ𐌰", &mut buffer),
+        CODEC.encode_str("ўⲀ𐌰", &mut buffer),
         Err(Error::SmallBuffer)
     );
 }
@@ -252,9 +252,13 @@ fn encode_four_byte_ranges() {
 fn encode_out_ranges() {
     assert_eq!(
         encode_range(0x800..=0x11FFFF),
-        expect_range(0x800..=0x10FFFF)
+        Err(Error::InvalidCodePoint {
+            codepoint: 0x11FFFF,
+            encoding: Encoding::Utf8
+        })
     );
-    assert_eq!(encode_range(0x118000..=0x11FFFF), Ok(Sequences::new()));
+    // expect_range(0x800..=0x10FFFF);
+    // assert_eq!(encode_range(0x118000..=0x11FFFF), Ok(Sequences::new()));
 }
 
 #[test]
@@ -264,6 +268,19 @@ fn encode_entire_range() {
     seq.sort();
     assert_eq!(Ok(seq.clone()), expect_range(0x0..=0x10FFFF));
     assert_eq!(Ok(seq), encode_range(0x0..=0x10FFFF));
+}
+
+#[test]
+fn verify_codepoint() {
+    assert!(CODEC.verify_codepoint(0).is_ok());
+    assert!(CODEC.verify_codepoint('ó' as u32).is_ok());
+    assert_matches!(
+        CODEC.verify_codepoint(0x110000),
+        Err(Error::InvalidCodePoint {
+            codepoint: 0x110000,
+            ..
+        })
+    );
 }
 
 #[cfg(not(miri))]

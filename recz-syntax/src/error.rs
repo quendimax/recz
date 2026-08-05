@@ -7,8 +7,8 @@ pub type Result<T> = std::result::Result<T, Box<Error>>;
 
 #[derive(Error, Diagnostic, Debug, PartialEq)]
 pub enum Error {
-    #[error("encoder error: {cause}")]
-    EncoderError {
+    #[error("codec error: {cause}")]
+    CodecError {
         #[source]
         cause: codec::Error,
 
@@ -73,8 +73,8 @@ pub enum Error {
 pub(crate) mod err {
     use super::*;
 
-    pub(crate) fn encoder_error<T>(cause: codec::Error, span: Range<usize>) -> Result<T> {
-        Err(Box::new(Error::EncoderError {
+    pub(crate) fn codec_error<T>(cause: codec::Error, span: Range<usize>) -> Result<T> {
+        Err(Box::new(Error::CodecError {
             cause,
             span: span.into(),
         }))

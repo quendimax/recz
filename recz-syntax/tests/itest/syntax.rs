@@ -21,6 +21,10 @@ fn parser_parse() {
     assert_eq!(parse("[asd\\f]"), "unsupported escape sequence `\\f`");
     assert_eq!(
         parse(r"\u{D800}"),
-        "encoder error: surrogate code point D800h is not supported by UTF-8"
+        "codec error: surrogate code point U+D800 is not supported by UTF-8"
+    );
+    assert_eq!(
+        parse(r"\u{110000}"),
+        "codec error: invalid unicode code point U+110000 for UTF-8 encoding"
     );
 }

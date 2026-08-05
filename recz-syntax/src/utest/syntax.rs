@@ -386,13 +386,19 @@ fn parse_unicode_escape() {
     assert_eq!(parse(r"\u{1F4}"), Ok(0x1F4));
     assert_eq!(parse(r"\u{1234}"), Ok(0x1234));
     assert_eq!(parse(r"\u{12345}"), Ok(0x12345));
-    assert_eq!(parse(r"\u{123456}"), Ok(0x123456));
+    assert_eq!(
+        parse(r"\u{123456}").unwrap_err().to_string(),
+        "codec error: invalid unicode code point U+123456 for UTF-8 encoding"
+    );
 
     // Case insensitive hex digits
     assert_eq!(parse(r"\u{aB}"), Ok(0xAB));
     assert_eq!(parse(r"\u{Cd}"), Ok(0xCD));
     assert_eq!(parse(r"\u{EF}"), Ok(0xEF));
-    assert_eq!(parse(r"\u{abcdef}"), Ok(0xABCDEF));
+    assert_eq!(
+        parse(r"\u{abcdef}").unwrap_err().to_string(),
+        "codec error: invalid unicode code point U+ABCDEF for UTF-8 encoding"
+    );
 
     // Unicode characters
     assert_eq!(parse(r"\u{A9}"), Ok('©' as u32)); // Copyright symbol

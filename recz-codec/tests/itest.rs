@@ -1,3 +1,6 @@
+#[path = "itest/ascii.rs"]
+mod ascii;
+
 #[path = "itest/encoding.rs"]
 mod encoding;
 
