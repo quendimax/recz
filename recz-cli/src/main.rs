@@ -17,6 +17,16 @@ enum Codec {
     Utf8,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum PrintMode {
+    /// Print HIR
+    Hir,
+    /// Print NFA
+    Nfa,
+    /// Print DFA
+    Dfa,
+}
+
 /// A tool to facilitate development of `recz` crate. It allows you to see inner
 /// representation of regex patterns: HIR, NFA, DFA, etc.
 #[derive(clap::Parser)]
@@ -25,17 +35,9 @@ struct Cli {
     /// the regex pattern to analyze
     regex: String,
 
-    /// print HIR
-    #[arg(long)]
-    print_hir: bool,
-
-    /// print NFA
-    #[arg(long)]
-    print_nfa: bool,
-
-    /// print DFA
-    #[arg(long)]
-    print_dfa: bool,
+    /// what inner representation to print
+    #[arg(short, long, value_enum)]
+    print: Vec<PrintMode>,
 
     /// encoding system that regex engine is built for
     #[arg(short, long, value_enum, default_value = "ascii")]
@@ -70,7 +72,7 @@ fn main() -> miette::Result<()> {
     }
     .map_err(|e| error_report(&cli.regex, *e))?;
 
-    if cli.print_hir {
+    if cli.print.contains(&PrintMode::Hir) {
         println!("--- HIR ---------------------------------------------------");
         println!();
         println!("{}", dysplay(&hir));
@@ -79,12 +81,9 @@ fn main() -> miette::Result<()> {
 
     let nfa = Graph::new();
     let mut tr = Translator::new(&nfa);
-    let start_node = nfa.start_node();
-    let final_node = nfa.node();
-    final_node.finalize();
-    tr.translate(&hir, start_node, final_node);
+    tr.translate(&hir, nfa.start_node(), nfa.node().finalize());
 
-    if cli.print_nfa {
+    if cli.print.contains(&PrintMode::Nfa) {
         println!("--- NFA ---------------------------------------------------");
         println!();
         println!("{}", dysplay(&nfa));
@@ -92,7 +91,8 @@ fn main() -> miette::Result<()> {
     }
 
     let dfa = algo::determine(nfa);
-    if cli.print_dfa {
+
+    if cli.print.contains(&PrintMode::Dfa) {
         println!("--- DFA ---------------------------------------------------");
         println!();
         println!("{}", dysplay(&dfa));
