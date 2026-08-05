@@ -7,7 +7,7 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-argh = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
 miette = { workspace = true, features = ["fancy"] }
 owo-colors = { workspace = true, features = ["supports-colors"] }
 recz-adt = { path = "../recz-adt" }

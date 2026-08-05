@@ -1,35 +1,45 @@
-use argh::FromArgs;
+use clap::{Parser, ValueEnum};
 use core::fmt;
-use miette::{Report, miette};
+use miette::Report;
 use owo_colors::{OwoColorize, Stream};
 use recz_adt::Legible;
 use recz_graph::{Graph, Translator, algo};
 use recz_syntax::codec::{AsciiCodec, Utf8Codec};
-use recz_syntax::{Error as SyntaxError, Parser};
+use recz_syntax::{Error as SyntaxError, Parser as ReParser};
+
+#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum Codec {
+    #[default]
+    /// ASCII codec
+    Ascii,
+
+    /// UTF-8 codec
+    Utf8,
+}
 
 /// A tool to facilitate development of `recz` crate. It allows you to see inner
 /// representation of regex patterns: HIR, NFA, DFA, etc.
-#[derive(FromArgs)]
+#[derive(clap::Parser)]
+#[command(version, about, long_about = None)]
 struct Cli {
     /// the regex pattern to analyze
-    #[argh(positional)]
     regex: String,
 
-    /// print HIR to stdout
-    #[argh(switch)]
+    /// print HIR
+    #[arg(long)]
     print_hir: bool,
 
-    /// print NFA to stdout
-    #[argh(switch)]
+    /// print NFA
+    #[arg(long)]
     print_nfa: bool,
 
-    /// print DFA to stdout
-    #[argh(switch)]
+    /// print DFA
+    #[arg(long)]
     print_dfa: bool,
 
     /// encoding system that regex engine is built for
-    #[argh(option, default = "String::from(\"ascii\")")]
-    codec: String,
+    #[arg(short, long, value_enum, default_value = "ascii")]
+    codec: Codec,
 }
 
 fn dysplay<T: fmt::Display + Legible>(item: &T) -> impl fmt::Display {
@@ -46,35 +56,19 @@ fn dysplay<T: fmt::Display + Legible>(item: &T) -> impl fmt::Display {
     DisplayWrapper(item)
 }
 
-fn error_report(source: &str, err: SyntaxError) -> miette::Result<()> {
+fn error_report(source: &str, err: SyntaxError) -> Report {
     let report: Report = err.into();
-    Err(report.with_source_code(source.to_owned()))
+    report.with_source_code(source.to_owned())
 }
 
 fn main() -> miette::Result<()> {
-    let cli: Cli = argh::from_env();
+    let cli: Cli = Cli::parse();
 
-    let hir = match cli.codec.as_str() {
-        "ascii" | "ASCII" => {
-            let parser = Parser::new(AsciiCodec);
-            match parser.parse(&cli.regex) {
-                Ok(hir) => hir,
-                Err(err) => {
-                    return error_report(&cli.regex, *err);
-                }
-            }
-        }
-        "utf8" | "utf-8" | "UTF8" | "UTF-8" => {
-            let parser = Parser::new(Utf8Codec);
-            match parser.parse(&cli.regex) {
-                Ok(hir) => hir,
-                Err(err) => {
-                    return error_report(&cli.regex, *err);
-                }
-            }
-        }
-        _ => return Err(miette!("unsupported codec: {}", cli.codec)),
-    };
+    let hir = match cli.codec {
+        Codec::Ascii => ReParser::new(AsciiCodec).parse(&cli.regex),
+        Codec::Utf8 => ReParser::new(Utf8Codec).parse(&cli.regex),
+    }
+    .map_err(|e| error_report(&cli.regex, *e))?;
 
     if cli.print_hir {
         println!("--- HIR ---------------------------------------------------");
