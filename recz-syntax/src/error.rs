@@ -60,11 +60,24 @@ pub enum Error {
         span: SourceSpan,
     },
 
-    #[error("reuse group name `{group_label}` more than once is not allowed")]
-    GroupNameReuse {
+    #[error("using group label `{group_label}` more than once is not allowed")]
+    GroupLabelReuse {
         group_label: u32,
 
         #[label("group name is already used")]
+        span: SourceSpan,
+    },
+
+    #[error(
+        r"range `[{range}]` is inverted: first codepoint `\x{fcp:X}` is greater than last one `\x{lcp:X}`"
+    )]
+    #[diagnostic(help("try swapping the codepoints"))]
+    InvertedRange {
+        range: Box<str>,
+        fcp: u32,
+        lcp: u32,
+
+        #[label("inverted range")]
         span: SourceSpan,
     },
 }
@@ -126,9 +139,23 @@ pub(crate) mod err {
         Err(Box::new(Error::InvalidRepetition { span: span.into() }))
     }
 
-    pub(crate) fn reuse_group_name<T>(group_label: u32, span: Range<usize>) -> Result<T> {
-        Err(Box::new(Error::GroupNameReuse {
+    pub(crate) fn reuse_group_label<T>(group_label: u32, span: Range<usize>) -> Result<T> {
+        Err(Box::new(Error::GroupLabelReuse {
             group_label,
+            span: span.into(),
+        }))
+    }
+
+    pub(crate) fn inverted_range<T>(
+        range: impl Into<Box<str>>,
+        first_codepoint: u32,
+        last_codepoint: u32,
+        span: Range<usize>,
+    ) -> Result<T> {
+        Err(Box::new(Error::InvertedRange {
+            range: range.into(),
+            fcp: first_codepoint,
+            lcp: last_codepoint,
             span: span.into(),
         }))
     }

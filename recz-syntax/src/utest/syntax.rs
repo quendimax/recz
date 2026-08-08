@@ -146,7 +146,7 @@ fn parse_group() {
 
     let lexer = Lexer::new("(?<0>he)(?<0>llo)");
     let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
-    assert_eq!(parser.parse(), err::reuse_group_name(0, 11..12));
+    assert_eq!(parser.parse(), err::reuse_group_label(0, 11..12));
 }
 
 #[test]

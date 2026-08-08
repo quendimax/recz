@@ -272,7 +272,7 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
                 let r_angle = self.lexer.expect(tok::char('>'))?;
                 if self.used_group_ids.contains(&label_num) {
                     let span = l_angle.span().end..r_angle.span().start;
-                    return err::reuse_group_name(label_num, span);
+                    return err::reuse_group_label(label_num, span);
                 } else {
                     self.used_group_ids.insert(label_num);
                 }
@@ -390,13 +390,20 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     /// - A single character: `a`
     /// - A character range: `a-z`
     fn parse_range(&mut self) -> Result<RangeList<u32>> {
-        let start_codepoint = self.parse_term()?;
+        let start_pos = self.lexer.end_pos();
+        let first_codepoint = self.parse_term()?;
         if let tok::minus = self.lexer.peek().kind() {
             self.lexer.consume_peeked();
             let last_codepoint = self.parse_term()?;
-            Ok(RangeList::new(start_codepoint, last_codepoint))
+            let end_pos = self.lexer.end_pos();
+            if first_codepoint > last_codepoint {
+                let span = start_pos..end_pos;
+                let range_str = self.lexer.slice(span.clone());
+                return err::inverted_range(range_str, first_codepoint, last_codepoint, span);
+            }
+            Ok(RangeList::new(first_codepoint, last_codepoint))
         } else {
-            Ok(RangeList::new(start_codepoint, start_codepoint))
+            Ok(RangeList::new(first_codepoint, first_codepoint))
         }
     }
 
