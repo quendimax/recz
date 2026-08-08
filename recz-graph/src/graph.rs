@@ -73,7 +73,7 @@ impl Graph {
     /// assert!(!graph1.is(&graph2));
     /// ```
     pub fn is(&self, other: &Graph) -> bool {
-        core::ptr::eq(self, other)
+        core::ptr::eq(self.0.as_ref(), other.0.as_ref())
     }
 
     /// Creates a new node.
