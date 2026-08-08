@@ -1,10 +1,11 @@
 use crate::edge::{Edge, EdgePtr};
-use crate::graph::{GraphInner, GraphPtr};
+use crate::graph::{Graph, GraphInner, GraphPtr};
 use core::cell::Cell;
 use core::fmt;
 use core::iter::Iterator;
 use owo_colors::OwoColorize;
 use recz_adt::{Legible, Map};
+use std::ptr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NodeKind {
@@ -80,6 +81,12 @@ impl<'a> Node<'a> {
     pub fn epilogize(&self) -> Self {
         self.set_kind(NodeKind::Epilogue);
         *self
+    }
+
+    /// Returns `true` if the node belongs to the given graph, `false`
+    /// otherwise.
+    pub fn belongs_to(&self, graph: &Graph) -> bool {
+        ptr::eq(self.0.graph_inner(), graph.0.as_ref())
     }
 
     /// Creates a new empty edge between two nodes. You can fill the edge with

@@ -26,7 +26,7 @@ use std::fmt::Write;
 /// assert_eq!(graph.node_count(), 2);
 /// assert_eq!(graph.edge_count(), 1);
 /// ```
-pub struct Graph(Box<GraphInner>);
+pub struct Graph(pub(crate) Box<GraphInner>);
 
 pub(crate) struct GraphInner {
     next_nid: Cell<u32>,
