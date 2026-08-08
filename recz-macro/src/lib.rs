@@ -5,7 +5,7 @@ use recz_syntax::{Parser, codec::Utf8Codec};
 use syn::{Error, LitStr, parse_macro_input};
 
 #[proc_macro]
-pub fn re(body: TokenStream) -> TokenStream {
+pub fn __re_impl(body: TokenStream) -> TokenStream {
     re_impl(parse_macro_input!(body as LitStr))
         .unwrap_or_else(|err| err.into_compile_error())
         .into()
@@ -26,5 +26,5 @@ fn re_impl(literal: LitStr) -> syn::Result<TokenStream2> {
 
     let dfa = algo::determine(nfa);
 
-    Ok(recz_cogen::regex_instance(dfa))
+    Ok(recz_cogen::re_impl(dfa))
 }

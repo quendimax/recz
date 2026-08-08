@@ -1,49 +1,43 @@
-use proc_macro2::TokenStream;
-use quote::quote;
+use proc_macro2::{Ident, TokenStream};
+use quote::{format_ident, quote};
 use recz_adt::Map;
 use recz_graph::{Graph, Node};
 
 pub struct EnumState<'a> {
     name: String,
+    graph: &'a Graph,
     dict: Map<Node<'a>, String>,
 }
 
 impl<'a> EnumState<'a> {
-    pub fn new(dfa: &'a Graph) -> Self {
-        let dict = Map::default();
-        dict.insert(dfa.start_node(), "Start".into());
-        for node in dfa.nodes() {
-            if node.is_final() {
-                dict.insert(node, "Exit".into());
-                for (source, ed) in node.sources() {
-                    debug_assert!(ed.is_epsilon());
-                    dict.insert(source, format!("Final{}", source.nid()));
-                }
-            } else {
-                dict.insert(node, format!("State{}", node.nid()));
-            }
-        }
+    pub fn new(name: impl Into<String>, graph: &'a Graph) -> Self {
         Self {
-            name: "State".into(),
-            dict,
+            name: name.into(),
+            graph,
+            dict: Map::default(),
         }
     }
 
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn ident(&self) -> Ident {
+        format_ident!("{}", self.name)
     }
 
     pub fn state_name(&self, node: Node<'a>) -> &str {
-        &self.dict[&node]
+        if let Some(name) = self.dict.get(&node) {
+            name
+        } else {
+            assert!(node.belongs_to(self.graph));
+            self.dict.insert(node, format!("{}", node)).unwrap()
+        }
     }
 
     pub fn generate(&self) -> TokenStream {
-        let name = self.name();
-        let states = self.dict.values();
+        let name = self.ident();
+        let states = self.dict.values().map(|name| format_ident!("{}", name));
         quote! {
             #[derive(Debug, Clone, Copy, PartialEq, Eq)]
             enum #name {
-                #(#states),*
+                #( #states ),*
             }
         }
     }
