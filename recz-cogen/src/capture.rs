@@ -35,6 +35,11 @@ impl Capture {
                 }
 
                 #[inline]
+                #vis fn hay(&self) -> &'h str {
+                    self.hay
+                }
+
+                #[inline]
                 #vis fn capture(&self) -> &'h str {
                     &self.hay[self.span]
                 }
