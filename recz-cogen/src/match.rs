@@ -4,19 +4,19 @@ use recz_adt::Map;
 
 pub struct Match {
     vis: TokenStream,
-    group_labels: Map<u32, usize>,
+    lbl_to_idx: Map<u32, usize>,
 }
 
 impl Match {
     pub fn new(vis: TokenStream) -> Self {
         Self {
             vis,
-            group_labels: Map::default(),
+            lbl_to_idx: Map::default(),
         }
     }
 
     fn generate_fn_group(&self) -> TokenStream {
-        let match_branches = self.group_labels.iter().map(|(label, index)| {
+        let match_branches = self.lbl_to_idx.iter().map(|(label, index)| {
             quote! {
                 #label => self.groups[#index].as_ref(),
             }
@@ -41,17 +41,34 @@ impl Match {
 
     pub fn generate(&self) -> TokenStream {
         let vis = &self.vis;
-        let group_count = self.group_labels.len();
+        let group_count = self.lbl_to_idx.len();
 
         let fn_group = self.generate_fn_group();
         let fn_groups = self.generate_fn_groups();
 
         quote! {
             #vis struct Match<'h> {
-                groups: [Option<Capture<'h>>; #group_count]
+                groups: [::std::option::Option<Capture<'h>>; #group_count]
             }
 
             impl<'h> Match<'h> {
+                #[inline]
+                fn new() -> Self {
+                    Self {
+                        groups: [::std::option::Option::None; #group_count],
+                    }
+                }
+
+                fn init_groups(&mut self, hay: &'h str, groups: [(u32, usize, usize); #group_count]) {
+                    for (i, (label, start, end)) in groups.iter().enumerate() {
+                        self.groups[i] = ::std::option::Option::Some(Capture::new(
+                            *label,
+                            hay,
+                            (*start..*end).into()
+                        ));
+                    }
+                }
+
                 #[inline]
                 #vis #fn_group
 

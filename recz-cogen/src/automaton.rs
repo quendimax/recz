@@ -2,16 +2,18 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use recz_graph::Graph;
 
-pub struct Regex<'a> {
+pub struct Automaton<'a> {
     _graph: &'a Graph,
     name: String,
+    vis: TokenStream,
 }
 
-impl<'a> Regex<'a> {
-    pub fn new(_graph: &'a Graph) -> Self {
+impl<'a> Automaton<'a> {
+    pub fn new(_graph: &'a Graph, vis: TokenStream) -> Self {
         Self {
             _graph,
             name: "Regex".into(),
+            vis,
         }
     }
 
@@ -21,19 +23,22 @@ impl<'a> Regex<'a> {
 
     fn generate_test(&self) -> TokenStream {
         quote! {
-            pub(crate) fn test(&self, hay: &str) -> Option<()> {
-                Some(())
+            fn test<'h>(&self, hay: &'h str) -> Option<Match<'h>> {
+                let m = Match::new();
+                None
             }
         }
     }
 
     pub fn generate(&self) -> TokenStream {
         let name = self.ident();
-        let match_toks = self.generate_test();
+        let vis = &self.vis;
+        let test_def = self.generate_test();
         quote! {
-            pub struct #name;
+            #vis struct #name;
+
             impl #name {
-                #match_toks
+                #vis #test_def
             }
         }
     }
