@@ -19,17 +19,17 @@ impl<'a> Regex<'a> {
         format_ident!("{}", self.name)
     }
 
-    fn generate_match(&self) -> TokenStream {
+    fn generate_test(&self) -> TokenStream {
         quote! {
-            pub fn match_str(&self, hay: &str) -> bool {
-                true
+            pub(crate) fn test(&self, hay: &str) -> Option<()> {
+                Some(())
             }
         }
     }
 
     pub fn generate(&self) -> TokenStream {
         let name = self.ident();
-        let match_toks = self.generate_match();
+        let match_toks = self.generate_test();
         quote! {
             pub struct #name;
             impl #name {

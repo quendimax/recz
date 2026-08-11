@@ -3,5 +3,5 @@ use recz_macro::__re_impl as re;
 #[test]
 fn test_re() {
     let regex = re!("he");
-    assert!(regex.match_str("hello"));
+    assert!(regex.test("hello").is_some());
 }
