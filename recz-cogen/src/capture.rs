@@ -15,16 +15,17 @@ impl Capture {
         quote::quote! {
             #vis struct Capture<'h> {
                 label: u32,
-                capture: &'h str,
-                start: usize,
+                hay: &'h str,
+                span: ::core::range::Range<usize>,
             }
 
             impl<'h> Capture<'h> {
-                #vis fn new(label: u32, capture: &'h str, start: usize) -> Self {
+                #[inline]
+                fn new(label: u32, hay: &'h str, span: ::core::range::Range<usize>) -> Self {
                     Self {
                         label,
-                        capture,
-                        start,
+                        hay,
+                        span
                     }
                 }
 
@@ -35,25 +36,22 @@ impl Capture {
 
                 #[inline]
                 #vis fn capture(&self) -> &'h str {
-                    self.capture
+                    &self.hay[self.span]
                 }
 
                 #[inline]
                 #vis fn start(&self) -> usize {
-                    self.start
+                    self.span.start
                 }
 
                 #[inline]
                 #vis fn end(&self) -> usize {
-                    self.start + self.capture.len()
+                    self.span.end
                 }
 
                 #[inline]
                 #vis fn span(&self) -> ::core::range::Range<usize> {
-                    ::core::range::Range {
-                        start: self.start(),
-                        end: self.end(),
-                    }
+                    self.span
                 }
             }
         }
