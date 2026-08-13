@@ -2,7 +2,7 @@ use crate::edge::{Edge, EdgeInner};
 use crate::node::{Node, NodeInner, NodePtr};
 use bumpish::BumpVec;
 use owo_colors::OwoColorize;
-use recz_adt::Legible;
+use recz_adt::{Legible, Set};
 use std::cell::Cell;
 use std::fmt::Write;
 
@@ -33,6 +33,7 @@ pub(crate) struct GraphInner {
     start_node: Cell<Option<NodePtr>>,
     bump_nodes: BumpVec<NodeInner, 0>,
     bump_edges: BumpVec<EdgeInner, 0>,
+    groups: Set<u32>,
 }
 
 pub(crate) type GraphPtr = core::ptr::NonNull<GraphInner>;
@@ -56,6 +57,7 @@ impl Graph {
             start_node: Cell::new(None),
             bump_nodes: BumpVec::new(),
             bump_edges: BumpVec::new(),
+            groups: Set::default(),
         }))
     }
 
@@ -211,6 +213,24 @@ impl Graph {
     pub fn nodes(&self) -> impl Iterator<Item = Node<'_>> {
         self.0.bump_nodes.iter().map(Node::from_ref)
     }
+
+    /// Returns an iterator over the capture group labels in the graph. The
+    /// order of group labels is the same as the order they were added.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use recz_graph::{Graph, Tag};
+    ///
+    /// let graph = Graph::new();
+    /// assert!(graph.groups().next().is_none());
+    ///
+    /// graph.node().connect(graph.node()).add_tag(Tag::OpenGroup(0));
+    /// assert!(graph.groups().next().is_some());
+    /// ```
+    pub fn groups(&self) -> impl Iterator<Item = u32> {
+        self.0.groups.iter().copied()
+    }
 }
 
 impl Graph {
@@ -283,8 +303,12 @@ impl GraphInner {
     ///
     /// This method is not available for external use. Use [`Node::connect`] instead.
     pub(crate) fn edge(&self) -> Edge<'_> {
-        let edge_ref = self.bump_edges.push(EdgeInner::new());
+        let edge_ref = self.bump_edges.push(EdgeInner::new(self));
         Edge::from_ref(edge_ref)
+    }
+
+    pub(crate) fn add_group(&self, label: u32) {
+        self.groups.insert(label);
     }
 }
 

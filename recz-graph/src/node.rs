@@ -199,7 +199,7 @@ impl NodeInner {
         }
     }
 
-    /// Arena owner of this node.
+    /// Graph owner of this node.
     #[inline]
     fn graph_inner<'a>(&self) -> &'a GraphInner {
         unsafe { self.graph_ptr.as_ref() }
