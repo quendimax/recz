@@ -112,8 +112,7 @@ impl<'d, 'n> Determinator<'d, 'n> {
         let sym_table = Map::<u8, (Set<Tag>, Rc<OrdSet<Node<'n>>>)>::default();
         let mut is_final = false;
 
-        for node in nodes.raw_iter() {
-            let node = *node;
+        for node in nodes.raw_iter().copied() {
             tag_table.insert(node, Set::default());
             for (edge, target) in node.targets() {
                 if edge.is_epsilon() {
