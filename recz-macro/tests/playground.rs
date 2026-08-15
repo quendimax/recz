@@ -78,13 +78,6 @@ pub struct Match<'h> {
 }
 
 impl<'h> Match<'h> {
-    fn new(hay: &'h str) -> Self {
-        Self {
-            hay,
-            spans: [INVALID_SPAN; GROUP_COUNT],
-        }
-    }
-
     #[inline]
     pub fn haystack(&self) -> &'h str {
         self.hay
@@ -150,6 +143,7 @@ impl<'h> Match<'h> {
     }
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum State {
     fi_0,
@@ -199,10 +193,6 @@ impl Regex {
                             curr_state = State::ge_3;
                         }
                     };
-                    *result = Some(Match {
-                        hay: haystack,
-                        spans,
-                    });
                 }
                 State::fi_1 => {
                     match byte {
@@ -226,10 +216,6 @@ impl Regex {
                             curr_state = State::ge_3;
                         }
                     };
-                    *result = Some(Match {
-                        hay: haystack,
-                        spans,
-                    });
                 }
                 State::fi_2 => {
                     match byte {
@@ -244,29 +230,23 @@ impl Regex {
                             curr_state = State::ge_3;
                         }
                     };
+                }
+                State::ge_3 => {
                     *result = Some(Match {
                         hay: haystack,
                         spans,
                     });
+                    break 'main;
                 }
-                State::ge_3 => break 'main,
             }
             pos += 1;
         }
     }
 }
 
-#[inline(never)]
-pub fn test_regex() {
-    let mut m = Match::new("hello");
-    m.spans[0].start = 0;
-    m.spans[0].end = 4;
-    assert!(m.group_str("hello").is_some());
-    let capt = m.group_str("hello").unwrap();
-    assert_eq!(capt.as_str(), "hell");
-}
-
 #[test]
 fn real_test() {
-    test_regex();
+    let re = Regex;
+    let m = re.test("aaccff");
+    assert!(m.is_some());
 }
