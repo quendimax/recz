@@ -1,5 +1,6 @@
 use crate::{Graph, Node, Tag};
 use recz_adt::{Map, OrdSet, Set, SetU8};
+use std::collections::BTreeSet;
 use std::rc::Rc;
 
 pub fn determine(nfa: Graph) -> Graph {
@@ -14,7 +15,7 @@ struct Determinator<'d, 'n> {
     nfa: &'n Graph,
     dfa: &'d Graph,
     has_final_nodes: bool,
-    conv_table: Map<Rc<OrdSet<Node<'n>>>, Node<'d>>,
+    conv_table: Map<Rc<BTreeSet<Node<'n>>>, Node<'d>>,
     e_closure_table: Map<Rc<OrdSet<Node<'n>>>, Rc<EClosure<'n>>>,
     final_tags: Map<Node<'d>, Vec<Tag>>,
     stack: Vec<(Node<'n>, Node<'n>)>,
@@ -22,7 +23,7 @@ struct Determinator<'d, 'n> {
 
 struct EClosure<'n> {
     /// Epsilon closure of the nodes.
-    nodes: Rc<OrdSet<Node<'n>>>,
+    nodes: Rc<BTreeSet<Node<'n>>>,
 
     /// All tags that are going to the final nodes.
     final_tags: Set<Tag>,
@@ -108,12 +109,14 @@ impl<'d, 'n> Determinator<'d, 'n> {
             return Rc::clone(closure);
         }
 
+        #[allow(clippy::mutable_key_type)]
+        let mut e_closure = BTreeSet::default();
         let tag_table = Map::<Node<'n>, Set<Tag>>::default();
         let sym_table = Map::<u8, (Set<Tag>, Rc<OrdSet<Node<'n>>>)>::default();
         let mut is_final = false;
 
         for node in nodes.raw_iter().copied() {
-            tag_table.insert(node, Set::default());
+            e_closure.insert(node);
             for (edge, target) in node.targets() {
                 if edge.is_epsilon() {
                     self.stack.push((target, node));
@@ -124,16 +127,20 @@ impl<'d, 'n> Determinator<'d, 'n> {
                     }
                 }
             }
-            if node.is_final() {
-                is_final = true;
-            }
+            is_final |= node.is_final();
         }
 
         while let Some((node, source)) = self.stack.pop() {
+            e_closure.insert(node);
             let edge = source.connect(node);
-            let tags = tag_table.entry(node).or_default();
-            tags.lazy_extend(edge.tags());
-            tags.lazy_extend(tag_table[&source].iter().copied());
+            if edge.tag_count() > 0 {
+                let tags = tag_table.entry(node).or_default();
+                tags.lazy_extend(edge.tags());
+            }
+            if let Some(source_tags) = tag_table.get(&source) {
+                let tags = tag_table.entry(node).or_default();
+                tags.lazy_extend(source_tags.iter().copied());
+            }
 
             for (edge, target) in node.targets() {
                 if edge.is_epsilon() {
@@ -141,14 +148,14 @@ impl<'d, 'n> Determinator<'d, 'n> {
                 } else {
                     for symbol in edge.symbols() {
                         let (sym_tags, closure) = sym_table.entry(symbol).or_default();
-                        sym_tags.lazy_extend(tags.iter().copied());
+                        if let Some(tags) = tag_table.get(&node) {
+                            sym_tags.lazy_extend(tags.iter().copied());
+                        }
                         closure.insert(target);
                     }
                 }
             }
-            if node.is_final() {
-                is_final = true;
-            }
+            is_final |= node.is_final();
         }
 
         let final_tags = Set::default();
@@ -163,7 +170,7 @@ impl<'d, 'n> Determinator<'d, 'n> {
             .insert(
                 nodes,
                 Rc::new(EClosure {
-                    nodes: Rc::new(OrdSet::from_iter(tag_table.keys().copied())),
+                    nodes: Rc::new(e_closure),
                     final_tags,
                     sym_table,
                     is_final,
