@@ -76,6 +76,9 @@ impl<'a> Edge<'a> {
     /// ```
     pub fn add_tag(&self, tag: Tag) -> Self {
         self.0.tags.insert(tag);
+        if let Some(label) = tag.group_label() {
+            self.0.graph_inner().add_group(label);
+        }
         *self
     }
 
