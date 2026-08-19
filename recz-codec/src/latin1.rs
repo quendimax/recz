@@ -3,32 +3,32 @@ use crate::Encoding;
 use crate::{Error::*, Result};
 use recz_adt::Range;
 
-const ENCODING: Encoding = Encoding::Ascii;
+const ENCODING: Encoding = Encoding::Latin1;
 
-pub struct AsciiCodec;
+pub struct Latin1Codec;
 
-impl AsciiCodec {
+impl Latin1Codec {
     #[inline]
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Default for AsciiCodec {
+impl Default for Latin1Codec {
     #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Codec for AsciiCodec {
+impl Codec for Latin1Codec {
     #[inline]
     fn encoding(&self) -> Encoding {
         ENCODING
     }
 
     fn encode_char(&self, c: char, buffer: &mut [u8]) -> Result<usize> {
-        let c = ucp_to_ascii(c as u32)?;
+        let c = ucp_to_latin1(c as u32)?;
         if buffer.is_empty() {
             Err(SmallBuffer)
         } else {
@@ -38,7 +38,7 @@ impl Codec for AsciiCodec {
     }
 
     fn encode_ucp(&self, codepoint: u32, buffer: &mut [u8]) -> Result<usize> {
-        let c = ucp_to_ascii(codepoint)?;
+        let c = ucp_to_latin1(codepoint)?;
         if buffer.is_empty() {
             Err(SmallBuffer)
         } else {
@@ -64,8 +64,8 @@ impl Codec for AsciiCodec {
     where
         F: FnMut(&[Range<u8>]),
     {
-        let start_c = ucp_to_ascii(start_ucp)?;
-        let end_c = ucp_to_ascii(end_ucp)?;
+        let start_c = ucp_to_latin1(start_ucp)?;
+        let end_c = ucp_to_latin1(end_ucp)?;
         let mut handler = handler;
         handler(&[Range::new(start_c, end_c)]);
         Ok(())
@@ -83,11 +83,11 @@ impl Codec for AsciiCodec {
     }
 
     fn verify_codepoint(&self, codepoint: u32) -> Result<()> {
-        ucp_to_ascii(codepoint).map(|_| ())
+        ucp_to_latin1(codepoint).map(|_| ())
     }
 }
 
-fn ucp_to_ascii(codepoint: u32) -> Result<u8> {
+fn ucp_to_latin1(codepoint: u32) -> Result<u8> {
     if codepoint <= ENCODING.max_codepoint() {
         Ok(codepoint as u8)
     } else {

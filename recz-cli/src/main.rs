@@ -4,7 +4,7 @@ use miette::Report;
 use owo_colors::{OwoColorize, Stream};
 use recz_adt::Legible;
 use recz_graph::{Graph, Translator, algo};
-use recz_syntax::codec::{AsciiCodec, Utf8Codec};
+use recz_syntax::codec::{AsciiCodec, Latin1Codec, Utf8Codec};
 use recz_syntax::{Error as SyntaxError, Parser as ReParser};
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -12,6 +12,9 @@ enum Codec {
     #[default]
     /// ASCII codec
     Ascii,
+
+    /// Latin-1 codec
+    Latin1,
 
     /// UTF-8 codec
     Utf8,
@@ -68,6 +71,7 @@ fn main() -> miette::Result<()> {
 
     let hir = match cli.codec {
         Codec::Ascii => ReParser::new(AsciiCodec).parse(&cli.regex),
+        Codec::Latin1 => ReParser::new(Latin1Codec).parse(&cli.regex),
         Codec::Utf8 => ReParser::new(Utf8Codec).parse(&cli.regex),
     }
     .map_err(|e| error_report(&cli.regex, *e))?;

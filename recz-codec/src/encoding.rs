@@ -8,6 +8,7 @@ use recz_adt::Range;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Encoding {
     Ascii,
+    Latin1,
     Utf8,
 }
 
@@ -16,6 +17,7 @@ impl Encoding {
     pub const fn name(&self) -> &'static str {
         match self {
             Encoding::Ascii => "ASCII",
+            Encoding::Latin1 => "Latin-1",
             Encoding::Utf8 => "UTF-8",
         }
     }
@@ -24,6 +26,7 @@ impl Encoding {
     pub const fn allows_surrogates(&self) -> bool {
         match self {
             Encoding::Ascii => false,
+            Encoding::Latin1 => false,
             Encoding::Utf8 => false,
         }
     }
@@ -32,6 +35,7 @@ impl Encoding {
     pub const fn min_codepoint(&self) -> u32 {
         match self {
             Encoding::Ascii => 0,
+            Encoding::Latin1 => 0,
             Encoding::Utf8 => 0,
         }
     }
@@ -40,6 +44,7 @@ impl Encoding {
     pub const fn max_codepoint(&self) -> u32 {
         match self {
             Encoding::Ascii => 0x7F,
+            Encoding::Latin1 => 0xFF,
             Encoding::Utf8 => 0x10FFFF,
         }
     }
@@ -47,6 +52,7 @@ impl Encoding {
     #[inline]
     pub fn codepoint_ranges(&self) -> &'static [Range<u32>] {
         static ASCII_RANGES: &[Range<u32>] = &[Range::new_unchecked_const(0, 0x7F)];
+        static LATIN1_RANGES: &[Range<u32>] = &[Range::new_unchecked_const(0, 0xFF)];
         static UTF_RANGES: &[Range<u32>] = &[
             Range::new_unchecked_const(0, 0xD7FF),
             Range::new_unchecked_const(0xE000, 0x10FFFF),
@@ -54,6 +60,7 @@ impl Encoding {
 
         match self {
             Encoding::Ascii => ASCII_RANGES,
+            Encoding::Latin1 => LATIN1_RANGES,
             Encoding::Utf8 => UTF_RANGES,
         }
     }
