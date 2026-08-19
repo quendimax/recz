@@ -168,59 +168,6 @@ fn edge_contains_range() {
 }
 
 #[test]
-fn edge_contains_edge() {
-    let gr = Graph::new();
-    let edge_a = gr.node().connect(gr.node());
-    edge_a.add_symbol(b'a');
-    edge_a.add_symbol(b'c');
-    edge_a.add_symbol(b'e');
-    let edge_b = gr.node().connect(gr.node());
-    edge_b.add_symbol(b'b');
-    edge_b.add_symbol(b'd');
-    edge_b.add_symbol(b'f');
-    let edge_c = gr.node().connect(gr.node());
-    edge_c.add_symbol(b'a');
-    edge_c.add_symbol(b'b');
-    edge_c.add_symbol(b'c');
-    edge_c.add_symbol(b'd');
-    edge_c.add_symbol(b'e');
-    edge_c.add_symbol(b'f');
-    edge_c.add_symbol(b'g');
-    assert!(edge_a.is_superset(edge_a));
-    assert!(edge_b.is_superset(edge_b));
-    assert!(edge_c.is_superset(edge_c));
-    assert!(edge_c.is_superset(edge_a));
-    assert!(edge_c.is_superset(edge_a));
-    assert!(!edge_a.is_superset(edge_b));
-    assert!(!edge_a.is_superset(edge_c));
-    assert!(!edge_b.is_superset(edge_a));
-    assert!(!edge_b.is_superset(edge_c));
-}
-
-#[test]
-fn edge_intersects_edge() {
-    let gr = Graph::new();
-    let edge_a = gr.node().connect(gr.node());
-    edge_a.add_symbol(b'a');
-    edge_a.add_symbol(b'c');
-    edge_a.add_symbol(b'e');
-    let edge_b = gr.node().connect(gr.node());
-    edge_b.add_symbol(b'b');
-    edge_b.add_symbol(b'd');
-    edge_b.add_symbol(b'f');
-    let edge_c = gr.node().connect(gr.node());
-    edge_c.add_symbol(b'a');
-    edge_c.add_symbol(b'b');
-    edge_c.add_symbol(b'c');
-    edge_c.add_symbol(b'd');
-    edge_c.add_symbol(b'e');
-    edge_c.add_symbol(b'f');
-    assert_eq!(edge_a.intersects(edge_b), false);
-    assert_eq!(edge_a.intersects(edge_c), true);
-    assert_eq!(edge_b.intersects(edge_c), true);
-}
-
-#[test]
 fn edge_merge_range() {
     fn check(range: impl Into<RangeU8>) -> Option<RangeU8> {
         let range = range.into();

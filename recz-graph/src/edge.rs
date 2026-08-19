@@ -179,18 +179,6 @@ impl<'a> Edge<'a> {
         self.0.tags.contains(&tag)
     }
 
-    pub fn is_subset(&self, other: Self) -> bool {
-        other.is_superset(*self)
-    }
-
-    pub fn is_superset(&self, other: Self) -> bool {
-        self.0.symbols.is_superset(&other.0.symbols) && self.0.tags.is_superset(&other.0.tags)
-    }
-
-    pub fn intersects(&self, other: Self) -> bool {
-        !self.0.symbols.is_disjoint(&other.0.symbols) || !self.0.tags.is_disjoint(&other.0.tags)
-    }
-
     /// Returns the number of tags on this edge.
     ///
     /// # Examples
