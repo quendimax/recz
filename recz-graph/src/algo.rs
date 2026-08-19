@@ -19,6 +19,7 @@ struct Determinator<'d, 'n> {
     e_closure_table: Map<Rc<OrdSet<Node<'n>>>, Rc<EClosure<'n>>>,
     final_tags: Map<Node<'d>, Vec<Tag>>,
     stack: Vec<(Node<'n>, Edge<'n>, Node<'n>)>,
+    visited: Set<Node<'n>>,
 }
 
 struct EClosure<'n> {
@@ -52,6 +53,7 @@ impl<'d, 'n> Determinator<'d, 'n> {
             e_closure_table: Map::default(),
             final_tags: Map::default(),
             stack: Vec::with_capacity(nfa.node_count()),
+            visited: Set::default(),
         }
     }
 
@@ -131,24 +133,29 @@ impl<'d, 'n> Determinator<'d, 'n> {
             }
 
             let skip_tags = node.kind() == NodeKind::Detagged;
+            self.visited.clear();
             while let Some((node, edge, source)) = self.stack.pop() {
                 e_closure.insert(node);
+                self.visited.insert(node);
                 is_final |= node.is_final();
 
+                let mut tags_added = false;
                 if !skip_tags {
                     if edge.tag_count() > 0 {
                         let tags = tag_table.entry(node).or_default();
-                        tags.lazy_extend(edge.tags());
+                        tags_added |= tags.lazy_extend(edge.tags());
                     }
                     if let Some(source_tags) = tag_table.get(&source) {
                         let tags = tag_table.entry(node).or_default();
-                        tags.lazy_extend(source_tags.iter().copied());
+                        tags_added |= tags.lazy_extend(source_tags.iter().copied());
                     }
                 }
 
                 for (edge, target) in node.targets() {
                     if edge.is_epsilon() {
-                        self.stack.push((target, edge, node));
+                        if !self.visited.contains(&target) || tags_added {
+                            self.stack.push((target, edge, node));
+                        }
                     } else {
                         for symbol in edge.symbols() {
                             let (sym_tags, sym_closure) = sym_table.entry(symbol).or_default();
