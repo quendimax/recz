@@ -2,16 +2,17 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use recz_graph::{Graph, Translator, algo};
 use recz_syntax::{Parser, codec::Utf8Codec};
-use syn::{Error, LitStr, parse_macro_input};
+use syn::{Error, LitStr, parse2};
 
 #[proc_macro]
-pub fn __re_impl(body: TokenStream) -> TokenStream {
-    re_impl(parse_macro_input!(body as LitStr))
+pub fn __re(body: TokenStream) -> TokenStream {
+    re_impl(body.into())
         .unwrap_or_else(|err| err.into_compile_error())
         .into()
 }
 
-fn re_impl(literal: LitStr) -> syn::Result<TokenStream2> {
+fn re_impl(body: TokenStream2) -> syn::Result<TokenStream2> {
+    let literal = parse2::<LitStr>(body)?;
     let re_str = literal.value();
     let re_str = format!(".*(?<0>{re_str})");
 

@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "recz",
     "recz-adt",
     "recz-bench",
     "recz-cli",
@@ -10,6 +11,7 @@ members = [
     "recz-syntax",
 ]
 default-members = [
+    "recz",
     "recz-adt",
     "recz-codec",
     "recz-cogen",
