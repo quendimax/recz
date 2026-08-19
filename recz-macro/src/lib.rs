@@ -27,5 +27,5 @@ fn re_impl(body: TokenStream2) -> syn::Result<TokenStream2> {
 
     let dfa = algo::determine(nfa);
 
-    Ok(recz_cogen::re_impl(dfa))
+    Ok(recz_codegen::re_impl(dfa))
 }
