@@ -1,11 +1,12 @@
-use clap::{Parser, ValueEnum};
+use clap::{Parser as ClapParser, ValueEnum};
 use core::fmt;
 use miette::Report;
 use owo_colors::{OwoColorize, Stream};
 use recz_adt::Legible;
 use recz_graph::{Graph, Translator, algo};
 use recz_syntax::codec::{AsciiCodec, Latin1Codec, Utf8Codec};
-use recz_syntax::{Error as SyntaxError, Parser as ReParser};
+use recz_syntax::{Error as SyntaxError, Parser};
+use std::time::Instant;
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Codec {
@@ -69,39 +70,52 @@ fn error_report(source: &str, err: SyntaxError) -> Report {
 fn main() -> miette::Result<()> {
     let cli: Cli = Cli::parse();
 
+    let hir_start = Instant::now();
     let hir = match cli.codec {
-        Codec::Ascii => ReParser::new(AsciiCodec).parse(&cli.regex),
-        Codec::Latin1 => ReParser::new(Latin1Codec).parse(&cli.regex),
-        Codec::Utf8 => ReParser::new(Utf8Codec).parse(&cli.regex),
+        Codec::Ascii => Parser::new(AsciiCodec).parse(&cli.regex),
+        Codec::Latin1 => Parser::new(Latin1Codec).parse(&cli.regex),
+        Codec::Utf8 => Parser::new(Utf8Codec).parse(&cli.regex),
     }
     .map_err(|e| error_report(&cli.regex, *e))?;
+    let hir_duration = hir_start.elapsed();
 
     if cli.print.contains(&PrintMode::Hir) {
-        println!("--- HIR ---------------------------------------------------");
+        println!("--- HIR ----------------------------- {hir_duration:?} --------");
         println!();
         println!("{}", dysplay(&hir));
         println!();
     }
 
+    let nfa_start = Instant::now();
     let nfa = Graph::new();
     let mut tr = Translator::new(&nfa);
     tr.translate(&hir, nfa.start_node(), nfa.node().finalize());
+    let nfa_duration = nfa_start.elapsed();
 
     if cli.print.contains(&PrintMode::Nfa) {
-        println!("--- NFA ---------------------------------------------------");
+        println!("--- NFA ----------------------------- {nfa_duration:?} --------");
         println!();
         println!("{}", dysplay(&nfa));
         println!();
     }
 
+    let dfa_start = Instant::now();
     let dfa = algo::determine(nfa);
+    let dfa_duration = dfa_start.elapsed();
 
     if cli.print.contains(&PrintMode::Dfa) {
-        println!("--- DFA ---------------------------------------------------");
+        println!("--- DFA ----------------------------- {dfa_duration:?} --------");
         println!();
         println!("{}", dysplay(&dfa));
         println!();
     }
+
+    let total_duration = hir_duration + nfa_duration + dfa_duration;
+    println!("Elapsed time for building");
+    println!("- HIR:   {hir_duration:?}");
+    println!("- NFA:   {nfa_duration:?}");
+    println!("- DFA:   {dfa_duration:?}");
+    println!("> Total: {total_duration:?}");
 
     Ok(())
 }
