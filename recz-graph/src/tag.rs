@@ -9,25 +9,28 @@ use recz_adt::Legible;
 pub enum Tag {
     /// A tag used to mark the start of a capture group.
     OpenGroup(u32),
+
     /// A tag used to mark the end of a capture group.
     CloseGroup(u32),
+
     /// A tag used to mark a group's tags for deletion.
     DeleteGroup(u32),
+
+    /// A tag used to mark zero sized start of input text (or start of line in
+    /// multiline mode).
+    StartOfInput,
+
+    /// A tag used to mark zero sized end of input text (or end of line in
+    /// multiline mode).
+    EndOfInput,
+
+    /// A tag used to mark a border between a word and a non-word.
+    WordBoundary,
 }
 
 use Tag::*;
 
 impl Tag {
-    /// Returns a tag that is a marker for deletion of the group associated with
-    /// this tag's group id.
-    pub fn delete_group(&self) -> Tag {
-        match self {
-            OpenGroup(group_id) => DeleteGroup(*group_id),
-            CloseGroup(group_id) => DeleteGroup(*group_id),
-            DeleteGroup(group_id) => DeleteGroup(*group_id),
-        }
-    }
-
     /// Returns the group label associated with this tag, if any.
     ///
     /// For now the label is a `u32` value.
@@ -36,6 +39,7 @@ impl Tag {
             OpenGroup(group_id) => Some(*group_id),
             CloseGroup(group_id) => Some(*group_id),
             DeleteGroup(group_id) => Some(*group_id),
+            _ => None,
         }
     }
 
@@ -51,12 +55,18 @@ impl Tag {
                 DeleteGroup(group_id) => {
                     write!(f, "{}{}", "!g".bright_blue(), group_id.bright_blue())
                 }
+                StartOfInput => write!(f, "{}", "^".bright_blue()),
+                EndOfInput => write!(f, "{}", "$".bright_blue()),
+                WordBoundary => write!(f, "{}", "\\b".bright_blue()),
             }
         } else {
             match self {
                 OpenGroup(group_id) => write!(f, "+g{group_id}"),
                 CloseGroup(group_id) => write!(f, "-g{group_id}"),
                 DeleteGroup(group_id) => write!(f, "!g{group_id}"),
+                StartOfInput => write!(f, "^"),
+                EndOfInput => write!(f, "$"),
+                WordBoundary => write!(f, "\\b"),
             }
         }
     }

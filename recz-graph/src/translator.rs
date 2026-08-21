@@ -235,8 +235,10 @@ impl<'a> Translator<'a> {
             for (other_last, other_tags) in &branches {
                 if last != other_last {
                     for tag in other_tags {
-                        last.connect(sub.last).add_tag(tag.delete_group());
-                        is_connected = true;
+                        if let Some(group_id) = tag.group_label() {
+                            last.connect(sub.last).add_tag(Tag::DeleteGroup(group_id));
+                            is_connected = true;
+                        }
                     }
                 }
             }
