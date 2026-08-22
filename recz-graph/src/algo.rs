@@ -1,3 +1,5 @@
+#![allow(clippy::mutable_key_type)]
+
 use crate::{Edge, Graph, Node, NodeKind, Tag};
 use recz_adt::{Map, OrdSet, Set, SetU8};
 use std::collections::BTreeSet;
@@ -5,7 +7,7 @@ use std::rc::Rc;
 
 pub fn determine(nfa: Graph) -> Graph {
     let dfa = Graph::new();
-    let mut determ = Determinator::new(&nfa, &dfa);
+    let mut determ = Determinator2::new(&nfa, &dfa);
     determ.determine();
     drop(determ);
     dfa
@@ -225,4 +227,136 @@ impl<'d, 'n> Determinator<'d, 'n> {
             }
         }
     }
+}
+
+struct Determinator2<'d, 'n> {
+    nfa: &'n Graph,
+    dfa: &'d Graph,
+    eps_cache: Map<Rc<BTreeSet<Node<'n>>>, Rc<EpsClosure<'n, 'd>>>,
+    eps_stack: Vec<Node<'n>>,
+    has_final_nodes: bool,
+}
+
+impl<'d, 'n> Determinator2<'d, 'n> {
+    fn new(nfa: &'n Graph, dfa: &'d Graph) -> Self {
+        assert!(
+            !nfa.is(dfa),
+            "NFA and DFA must be different graph instances"
+        );
+        assert!(dfa.is_empty(), "DFA must be empty");
+        Self {
+            nfa,
+            dfa,
+            eps_cache: Map::default(),
+            eps_stack: Vec::with_capacity(nfa.node_count()),
+            has_final_nodes: false,
+        }
+    }
+
+    fn determine(&mut self) {
+        if self.nfa.is_empty() {
+            return;
+        }
+        self.has_final_nodes = false;
+
+        let start_node = Rc::new(BTreeSet::from([self.nfa.start_node()]));
+        let mut stack = Vec::with_capacity(self.nfa.node_count());
+        stack.push(self.eps_close(start_node));
+
+        while let Some(eps_closure) = stack.pop() {
+            let dfa_node = eps_closure.dfa_node;
+
+            for (sym, nodes) in eps_closure.sym_nodes.iter() {
+                let target_closure = if let Some(target_closure) = self.eps_cache.get(nodes) {
+                    Rc::clone(target_closure)
+                } else {
+                    let target_closure = self.eps_close(Rc::clone(nodes));
+                    stack.push(Rc::clone(&target_closure));
+                    target_closure
+                };
+
+                dfa_node.connect(target_closure.dfa_node).add_symbol(*sym);
+            }
+        }
+
+        if self.has_final_nodes {
+            let epilogue_node = self.dfa.node();
+            for node in self.dfa.nodes() {
+                if node.is_final() {
+                    node.connect(epilogue_node);
+                }
+            }
+            epilogue_node.epilogize();
+        }
+    }
+
+    fn eps_close(&mut self, nodes: Rc<BTreeSet<Node<'n>>>) -> Rc<EpsClosure<'n, 'd>> {
+        let mut eps_closure = BTreeSet::default();
+        let mut sym_nodes: Map<u8, Rc<BTreeSet<Node<'n>>>> = Map::default();
+        let mut has_tags = false;
+        let mut is_final = false;
+
+        self.eps_stack.extend(nodes.iter().copied());
+
+        while let Some(node) = self.eps_stack.pop() {
+            if eps_closure.contains(&node) {
+                continue;
+            }
+            eps_closure.insert(node);
+
+            for (edge, target) in node.targets() {
+                if edge.is_epsilon() {
+                    has_tags |= edge.tag_count() > 0;
+                    self.eps_stack.push(target);
+                } else {
+                    for sym in edge.symbols() {
+                        if let Some(nodes) = sym_nodes.get_mut(&sym) {
+                            Rc::make_mut(nodes).insert(target);
+                        } else {
+                            sym_nodes.insert(sym, Rc::new(BTreeSet::from([target])));
+                        }
+                    }
+                }
+            }
+            is_final |= node.is_final();
+        }
+
+        let dfa_node = self.dfa.node();
+        if is_final {
+            self.has_final_nodes = true;
+            dfa_node.finalize();
+        }
+        let new_closure = Rc::new(EpsClosure {
+            nodes: eps_closure,
+            start_nodes: Rc::clone(&nodes),
+            sym_nodes,
+            has_tags,
+            dfa_node,
+        });
+
+        self.eps_cache
+            .insert(nodes, Rc::clone(&new_closure))
+            .map(Rc::clone)
+            .unwrap()
+    }
+}
+
+#[derive(Debug)]
+struct EpsClosure<'n, 'd> {
+    /// All nodes in the epsilon closure.
+    nodes: BTreeSet<Node<'n>>,
+
+    /// Nodes that have only symbolic edges from source nodes.
+    start_nodes: Rc<BTreeSet<Node<'n>>>,
+
+    /// Nodes that have only symbolic edges to target nodes.
+    sym_nodes: Map<u8, Rc<BTreeSet<Node<'n>>>>,
+
+    dfa_node: Node<'d>,
+
+    has_tags: bool,
+}
+
+impl<'n, 'd> EpsClosure<'n, 'd> {
+    fn find_tags(&self) {}
 }
