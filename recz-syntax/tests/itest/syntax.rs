@@ -13,7 +13,7 @@ fn parse(pattern: &str) -> String {
 #[test]
 fn parse_regular() {
     assert_eq!(parse("asdf|dfgh"), r#""asdf" | "dfgh""#);
-    assert_eq!(parse("(asdf)|(?<1>dfgh)"), r#""asdf" | (?<1> "dfgh" )"#);
+    assert_eq!(parse("(asdf)|(?D<1>dfgh)"), r#""asdf" | (?<1> "dfgh" )"#);
     assert_eq!(parse("[sdf]"), r#"['d'] | ['f'] | ['s']"#);
 
     assert_eq!(parse("asd\\f"), "unsupported escape sequence `\\f`");

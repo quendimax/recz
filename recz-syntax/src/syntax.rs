@@ -266,6 +266,7 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     /// ```
     fn parse_group(&mut self) -> Result<Hir> {
         self.lexer.expect(tok::l_paren_question)?;
+        self.lexer.expect(tok::char('D'))?;
         let l_angle = self.lexer.expect(tok::char('<'))?;
         if let Some(num) = self.try_parse_decimal()? {
             if let Ok(label_num) = u32::try_from(num) {

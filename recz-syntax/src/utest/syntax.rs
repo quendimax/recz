@@ -131,22 +131,22 @@ fn parse_group() {
         parser.parse_group()
     };
     assert_eq!(
-        parse("(?<1>hello)"),
+        parse("(?D<1>hello)"),
         Ok(Hir::group(1, Hir::literal("hello")))
     );
     assert_eq!(
-        parse("(?<12345>hello)"),
+        parse("(?D<12345>hello)"),
         Ok(Hir::group(12345, Hir::literal("hello")))
     );
     assert_eq!(
-        parse("(?<123450000000>hello)"),
-        err::out_of_range("123450000000", 3..15, "`u32` range")
+        parse("(?D<123450000000>hello)"),
+        err::out_of_range("123450000000", 4..16, "`u32` range")
     );
-    assert_eq!(parse("(?<a>hello)"), err::unexpected("a", 3..4, "decimal"));
+    assert_eq!(parse("(?D<a>hello)"), err::unexpected("a", 4..5, "decimal"));
 
-    let lexer = Lexer::new("(?<0>he)(?<0>llo)");
+    let lexer = Lexer::new("(?D<0>he)(?D<0>llo)");
     let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
-    assert_eq!(parser.parse(), err::reuse_group_label(0, 11..12));
+    assert_eq!(parser.parse(), err::reuse_group_label(0, 13..14));
 }
 
 #[test]

@@ -29,7 +29,7 @@ group
     "(?" label disjunct ")"
 
 label
-    '<' decimal '>'
+    'D<' decimal '>'
 
 class               ; class corresponds to a subset of unicode code points
     '.'

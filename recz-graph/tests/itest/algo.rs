@@ -142,7 +142,7 @@ fn determine_4() {
 #[test]
 fn ambiguity_0() {
     assert_eq!(
-        parse(r"a*(?<0>a*)"),
+        parse(r"a*(?D<0>a*)"),
         lit!(
             ///graph {
             ///  fi_0 {
@@ -162,7 +162,7 @@ fn ambiguity_0() {
 #[test]
 fn ambiguity_1() {
     assert_eq!(
-        parse(r"(?<0>a*)a*"),
+        parse(r"(?D<0>a*)a*"),
         lit!(
             ///graph {
             ///  fi_0 {
@@ -182,7 +182,7 @@ fn ambiguity_1() {
 #[test]
 fn ambiguity_2() {
     assert_eq!(
-        parse(r"(?<1>a)a*"),
+        parse(r"(?D<1>a)a*"),
         lit!(
             ///graph {
             ///  no_0 { 'a' / +g1 -> fi_1 }
@@ -203,7 +203,7 @@ fn ambiguity_2() {
 #[test]
 fn ambiguity_3() {
     assert_eq!(
-        parse(r"a*(?<1>a)"),
+        parse(r"a*(?D<1>a)"),
         lit!(
             ///graph {
             ///  no_0 { 'a' / +g1 -> fi_1 }

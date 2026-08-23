@@ -73,7 +73,7 @@ fn translate_class() {
 #[test]
 fn translate_group_0_0() {
     assert_eq!(
-        parse("(?<1>)"),
+        parse("(?D<1>)"),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g1 -> no_2 }
@@ -88,7 +88,7 @@ fn translate_group_0_0() {
 #[test]
 fn translate_group_0_1() {
     assert_eq!(
-        parse("(?<0>a)b(?<1>c)"),
+        parse("(?D<0>a)b(?D<1>c)"),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g0 -> no_3 }
@@ -107,7 +107,7 @@ fn translate_group_0_1() {
 #[test]
 fn translate_group_0_2() {
     assert_eq!(
-        parse("(?<0>)(?<1>)(?<234>)"),
+        parse("(?D<0>)(?D<1>)(?D<234>)"),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g0 -> no_3 }
@@ -128,7 +128,7 @@ fn translate_group_0_2() {
 #[test]
 fn translate_group_1() {
     assert_eq!(
-        parse("(?<1>)(a|bc)(?<2>)"),
+        parse("(?D<1>)(a|bc)(?D<2>)"),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g1 -> no_3 }
@@ -155,7 +155,7 @@ fn translate_group_1() {
 #[test]
 fn translate_group_2() {
     assert_eq!(
-        parse("(?<1>)(a|b)(?<2>)"),
+        parse("(?D<1>)(a|b)(?D<2>)"),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g1 -> no_3 }
@@ -181,7 +181,7 @@ fn translate_group_2() {
 #[test]
 fn translate_group_3() {
     assert_eq!(
-        parse("(?<1>)((?<2>a)|b(?<3>a))"),
+        parse("(?D<1>)((?D<2>a)|b(?D<3>a))"),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g1 -> no_3 }
@@ -209,7 +209,7 @@ fn translate_group_3() {
 #[test]
 fn translate_group_4() {
     assert_eq!(
-        parse("(?<1>((?<2>a((?<3>d)|(?<5>e)))|b(?<4>a)))"),
+        parse("(?D<1>((?D<2>a((?D<3>d)|(?D<5>e)))|b(?D<4>a)))"),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g1 -> no_2 }
@@ -248,7 +248,7 @@ fn translate_group_4() {
 #[test]
 fn translate_group_5() {
     assert_eq!(
-        parse("(?<1>a)(?<2>b)*(?<3>c)"),
+        parse("(?D<1>a)(?D<2>b)*(?D<3>c)"),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g1 -> no_3 }
