@@ -156,33 +156,17 @@ impl<'h> Match<'h> {
 
     #[inline]
     pub fn haystack(&self) -> &'h str {
-        self.hay
+        ::recz::str::Match::haystack(self)
     }
 
-    pub fn group(&self, label: u32) -> Option<Capture<'h>> {
-        let index = match label {
-            0 => 0,
-            1 => 1,
-            2 => 2,
-            _ => return None,
-        };
-        to_option(self.hay, &self.spans[index])
+    #[inline]
+    pub fn group(&self, label: u32) -> Option<impl ::recz::str::Capture<'h>> {
+        ::recz::str::Match::group(self, label)
     }
 
-    pub fn group_str(&self, label: &str) -> Option<Capture<'h>> {
-        let index = match label {
-            "0" => 0,
-            "hello" => 0,
-            "bye" => 2,
-            _ => return None,
-        };
-        to_option(self.hay, &self.spans[index])
-    }
-
-    pub fn groups(&self) -> impl Iterator<Item = Capture<'h>> {
-        self.spans
-            .iter()
-            .filter_map(|span| to_option(self.hay, span))
+    #[inline]
+    pub fn groups(&self) -> impl ::core::iter::Iterator<Item = impl ::recz::str::Capture<'h>> {
+        ::recz::str::Match::groups(self)
     }
 }
 
@@ -197,19 +181,32 @@ enum State {
 
 pub struct Regex;
 
-impl Regex {
-    pub fn pattern(&self) -> &'static str {
+impl ::recz::str::Regex for Regex {
+    #[inline]
+    fn pattern(&self) -> &'static str {
         "(?<0>(?<2>[a-c])*(?<3>[a-f])*)"
     }
 
     #[inline(always)]
-    pub fn test<'h>(&self, haystack: &'h str) -> Option<Match<'h>> {
+    fn find<'h>(&self, haystack: &'h str) -> Option<impl ::recz::str::Match<'h>> {
         let mut m: Option<Match<'h>> = None;
-        self.test_impl(haystack, &mut m);
+        self.find_impl(haystack, &mut m);
         m
     }
+}
 
-    fn test_impl<'h>(&self, haystack: &'h str, result: &mut Option<Match<'h>>) {
+impl Regex {
+    #[inline]
+    pub fn pattern(&self) -> &'static str {
+        ::recz::str::Regex::pattern(self)
+    }
+
+    #[inline(always)]
+    pub fn find<'h>(&self, haystack: &'h str) -> Option<impl ::recz::str::Match<'h>> {
+        ::recz::str::Regex::find(self, haystack)
+    }
+
+    fn find_impl<'h>(&self, haystack: &'h str, result: &mut Option<Match<'h>>) {
         let mut spans = [INVALID_SPAN; GROUP_COUNT];
         let mut pos = 0;
         let mut curr_state = State::fi_0;
@@ -290,6 +287,6 @@ impl Regex {
 #[test]
 fn real_test() {
     let re = Regex;
-    let m = re.test("aaccff");
+    let m = re.find("aaccff");
     assert!(m.is_some());
 }
