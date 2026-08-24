@@ -43,12 +43,12 @@ fn hir_class() {
 #[test]
 fn hir_group() {
     let lit = Hir::literal(b"hello");
-    let group = Hir::group(2, lit);
+    let group = Hir::group(2u8, lit);
     assert!(group.is_group());
     assert!(!group.is_class());
     assert_eq!(group.len_hint(), (5, Some(5)));
     assert_eq!(group.exact_len(), Some(5));
-    assert_str_eq!(group.to_string(), r#"(?<2> "hello" )"#);
+    assert_str_eq!(group.to_string(), r#"(?D<2> "hello" )"#);
     if let Hir::Group(hir) = group {
         assert_eq!(hir.inner(), &Hir::literal("hello"));
     }

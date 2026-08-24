@@ -132,11 +132,11 @@ fn parse_group() {
     };
     assert_eq!(
         parse("(?D<1>hello)"),
-        Ok(Hir::group(1, Hir::literal("hello")))
+        Ok(Hir::group(1u32, Hir::literal("hello")))
     );
     assert_eq!(
         parse("(?D<12345>hello)"),
-        Ok(Hir::group(12345, Hir::literal("hello")))
+        Ok(Hir::group(12345u16, Hir::literal("hello")))
     );
     assert_eq!(
         parse("(?D<123450000000>hello)"),

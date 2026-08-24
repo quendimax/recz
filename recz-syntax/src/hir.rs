@@ -1,6 +1,7 @@
-use core::fmt::{Display, Write};
 use owo_colors::OwoColorize;
 use recz_adt::{Legible, SetU8};
+use recz_graph::CaptureLabel;
+use std::fmt::{Display, Write};
 
 /// Hir represents a high-level intermediate representation of a regular
 /// expression, that contains bytes already encoded from unicode code points,
@@ -90,9 +91,9 @@ impl Hir {
         })
     }
 
-    pub fn group(label: u32, item: Hir) -> Hir {
+    pub fn group(label: impl Into<CaptureLabel>, item: Hir) -> Hir {
         Hir::Group(GroupHir {
-            label,
+            label: label.into(),
             item: Box::new(item),
         })
     }
@@ -440,7 +441,7 @@ impl Legible for RepeatHir {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupHir {
-    label: u32,
+    label: CaptureLabel,
     item: Box<Hir>,
 }
 
@@ -451,8 +452,8 @@ impl GroupHir {
     }
 
     #[inline]
-    pub fn label(&self) -> u32 {
-        self.label
+    pub fn label(&self) -> CaptureLabel {
+        self.label.clone()
     }
 
     #[inline]
@@ -463,7 +464,10 @@ impl GroupHir {
 
 impl Display for GroupHir {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "(?<{}> {} )", self.label, self.item)
+        match &self.label {
+            CaptureLabel::Num(n) => write!(f, "(?D<{}> {} )", n, self.item),
+            CaptureLabel::Str(s) => write!(f, "(?<{}> {} )", s, self.item),
+        }
     }
 }
 
@@ -477,8 +481,16 @@ impl Legible for GroupHir {
         impl<'a> Display for Colored<'a> {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 "(".bold().white().fmt(f)?;
-                "?<".white().fmt(f)?;
-                self.0.label.bold().bright_magenta().fmt(f)?;
+                match &self.0.label {
+                    CaptureLabel::Num(n) => {
+                        "?D<".white().fmt(f)?;
+                        n.bold().bright_magenta().fmt(f)?;
+                    }
+                    CaptureLabel::Str(s) => {
+                        "?<".white().fmt(f)?;
+                        s.bold().bright_magenta().fmt(f)?;
+                    }
+                }
                 "> ".white().fmt(f)?;
                 self.0.item.colored().fmt(f)?;
                 " )".bold().white().fmt(f)
