@@ -9,6 +9,3 @@ mod graph;
 
 #[path = "itest/node.rs"]
 mod node;
-
-#[path = "itest/translator.rs"]
-mod translator;

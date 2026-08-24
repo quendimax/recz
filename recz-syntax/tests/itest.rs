@@ -6,3 +6,6 @@ mod lexis;
 
 #[path = "itest/syntax.rs"]
 mod syntax;
+
+#[path = "itest/translator.rs"]
+mod translator;

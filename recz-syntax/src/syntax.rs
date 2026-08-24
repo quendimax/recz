@@ -262,7 +262,7 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     ///     "(?" label disjunct ")"
     ///
     /// label
-    ///     '<' decimal '>'
+    ///     "D<" decimal '>'
     /// ```
     fn parse_group(&mut self) -> Result<Hir> {
         self.lexer.expect(tok::l_paren_question)?;

@@ -1,8 +1,6 @@
-use crate::graph::Graph;
-use crate::node::Node;
-use crate::tag::Tag;
+use crate::{ConcatHir, DisjunctHir, GroupHir, Hir, RepeatHir};
 use recz_adt::{Set, SetU8};
-use recz_syntax::{ConcatHir, DisjunctHir, GroupHir, Hir, RepeatHir};
+use recz_graph::{Graph, Node, Tag};
 
 struct Pair<'a> {
     first: Node<'a>,
@@ -67,8 +65,9 @@ impl<'a> Translator<'a> {
     // (○)──ε/+g0─→(○)...(○)──ε/-g0─→(○)
     //
     fn translate_group(&mut self, group: &GroupHir, sub: Pair<'a>) -> Set<Tag> {
-        let open_tag = Tag::OpenGroup(group.label());
-        let close_tag = Tag::CloseGroup(group.label());
+        let capture_group = self.graph.group(group.label());
+        let open_tag = capture_group.open_tag();
+        let close_tag = capture_group.close_tag();
 
         let first = self.graph.node();
         sub.first.connect(first).add_tag(open_tag);
@@ -235,8 +234,8 @@ impl<'a> Translator<'a> {
             for (other_last, other_tags) in &branches {
                 if last != other_last {
                     for tag in other_tags {
-                        if let Some(group_id) = tag.group_label() {
-                            last.connect(sub.last).add_tag(Tag::DeleteGroup(group_id));
+                        if let Some(tag) = tag.delete_group() {
+                            last.connect(sub.last).add_tag(tag);
                             is_connected = true;
                         }
                     }

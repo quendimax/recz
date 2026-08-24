@@ -6,7 +6,12 @@ use recz_adt::Legible;
 /// In practice, the tags are converted into actions during NFA/DFA execution,
 /// co you cann look at them as instruction of a NFA/DFA virtual machine.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Tag {
+pub struct Tag {
+    kind: TagKind,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum TagKind {
     /// A tag used to mark the start of a capture group.
     OpenGroup(u32),
 
@@ -28,46 +33,54 @@ pub enum Tag {
     WordBoundary,
 }
 
-use Tag::*;
+use TagKind::*;
 
 impl Tag {
-    /// Returns the group label associated with this tag, if any.
-    ///
-    /// For now the label is a `u32` value.
-    pub fn group_label(&self) -> Option<u32> {
-        match self {
-            OpenGroup(group_id) => Some(*group_id),
-            CloseGroup(group_id) => Some(*group_id),
-            DeleteGroup(group_id) => Some(*group_id),
-            _ => None,
-        }
+    pub(crate) fn new(kind: TagKind) -> Self {
+        Self { kind }
     }
 
     pub(crate) fn fmt(&self, f: &mut std::fmt::Formatter<'_>, colored: bool) -> std::fmt::Result {
         if colored {
-            match self {
-                OpenGroup(group_id) => {
-                    write!(f, "{}{}", "+g".bright_blue(), group_id.bright_blue())
+            match self.kind {
+                OpenGroup(group_idx) => {
+                    write!(f, "{}{}", "+g".bright_blue(), group_idx.bright_blue())
                 }
-                CloseGroup(group_id) => {
-                    write!(f, "{}{}", "-g".bright_blue(), group_id.bright_blue())
+                CloseGroup(group_idx) => {
+                    write!(f, "{}{}", "-g".bright_blue(), group_idx.bright_blue())
                 }
-                DeleteGroup(group_id) => {
-                    write!(f, "{}{}", "!g".bright_blue(), group_id.bright_blue())
+                DeleteGroup(group_idx) => {
+                    write!(f, "{}{}", "!g".bright_blue(), group_idx.bright_blue())
                 }
                 StartOfInput => write!(f, "{}", "^".bright_blue()),
                 EndOfInput => write!(f, "{}", "$".bright_blue()),
                 WordBoundary => write!(f, "{}", "\\b".bright_blue()),
             }
         } else {
-            match self {
-                OpenGroup(group_id) => write!(f, "+g{group_id}"),
-                CloseGroup(group_id) => write!(f, "-g{group_id}"),
-                DeleteGroup(group_id) => write!(f, "!g{group_id}"),
+            match self.kind {
+                OpenGroup(group_idx) => write!(f, "+g{group_idx}"),
+                CloseGroup(group_idx) => write!(f, "-g{group_idx}"),
+                DeleteGroup(group_idx) => write!(f, "!g{group_idx}"),
                 StartOfInput => write!(f, "^"),
                 EndOfInput => write!(f, "$"),
                 WordBoundary => write!(f, "\\b"),
             }
+        }
+    }
+}
+
+impl Tag {
+    pub fn kind(&self) -> TagKind {
+        self.kind
+    }
+
+    /// Returns a `DeleteGroup` tag if the current tag is an `OpenGroup` or
+    /// `CloseGroup`.
+    pub fn delete_group(&self) -> Option<Tag> {
+        match self.kind {
+            OpenGroup(idx) => Some(Tag::new(DeleteGroup(idx))),
+            CloseGroup(idx) => Some(Tag::new(DeleteGroup(idx))),
+            _ => None,
         }
     }
 }

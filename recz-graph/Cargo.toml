@@ -11,8 +11,8 @@ bumpish.workspace = true
 equivalent.workspace = true
 owo-colors.workspace = true
 recz-adt = { path = "../recz-adt" }
-recz-syntax = { path = "../recz-syntax" }
 
 [dev-dependencies]
 pretty_assertions.workspace = true
+recz-syntax = { path = "../recz-syntax" }
 smallvec.workspace = true

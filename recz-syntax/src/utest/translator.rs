@@ -1,8 +1,8 @@
 use super::{Translator, pair};
-use crate::graph::Graph;
+use crate::hir::Hir;
 use pretty_assertions::assert_eq;
 use recz_adt::{Range, SetU8, lit};
-use recz_syntax::Hir;
+use recz_graph::Graph;
 
 #[test]
 fn translate_literal() {

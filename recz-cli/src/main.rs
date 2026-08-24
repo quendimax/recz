@@ -3,9 +3,9 @@ use core::fmt;
 use miette::Report;
 use owo_colors::{OwoColorize, Stream};
 use recz_adt::Legible;
-use recz_graph::{Graph, Translator, algo};
+use recz_graph::{Graph, algo};
 use recz_syntax::codec::{AsciiCodec, Latin1Codec, Utf8Codec};
-use recz_syntax::{Error as SyntaxError, Parser};
+use recz_syntax::{Error as SyntaxError, Parser, Translator};
 use std::time::Instant;
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]

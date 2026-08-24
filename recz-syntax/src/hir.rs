@@ -477,8 +477,8 @@ impl Legible for GroupHir {
         impl<'a> Display for Colored<'a> {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 "(".bold().white().fmt(f)?;
-                "<?".white().fmt(f)?;
-                self.0.label.bold().bright_cyan().fmt(f)?;
+                "?<".white().fmt(f)?;
+                self.0.label.bold().bright_magenta().fmt(f)?;
                 "> ".white().fmt(f)?;
                 self.0.item.colored().fmt(f)?;
                 " )".bold().white().fmt(f)

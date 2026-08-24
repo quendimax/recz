@@ -1,6 +1,6 @@
 use pretty_assertions::assert_eq;
 use recz_adt::{RangeU8, range};
-use recz_graph::{Edge, Graph, Tag};
+use recz_graph::{Edge, Graph};
 use smallvec::SmallVec;
 
 type Chunk = u64;
@@ -197,9 +197,10 @@ fn edge_merge_range() {
 #[test]
 fn edge_instruct() {
     let gr = Graph::new();
-    let tag = Tag::OpenGroup(1);
+    let _ = gr.group("0");
+    let group = gr.group("1");
     let edge_a = gr.node().connect(gr.node());
-    edge_a.add_tag(tag);
+    edge_a.add_tag(group.open_tag());
     edge_a.add_symbol(b'a');
     edge_a.add_symbol(b'b');
     edge_a.add_symbol(b'c');

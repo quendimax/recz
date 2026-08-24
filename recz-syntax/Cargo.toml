@@ -11,6 +11,7 @@ miette.workspace = true
 owo-colors.workspace = true
 recz-adt = { path = "../recz-adt" }
 recz-codec = { path = "../recz-codec" }
+recz-graph = { path = "../recz-graph" }
 thiserror.workspace = true
 
 [dev-dependencies]

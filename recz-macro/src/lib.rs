@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use recz_graph::{Graph, Translator, algo};
-use recz_syntax::{Parser, codec::Utf8Codec};
+use recz_graph::{Graph, algo};
+use recz_syntax::{Parser, Translator, codec::Utf8Codec};
 use syn::{Error, LitStr, parse2};
 
 #[proc_macro]

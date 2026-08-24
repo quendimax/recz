@@ -1,4 +1,4 @@
-use crate::tag::Tag;
+use crate::tag::{Tag, TagKind::*};
 use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -57,15 +57,15 @@ pub struct CaptureGroup {
 
 impl CaptureGroup {
     pub fn open_tag(&self) -> Tag {
-        Tag::OpenGroup(self.tag_index)
+        Tag::new(OpenGroup(self.tag_index))
     }
 
     pub fn close_tag(&self) -> Tag {
-        Tag::CloseGroup(self.tag_index)
+        Tag::new(CloseGroup(self.tag_index))
     }
 
     pub fn delete_tag(&self) -> Tag {
-        Tag::DeleteGroup(self.tag_index)
+        Tag::new(DeleteGroup(self.tag_index))
     }
 }
 

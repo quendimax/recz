@@ -1,7 +1,7 @@
 use pretty_assertions::assert_eq;
 use recz_adt::lit;
-use recz_graph::{Graph, Tag, Translator, algo};
-use recz_syntax::{Parser, codec::Utf8Codec};
+use recz_graph::{Graph, algo};
+use recz_syntax::{Parser, Translator, codec::Utf8Codec};
 
 #[test]
 fn determine_0() {
@@ -30,18 +30,22 @@ fn determine_0() {
 #[test]
 fn determine_1() {
     let nfa = Graph::new();
+    let _gr_0 = nfa.group(0u32);
+    let gr_1 = nfa.group(1u32);
+    let gr_2 = nfa.group("hello");
+    let gr_3 = nfa.group("hlo");
     let a = nfa.node();
     let b = nfa.node();
-    a.connect(b).add_tag(Tag::OpenGroup(1));
+    a.connect(b).add_tag(gr_1.open_tag());
     let c = nfa.node();
     let d = nfa.node();
-    b.connect(c).add_tag(Tag::OpenGroup(2));
-    b.connect(d).add_tag(Tag::OpenGroup(3));
+    b.connect(c).add_tag(gr_2.open_tag());
+    b.connect(d).add_tag(gr_3.open_tag());
     let e = nfa.node();
-    c.connect(e).add_tag(Tag::CloseGroup(2));
-    d.connect(e).add_tag(Tag::CloseGroup(3));
+    c.connect(e).add_tag(gr_2.close_tag());
+    d.connect(e).add_tag(gr_3.close_tag());
     let f = nfa.node();
-    e.connect(f).add_tag(Tag::CloseGroup(1));
+    e.connect(f).add_tag(gr_1.close_tag());
     f.finalize();
 
     let dfa = algo::determine(nfa);
@@ -59,18 +63,22 @@ fn determine_1() {
 #[test]
 fn determine_2() {
     let nfa = Graph::new();
+    let _gr_0 = nfa.group(0u32);
+    let gr_1 = nfa.group(1u32);
+    let gr_2 = nfa.group("hello");
+    let gr_3 = nfa.group("hlo");
     let a = nfa.node();
     let b = nfa.node();
-    a.connect(b).add_tag(Tag::OpenGroup(1));
+    a.connect(b).add_tag(gr_1.open_tag());
     let c = nfa.node();
     let d = nfa.node();
     b.connect(c).add_symbol(b'a');
     b.connect(d).add_symbol(b'b');
     let e = nfa.node();
-    c.connect(e).add_tag(Tag::CloseGroup(2));
-    d.connect(e).add_tag(Tag::CloseGroup(3));
+    c.connect(e).add_tag(gr_2.close_tag());
+    d.connect(e).add_tag(gr_3.close_tag());
     let f = nfa.node();
-    e.connect(f).add_tag(Tag::CloseGroup(1));
+    e.connect(f).add_tag(gr_1.close_tag());
     f.finalize();
 
     let dfa = algo::determine(nfa);
@@ -185,10 +193,10 @@ fn ambiguity_2() {
         parse(r"(?D<1>a)a*"),
         lit!(
             ///graph {
-            ///  no_0 { 'a' / +g1 -> fi_1 }
+            ///  no_0 { 'a' / +g0 -> fi_1 }
             ///  fi_1 {
-            ///    'a' / -g1 -> fi_2
-            ///    EPS / -g1 -> eg_3
+            ///    'a' / -g0 -> fi_2
+            ///    EPS / -g0 -> eg_3
             ///  }
             ///  fi_2 {
             ///    'a' -> self
@@ -206,10 +214,10 @@ fn ambiguity_3() {
         parse(r"a*(?D<1>a)"),
         lit!(
             ///graph {
-            ///  no_0 { 'a' / +g1 -> fi_1 }
+            ///  no_0 { 'a' / +g0 -> fi_1 }
             ///  fi_1 {
-            ///    'a' / +g1 -> self
-            ///    EPS / -g1 -> eg_2
+            ///    'a' / +g0 -> self
+            ///    EPS / -g0 -> eg_2
             ///  }
             ///  eg_2 {}
             ///}

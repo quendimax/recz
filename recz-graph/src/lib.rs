@@ -14,6 +14,3 @@ pub use node::{Node, NodeKind};
 
 mod tag;
 pub use tag::Tag;
-
-mod translator;
-pub use translator::Translator;
