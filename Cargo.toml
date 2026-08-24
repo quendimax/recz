@@ -31,6 +31,7 @@ ahash = "0.8"
 arrayvec = "0.7.6"
 bumpish = { git = "https://codeberg.org/quendimax/bumpish.git"}
 clap = "4.6"
+equivalent = { version = "1", default-features = false }
 miette = "7"
 ntest = "0.9"
 num-traits = "0.2"

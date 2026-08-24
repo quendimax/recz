@@ -1,4 +1,3 @@
-use crate::graph::{GraphInner, GraphPtr};
 use crate::tag::Tag;
 use owo_colors::OwoColorize;
 use recz_adt::{ByteIter, Legible, RangeIter, Set, SetU8};
@@ -18,7 +17,6 @@ pub struct Edge<'a>(&'a EdgeInner);
 pub(crate) struct EdgeInner {
     symbols: SetU8,
     tags: Set<Tag>,
-    graph_ptr: GraphPtr,
 }
 
 /// NullPtr over `EdgeInner`.
@@ -76,9 +74,6 @@ impl<'a> Edge<'a> {
     /// ```
     pub fn add_tag(&self, tag: Tag) -> Self {
         self.0.tags.insert(tag);
-        if let Some(label) = tag.group_label() {
-            self.0.graph_inner().add_group(label);
-        }
         *self
     }
 
@@ -96,12 +91,8 @@ impl<'a> Edge<'a> {
     /// edge.add_tags([Tag::OpenGroup(0), Tag::CloseGroup(0)]);
     /// ```
     pub fn add_tags(&self, tags: impl IntoIterator<Item = Tag>) -> Self {
-        let graph = self.0.graph_inner();
         for tag in tags {
             self.0.tags.insert(tag);
-            if let Some(label) = tag.group_label() {
-                graph.add_group(label);
-            }
         }
         *self
     }
@@ -369,17 +360,10 @@ impl Legible for Edge<'_> {
 impl EdgeInner {
     /// Creates a new empty edge.
     #[inline(always)]
-    pub(crate) fn new(graph: &GraphInner) -> EdgeInner {
+    pub(crate) fn new() -> EdgeInner {
         EdgeInner {
             symbols: SetU8::default(),
             tags: Set::default(),
-            graph_ptr: GraphPtr::from(graph),
         }
-    }
-
-    /// Graph owner of this node.
-    #[inline]
-    fn graph_inner<'a>(&self) -> &'a GraphInner {
-        unsafe { self.graph_ptr.as_ref() }
     }
 }

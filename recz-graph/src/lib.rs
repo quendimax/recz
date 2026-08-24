@@ -1,5 +1,8 @@
 pub mod algo;
 
+mod capture;
+pub use capture::{CaptureGroup, CaptureLabel};
+
 mod edge;
 pub use edge::Edge;
 

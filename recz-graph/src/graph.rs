@@ -1,3 +1,4 @@
+use crate::capture::{CaptureGroup, CaptureLabel};
 use crate::edge::{Edge, EdgeInner};
 use crate::node::{Node, NodeInner, NodePtr};
 use bumpish::BumpVec;
@@ -33,7 +34,7 @@ pub(crate) struct GraphInner {
     start_node: Cell<Option<NodePtr>>,
     bump_nodes: BumpVec<NodeInner, 0>,
     bump_edges: BumpVec<EdgeInner, 0>,
-    groups: Set<u32>,
+    cap_groups: Set<CaptureGroup>,
 }
 
 pub(crate) type GraphPtr = core::ptr::NonNull<GraphInner>;
@@ -57,7 +58,7 @@ impl Graph {
             start_node: Cell::new(None),
             bump_nodes: BumpVec::new(),
             bump_edges: BumpVec::new(),
-            groups: Set::default(),
+            cap_groups: Set::default(),
         }))
     }
 
@@ -136,6 +137,36 @@ impl Graph {
             Node::from_ref(unsafe { ptr.as_ref() })
         } else {
             self.node()
+        }
+    }
+
+    /// Creates a new capture group for the given label. If a group with the
+    /// same label already exists, returns it.
+    ///
+    /// `label` is an enum variant of [`CaptureLabel`], i.e. either a `Rc<str>`
+    /// or an `u32`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use recz_graph::Graph;
+    /// let graph = Graph::new();
+    /// let group = graph.group("foo");
+    /// let group = graph.group(3u32);
+    /// ```
+    pub fn group(&self, label: impl Into<CaptureLabel>) -> &CaptureGroup {
+        let label = label.into();
+        if let Some(group) = self.0.cap_groups.get(&label) {
+            group
+        } else {
+            let index: u32 = self
+                .0
+                .cap_groups
+                .len()
+                .try_into()
+                .expect("capture group index overflow");
+            let new_group = CaptureGroup::new(label, index);
+            self.0.cap_groups.insert(new_group).unwrap()
         }
     }
 
@@ -225,11 +256,11 @@ impl Graph {
     /// let graph = Graph::new();
     /// assert!(graph.groups().next().is_none());
     ///
-    /// graph.node().connect(graph.node()).add_tag(Tag::OpenGroup(0));
+    /// let group = graph.group("foo");
     /// assert!(graph.groups().next().is_some());
     /// ```
-    pub fn groups(&self) -> impl Iterator<Item = u32> {
-        self.0.groups.iter().copied()
+    pub fn groups(&self) -> impl Iterator<Item = &CaptureGroup> {
+        self.0.cap_groups.iter()
     }
 }
 
@@ -303,12 +334,7 @@ impl GraphInner {
     ///
     /// This method is not available for external use. Use [`Node::connect`] instead.
     pub(crate) fn edge(&self) -> Edge<'_> {
-        let edge_ref = self.bump_edges.push(EdgeInner::new(self));
-        Edge::from_ref(edge_ref)
-    }
-
-    pub(crate) fn add_group(&self, label: u32) {
-        self.groups.insert(label);
+        Edge::from_ref(self.bump_edges.push(EdgeInner::new()))
     }
 }
 
