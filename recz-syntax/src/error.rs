@@ -81,6 +81,26 @@ pub enum Error {
         #[label("inverted range")]
         span: SourceSpan,
     },
+
+    #[error(r"capture label contains disallowed characters")]
+    InvalidCaptureLabelChar {
+        #[label("disallowed character")]
+        span: SourceSpan,
+    },
+
+    #[error(r"group with prefix `{prefix}` is not supported")]
+    UnsupportedGroup {
+        prefix: Box<str>,
+
+        #[label("the prefix")]
+        span: SourceSpan,
+    },
+
+    #[error(r"capture group label must contain at least one character")]
+    EmptyCaptureLabel {
+        #[label("empty capture label")]
+        span: SourceSpan,
+    },
 }
 
 /// Helper module to facilitate creating new error instances.
@@ -162,5 +182,25 @@ pub(crate) mod err {
             lcp: last_codepoint,
             span: span.into(),
         }))
+    }
+
+    pub(crate) fn invalid_capture_label_char<T>(disallows_char_span: Range<usize>) -> Result<T> {
+        Err(Box::new(Error::InvalidCaptureLabelChar {
+            span: disallows_char_span.into(),
+        }))
+    }
+
+    pub(crate) fn unsupported_group<T>(
+        prefix: impl Into<Box<str>>,
+        span: Range<usize>,
+    ) -> Result<T> {
+        Err(Box::new(Error::UnsupportedGroup {
+            prefix: prefix.into(),
+            span: span.into(),
+        }))
+    }
+
+    pub(crate) fn empty_capture_label<T>(span: Range<usize>) -> Result<T> {
+        Err(Box::new(Error::EmptyCaptureLabel { span: span.into() }))
     }
 }

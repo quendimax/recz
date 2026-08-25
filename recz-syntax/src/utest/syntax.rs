@@ -1,10 +1,10 @@
-use crate::error::err;
 use crate::hir::Hir;
 use crate::lexis::Lexer;
 use crate::syntax::ParserImpl;
+use crate::{codec, error::err};
 use pretty_assertions::assert_eq;
 use recz_adt::{Range, RangeList};
-use recz_codec::Utf8Codec;
+use recz_codec::{AsciiCodec, Utf8Codec};
 
 #[test]
 fn parse_disjunct() {
@@ -69,6 +69,25 @@ fn parse_item() {
 }
 
 #[test]
+fn parse_item_fails() {
+    let lexer = Lexer::new("aў");
+    let mut parser = ParserImpl::<AsciiCodec, true>::new(lexer, &AsciiCodec);
+    let mut parse = || parser.try_parse_item();
+
+    assert_eq!(parse(), Ok(Some(Hir::literal("a"))));
+    assert_eq!(
+        parse(),
+        err::codec_error(
+            codec::Error::InvalidCodePoint {
+                codepoint: 1118,
+                encoding: codec::Encoding::Ascii
+            },
+            1..3,
+        )
+    );
+}
+
+#[test]
 fn parse_postfix() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
@@ -124,7 +143,17 @@ fn parse_parens() {
 }
 
 #[test]
-fn parse_group() {
+fn parse_non_capturing_group() {
+    let parse = |pattern: &str| {
+        let lexer = Lexer::new(pattern);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
+        parser.parse_group()
+    };
+    assert_eq!(parse("(?:hello)"), Ok(Hir::literal("hello")));
+}
+
+#[test]
+fn parse_numbered_group() {
     let parse = |pattern: &str| {
         let lexer = Lexer::new(pattern);
         let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
@@ -147,6 +176,44 @@ fn parse_group() {
     let lexer = Lexer::new("(?D<0>he)(?D<0>llo)");
     let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
     assert_eq!(parser.parse(), err::reuse_capture_label(0u32, 13..14));
+}
+
+#[test]
+fn parse_named_group() {
+    let parse = |pattern: &str| {
+        let lexer = Lexer::new(pattern);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
+        parser.parse_group()
+    };
+    assert_eq!(
+        parse("(?<a1>hello)"),
+        Ok(Hir::group("a1", Hir::literal("hello")))
+    );
+    assert_eq!(
+        parse("(?<__aA>hello)"),
+        Ok(Hir::group("__aA", Hir::literal("hello")))
+    );
+
+    assert_eq!(
+        parse("(?<12345>hello)"),
+        err::invalid_capture_label_char(3..4)
+    );
+    assert_eq!(parse("(?<a?>hello)"), err::invalid_capture_label_char(4..5));
+    assert_eq!(parse("(?<>hello)"), err::empty_capture_label(2..4));
+
+    let lexer = Lexer::new("(?<a>he)(?<a>llo)");
+    let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
+    assert_eq!(parser.parse(), err::reuse_capture_label("a", 11..12));
+}
+
+#[test]
+fn parse_invalid_group() {
+    let parse = |pattern: &str| {
+        let lexer = Lexer::new(pattern);
+        let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
+        parser.parse_group()
+    };
+    assert_eq!(parse("(?.<a1>hello)"), err::unsupported_group(".", 2..3));
 }
 
 #[test]

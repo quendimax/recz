@@ -268,13 +268,16 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
         self.lexer.expect(tok::l_paren_question)?;
         let token = self.lexer.peek();
         let hir = match token.kind() {
-            tok::char(':') => self.parse_disjunct()?,
+            tok::char(':') => {
+                self.lexer.consume_peeked();
+                self.parse_disjunct()?
+            }
             tok::char('D') => self.parse_numbered_capture_group()?,
             tok::char('<') => self.parse_named_capture_group()?,
             _ => {
                 let misspan = token.span();
                 let misspell = self.lexer.slice(misspan.clone());
-                return err::unexpected(misspell, misspan, "`:`, `D` or `<`");
+                return err::unsupported_group(misspell, misspan);
             }
         };
         self.lexer.expect(tok::r_paren)?;
@@ -326,7 +329,7 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     /// ```
     fn parse_named_capture_group(&mut self) -> Result<Hir> {
         let l_angle = self.lexer.expect(tok::char('<'))?;
-        if let Some(label) = self.parse_identifier() {
+        if let Some(label) = self.parse_capture_name()? {
             let r_angle = self.lexer.expect(tok::char('>'))?;
             let label = label.into();
             if self.capture_labels.contains(&label) {
@@ -338,9 +341,8 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
             let hir = self.parse_disjunct()?;
             Ok(Hir::group(label, hir))
         } else {
-            let unexpected_token = self.lexer.peek();
-            let slice = self.lexer.slice(unexpected_token.span());
-            err::unexpected(slice, unexpected_token.span(), "capture label")
+            let r_angle_end = self.lexer.peek().end();
+            err::empty_capture_label(l_angle.start()..r_angle_end)
         }
     }
 
@@ -671,35 +673,44 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     ///     ']'
     ///     '0' . '9'
     /// ```
-    fn parse_identifier(&mut self) -> Option<Box<str>> {
+    fn parse_capture_name(&mut self) -> Result<Option<Box<str>>> {
         let mut ident = String::new();
 
         let tk = self.lexer.peek();
-        if matches!(tk.kind(), tok::char('a'..='z' | 'A'..='Z' | '_')) {
-            ident.push_str(self.lexer.slice(tk.span()));
-        } else {
-            return None;
+        match tk.kind() {
+            tok::char('a'..='z' | 'A'..='Z' | '_') => {
+                self.lexer.consume_peeked();
+                ident.push_str(self.lexer.slice(tk.span()));
+            }
+            tok::char('>') => {
+                return Ok(None);
+            }
+            _ => {
+                let disallows_char_span = tk.span();
+                return err::invalid_capture_label_char(disallows_char_span);
+            }
         }
 
         loop {
-            let tk = self.lexer.peek();
-            let is_ident_char = matches!(
-                tk.kind(),
-                tok::l_square | tok::r_square | tok::dot | tok::minus
-                | tok::char('0'..='9' | 'a'..='z' | 'A'..='Z' | '_')
-            );
-            if is_ident_char {
-                self.lexer.consume_peeked();
-                ident.push_str(self.lexer.slice(tk.span()));
-            } else {
-                break;
+            let tok = self.lexer.peek();
+            match tok.kind() {
+                tok::l_square
+                | tok::r_square
+                | tok::dot
+                | tok::minus
+                | tok::char('0'..='9' | 'a'..='z' | 'A'..='Z' | '_') => {
+                    self.lexer.consume_peeked();
+                    ident.push_str(self.lexer.slice(tok.span()));
+                }
+                tok::char('>') => break,
+                _ => {
+                    let disallows_char_span = tok.span();
+                    return err::invalid_capture_label_char(disallows_char_span);
+                }
             }
         }
-        if !ident.is_empty() {
-            Some(ident.into())
-        } else {
-            None
-        }
+        assert!(!ident.is_empty());
+        Ok(Some(ident.into()))
     }
 
     /// Parses decimal secquence into `usize` value.
