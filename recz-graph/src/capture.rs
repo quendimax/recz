@@ -1,10 +1,9 @@
 use crate::tag::{Tag, TagKind::*};
-use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CaptureLabel {
     Num(u32),
-    Str(Rc<str>),
+    Str(Box<str>),
 }
 
 impl core::convert::From<u8> for CaptureLabel {
@@ -25,8 +24,8 @@ impl core::convert::From<u32> for CaptureLabel {
     }
 }
 
-impl core::convert::From<Rc<str>> for CaptureLabel {
-    fn from(value: Rc<str>) -> Self {
+impl core::convert::From<Box<str>> for CaptureLabel {
+    fn from(value: Box<str>) -> Self {
         CaptureLabel::Str(value)
     }
 }
@@ -46,6 +45,15 @@ impl<'a> core::convert::From<&'a str> for CaptureLabel {
 impl equivalent::Equivalent<CaptureGroup> for CaptureLabel {
     fn equivalent(&self, other: &CaptureGroup) -> bool {
         PartialEq::eq(self, &other.label)
+    }
+}
+
+impl std::fmt::Display for CaptureLabel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CaptureLabel::Num(n) => write!(f, "{}", n),
+            CaptureLabel::Str(s) => write!(f, "{}", s),
+        }
     }
 }
 

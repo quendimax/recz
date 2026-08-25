@@ -3,6 +3,7 @@ use crate::hir::Hir;
 use crate::lexis::{Lexer, tok};
 use recz_adt::{RangeList, SetU8};
 use recz_codec::Codec;
+use recz_graph::CaptureLabel;
 use std::collections::HashSet as Set;
 
 /// A regex pattern parser that converts string patterns into high-level
@@ -62,7 +63,7 @@ impl<C: Codec> Parser<C> {
 struct ParserImpl<'s, 'c, C: Codec, const UNICODE: bool = true> {
     lexer: Lexer<'s>,
     codec: &'c C,
-    used_group_ids: Set<u32>,
+    capture_labels: Set<CaptureLabel>,
 }
 
 impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
@@ -71,7 +72,7 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
         ParserImpl {
             lexer,
             codec,
-            used_group_ids: Set::default(),
+            capture_labels: Set::default(),
         }
     }
 
@@ -253,32 +254,55 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
         Ok(hir)
     }
 
-    /// Parses a named group expression.
+    /// Parses a group expression.
     ///
     /// # Syntax
     ///
     /// ```mkf
     /// group
-    ///     "(?" label disjunct ")"
-    ///
-    /// label
-    ///     "D<" decimal '>'
+    ///     "(?:" disjunct ")"
+    ///     "(?<" capture_label ">" disjunct ")"
+    ///     "(?D<" decimal ">" disjunct ")"
     /// ```
     fn parse_group(&mut self) -> Result<Hir> {
         self.lexer.expect(tok::l_paren_question)?;
+        let token = self.lexer.peek();
+        let hir = match token.kind() {
+            tok::char(':') => self.parse_disjunct()?,
+            tok::char('D') => self.parse_numbered_capture_group()?,
+            tok::char('<') => self.parse_named_capture_group()?,
+            _ => {
+                let misspan = token.span();
+                let misspell = self.lexer.slice(misspan.clone());
+                return err::unexpected(misspell, misspan, "`:`, `D` or `<`");
+            }
+        };
+        self.lexer.expect(tok::r_paren)?;
+        Ok(hir)
+    }
+
+    /// Parses a numbered capturing group expression.
+    ///
+    /// # Syntax
+    ///
+    /// ```mkf
+    /// group
+    ///     "(?D<" decimal ">" disjunct ")"
+    /// ```
+    fn parse_numbered_capture_group(&mut self) -> Result<Hir> {
         self.lexer.expect(tok::char('D'))?;
         let l_angle = self.lexer.expect(tok::char('<'))?;
         if let Some(num) = self.try_parse_decimal()? {
             if let Ok(label_num) = u32::try_from(num) {
+                let label = label_num.into();
                 let r_angle = self.lexer.expect(tok::char('>'))?;
-                if self.used_group_ids.contains(&label_num) {
+                if self.capture_labels.contains(&label) {
                     let span = l_angle.span().end..r_angle.span().start;
-                    return err::reuse_group_label(label_num, span);
+                    return err::reuse_capture_label(label_num, span);
                 } else {
-                    self.used_group_ids.insert(label_num);
+                    self.capture_labels.insert(label);
                 }
                 let hir = self.parse_disjunct()?;
-                self.lexer.expect(tok::r_paren)?;
                 Ok(Hir::group(label_num, hir))
             } else {
                 let span = l_angle.span().end..self.lexer.end_pos();
@@ -289,6 +313,34 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
             let unexpected_token = self.lexer.peek();
             let slice = self.lexer.slice(unexpected_token.span());
             err::unexpected(slice, unexpected_token.span(), "decimal")
+        }
+    }
+
+    /// Parses a named capture group expression.
+    ///
+    /// # Syntax
+    ///
+    /// ```mkf
+    /// group
+    ///     "(?<" capture_name ">" disjunct ")"
+    /// ```
+    fn parse_named_capture_group(&mut self) -> Result<Hir> {
+        let l_angle = self.lexer.expect(tok::char('<'))?;
+        if let Some(label) = self.parse_identifier() {
+            let r_angle = self.lexer.expect(tok::char('>'))?;
+            let label = label.into();
+            if self.capture_labels.contains(&label) {
+                let span = l_angle.span().end..r_angle.span().start;
+                return err::reuse_capture_label(label, span);
+            } else {
+                self.capture_labels.insert(label.clone());
+            }
+            let hir = self.parse_disjunct()?;
+            Ok(Hir::group(label, hir))
+        } else {
+            let unexpected_token = self.lexer.peek();
+            let slice = self.lexer.slice(unexpected_token.span());
+            err::unexpected(slice, unexpected_token.span(), "capture label")
         }
     }
 
@@ -597,6 +649,57 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
         }
         self.lexer.expect(tok::r_brace)?;
         Ok(codepoint)
+    }
+
+    /// Parses an identifier that represents a capture group name.
+    ///
+    /// ```mkf
+    /// capture_name
+    ///     name_first_char
+    ///     capture_name name_char
+    ///
+    /// name_first_char
+    ///     '_'
+    ///     'a' . 'z'
+    ///     'A' . 'Z'
+    ///
+    /// name_char
+    ///     name_first_char
+    ///     '.'
+    ///     '-'
+    ///     '['
+    ///     ']'
+    ///     '0' . '9'
+    /// ```
+    fn parse_identifier(&mut self) -> Option<Box<str>> {
+        let mut ident = String::new();
+
+        let tk = self.lexer.peek();
+        if matches!(tk.kind(), tok::char('a'..='z' | 'A'..='Z' | '_')) {
+            ident.push_str(self.lexer.slice(tk.span()));
+        } else {
+            return None;
+        }
+
+        loop {
+            let tk = self.lexer.peek();
+            let is_ident_char = matches!(
+                tk.kind(),
+                tok::l_square | tok::r_square | tok::dot | tok::minus
+                | tok::char('0'..='9' | 'a'..='z' | 'A'..='Z' | '_')
+            );
+            if is_ident_char {
+                self.lexer.consume_peeked();
+                ident.push_str(self.lexer.slice(tk.span()));
+            } else {
+                break;
+            }
+        }
+        if !ident.is_empty() {
+            Some(ident.into())
+        } else {
+            None
+        }
     }
 
     /// Parses decimal secquence into `usize` value.

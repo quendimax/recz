@@ -1,5 +1,6 @@
 use miette::{Diagnostic, SourceSpan};
 use recz_codec as codec;
+use recz_graph::CaptureLabel;
 use std::ops::Range;
 use thiserror::Error;
 
@@ -60,9 +61,9 @@ pub enum Error {
         span: SourceSpan,
     },
 
-    #[error("using group label `{group_label}` more than once is not allowed")]
-    GroupLabelReuse {
-        group_label: u32,
+    #[error("using capture label `{label}` more than once is not allowed")]
+    CaptureLabelReuse {
+        label: CaptureLabel,
 
         #[label("group name is already used")]
         span: SourceSpan,
@@ -139,9 +140,12 @@ pub(crate) mod err {
         Err(Box::new(Error::InvalidRepetition { span: span.into() }))
     }
 
-    pub(crate) fn reuse_group_label<T>(group_label: u32, span: Range<usize>) -> Result<T> {
-        Err(Box::new(Error::GroupLabelReuse {
-            group_label,
+    pub(crate) fn reuse_capture_label<T>(
+        label: impl Into<CaptureLabel>,
+        span: Range<usize>,
+    ) -> Result<T> {
+        Err(Box::new(Error::CaptureLabelReuse {
+            label: label.into(),
             span: span.into(),
         }))
     }

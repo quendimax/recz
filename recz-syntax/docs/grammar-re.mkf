@@ -25,11 +25,10 @@ postfix
     '{' decimal ',' decimal '}'
 
 group
-    "(" disjunct ")"
-    "(?" label disjunct ")"
-
-label
-    "D<" decimal '>'
+    "(" disjunct ")"                       ; just parentheses
+    "(?:" disjunct ")"                     ; non-capturing group (the same as "(" disjunct ")")
+    "(?<" capture_name ">" disjunct ")"    ; named capturing group
+    "(?D<" decimal ">" disjunct ")"        ; numbered capturing group
 
 class               ; class corresponds to a subset of unicode code points
     '.'
@@ -83,6 +82,23 @@ unicode_escape
     "\u{" hex hex hex hex "}"
     "\u{" hex hex hex hex hex "}"
     "\u{" hex hex hex hex hex hex "}"
+
+capture_name
+    name_first_char
+    capture_name name_char
+
+name_first_char
+    '_'
+    'a' . 'z'
+    'A' . 'Z'
+
+name_char
+    name_first_char
+    '.'
+    '-'
+    '['
+    ']'
+    '0' . '9'
 
 decimal
     dec
