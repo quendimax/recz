@@ -1,3 +1,4 @@
+use crate::CaptureLabel;
 use core::iter::Iterator;
 use core::range::Range;
 
@@ -29,7 +30,7 @@ pub trait Capture<'h> {
 
 pub trait Match<'h>: Capture<'h> {
     fn haystack(&self) -> &'h str;
-    fn group(&self, id: u32) -> Option<impl Capture<'h>>;
+    fn group<'a>(&self, label: impl Into<CaptureLabel<'a>>) -> Option<impl Capture<'h>>;
     fn groups(&self) -> impl Iterator<Item = impl Capture<'h>> + '_;
 }
 

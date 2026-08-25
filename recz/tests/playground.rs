@@ -1,5 +1,6 @@
 use ::core::iter::Iterator;
 use ::core::range::Range;
+use ::recz::CaptureLabel;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Capture<'h> {
@@ -63,21 +64,7 @@ const INVALID_SPAN: Range<usize> = Range {
     end: usize::MAX,
 };
 
-fn is_invalid(span: &Range<usize>) -> bool {
-    span.end == usize::MAX
-}
-
-fn to_option<'h>(hay: &'h str, range: &Range<usize>) -> Option<Capture<'h>> {
-    if !is_invalid(range) {
-        Some(Capture {
-            capture: &hay[*range],
-            start: range.start,
-        })
-    } else {
-        None
-    }
-}
-
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Match<'h> {
     hay: &'h str,
     spans: [Range<usize>; GROUP_COUNT],
@@ -106,20 +93,21 @@ impl<'h> ::recz::str::Match<'h> for Match<'h> {
         self.hay
     }
 
-    fn group(&self, id: u32) -> Option<impl ::recz::str::Capture<'h>> {
-        let index = match id {
-            0 => 0,
-            1 => 1,
-            2 => 2,
+    fn group<'a>(
+        &self,
+        label: impl Into<CaptureLabel<'a>>,
+    ) -> Option<impl ::recz::str::Capture<'h>> {
+        let index = match label.into() {
+            CaptureLabel::Digit(0) => 0,
+            CaptureLabel::Digit(1) => 1,
+            CaptureLabel::Digit(2) => 2,
             _ => return None,
         };
-        to_option(self.hay, &self.spans[index])
+        self.to_option(&self.spans[index])
     }
 
     fn groups(&self) -> impl ::core::iter::Iterator<Item = impl ::recz::str::Capture<'h>> {
-        self.spans
-            .iter()
-            .filter_map(|span| to_option(self.hay, span))
+        self.spans.iter().filter_map(|span| self.to_option(span))
     }
 }
 
@@ -170,6 +158,19 @@ impl<'h> Match<'h> {
     }
 }
 
+impl<'h> Match<'h> {
+    fn to_option(&self, range: &Range<usize>) -> Option<Capture<'h>> {
+        if range.end == usize::MAX {
+            Some(Capture {
+                capture: &self.hay[*range],
+                start: range.start,
+            })
+        } else {
+            None
+        }
+    }
+}
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum State {
@@ -179,6 +180,7 @@ enum State {
     ge_3,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Regex;
 
 impl ::recz::str::Regex for Regex {
