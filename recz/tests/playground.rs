@@ -1,6 +1,5 @@
 use ::core::iter::Iterator;
 use ::core::range::Range;
-use ::recz::CaptureLabel;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Capture<'h> {
@@ -42,8 +41,8 @@ impl<'h> Capture<'h> {
     }
 
     #[inline]
-    pub fn span(&self) -> Range<usize> {
-        ::recz::str::Capture::span(self)
+    pub fn range(&self) -> Range<usize> {
+        ::recz::str::Capture::range(self)
     }
 
     #[inline]
@@ -59,7 +58,7 @@ impl<'h> Capture<'h> {
 
 const GROUP_COUNT: usize = 3;
 
-const INVALID_SPAN: Range<usize> = Range {
+const INVALID_RANGE: Range<usize> = Range {
     start: usize::MAX,
     end: usize::MAX,
 };
@@ -67,23 +66,23 @@ const INVALID_SPAN: Range<usize> = Range {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Match<'h> {
     hay: &'h str,
-    spans: [Range<usize>; GROUP_COUNT],
+    ranges: [Range<usize>; GROUP_COUNT],
 }
 
 impl<'h> ::recz::str::Capture<'h> for Match<'h> {
     #[inline]
     fn as_str(&self) -> &'h str {
-        &self.hay[self.span()]
+        &self.hay[self.range()]
     }
 
     #[inline]
     fn start(&self) -> usize {
-        self.spans[0].start
+        self.ranges[0].start
     }
 
     #[inline]
     fn end(&self) -> usize {
-        self.spans[0].end
+        self.ranges[0].end
     }
 }
 
@@ -93,21 +92,23 @@ impl<'h> ::recz::str::Match<'h> for Match<'h> {
         self.hay
     }
 
-    fn group<'a>(
-        &self,
-        label: impl Into<CaptureLabel<'a>>,
-    ) -> Option<impl ::recz::str::Capture<'h>> {
-        let index = match label.into() {
-            CaptureLabel::Digit(0) => 0,
-            CaptureLabel::Digit(1) => 1,
-            CaptureLabel::Digit(2) => 2,
+    fn group_by_num(&self, num: u32) -> Option<impl ::recz::str::Capture<'h>> {
+        let index = match num {
+            0 => 0,
+            1 => 1,
+            2 => 2,
             _ => return None,
         };
-        self.to_option(&self.spans[index])
+        self.to_option(&self.ranges[index])
+    }
+
+    fn group_by_str<'a>(&self, label: &'a str) -> Option<impl ::recz::str::Capture<'h>> {
+        let _ = label;
+        Option::<Capture<'h>>::None
     }
 
     fn groups(&self) -> impl ::core::iter::Iterator<Item = impl ::recz::str::Capture<'h>> {
-        self.spans.iter().filter_map(|span| self.to_option(span))
+        self.ranges.iter().filter_map(|range| self.to_option(range))
     }
 }
 
@@ -118,8 +119,8 @@ impl<'h> Match<'h> {
     }
 
     #[inline]
-    pub fn span(&self) -> Range<usize> {
-        ::recz::str::Capture::span(self)
+    pub fn range(&self) -> Range<usize> {
+        ::recz::str::Capture::range(self)
     }
 
     #[inline]
@@ -148,8 +149,13 @@ impl<'h> Match<'h> {
     }
 
     #[inline]
-    pub fn group(&self, label: u32) -> Option<impl ::recz::str::Capture<'h>> {
-        ::recz::str::Match::group(self, label)
+    pub fn group_by_num(&self, label: u32) -> Option<impl ::recz::str::Capture<'h>> {
+        ::recz::str::Match::group_by_num(self, label)
+    }
+
+    #[inline]
+    pub fn group_by_str<'a>(&self, label: &'a str) -> Option<impl ::recz::str::Capture<'h>> {
+        ::recz::str::Match::group_by_str(self, label)
     }
 
     #[inline]
@@ -209,7 +215,7 @@ impl Regex {
     }
 
     fn find_impl<'h>(&self, haystack: &'h str, result: &mut Option<Match<'h>>) {
-        let mut spans = [INVALID_SPAN; GROUP_COUNT];
+        let mut ranges = [INVALID_RANGE; GROUP_COUNT];
         let mut pos = 0;
         let mut curr_state = State::fi_0;
         let mut iter = haystack.as_bytes().iter().copied();
@@ -219,19 +225,19 @@ impl Regex {
                 State::fi_0 => {
                     match byte {
                         Some(b'a'..=b'c') => {
-                            spans[0].start = pos;
-                            spans[1].start = pos;
-                            spans[2].start = pos;
+                            ranges[0].start = pos;
+                            ranges[1].start = pos;
+                            ranges[2].start = pos;
                             curr_state = State::fi_1;
                         }
                         Some(b'd'..=b'f') => {
-                            spans[0].start = pos;
-                            spans[2].start = pos;
+                            ranges[0].start = pos;
+                            ranges[2].start = pos;
                             curr_state = State::fi_2;
                         }
                         _ => {
-                            spans[0].start = pos;
-                            spans[0].end = pos;
+                            ranges[0].start = pos;
+                            ranges[0].end = pos;
                             curr_state = State::ge_3;
                         }
                     };
@@ -239,22 +245,22 @@ impl Regex {
                 State::fi_1 => {
                     match byte {
                         Some(b'a'..=b'c') => {
-                            spans[1].start = pos;
-                            spans[2].start = pos;
-                            spans[1].end = pos;
-                            spans[2].end = pos;
+                            ranges[1].start = pos;
+                            ranges[2].start = pos;
+                            ranges[1].end = pos;
+                            ranges[2].end = pos;
                             curr_state = State::fi_1;
                         }
                         Some(b'd'..=b'f') => {
-                            spans[2].start = pos;
-                            spans[1].end = pos;
-                            spans[2].end = pos;
+                            ranges[2].start = pos;
+                            ranges[1].end = pos;
+                            ranges[2].end = pos;
                             curr_state = State::fi_2;
                         }
                         _ => {
-                            spans[0].end = pos;
-                            spans[1].end = pos;
-                            spans[2].end = pos;
+                            ranges[0].end = pos;
+                            ranges[1].end = pos;
+                            ranges[2].end = pos;
                             curr_state = State::ge_3;
                         }
                     };
@@ -262,13 +268,13 @@ impl Regex {
                 State::fi_2 => {
                     match byte {
                         Some(b'a'..=b'f') => {
-                            spans[2].start = pos;
-                            spans[2].end = pos;
+                            ranges[2].start = pos;
+                            ranges[2].end = pos;
                             curr_state = State::fi_2;
                         }
                         _ => {
-                            spans[0].end = pos;
-                            spans[2].end = pos;
+                            ranges[0].end = pos;
+                            ranges[2].end = pos;
                             curr_state = State::ge_3;
                         }
                     };
@@ -276,7 +282,7 @@ impl Regex {
                 State::ge_3 => {
                     *result = Some(Match {
                         hay: haystack,
-                        spans,
+                        ranges,
                     });
                     break 'main;
                 }
@@ -291,4 +297,6 @@ fn real_test() {
     let re = Regex;
     let m = re.find("aaccff");
     assert!(m.is_some());
+    let pat = re.pattern();
+    assert!(pat.contains("a"))
 }
