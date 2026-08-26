@@ -486,6 +486,8 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     ///     "\+"
     ///     "\-"
     ///     "\?"
+    ///     "\^"
+    ///     "\$"
     ///     "\|"
     ///     "\("
     ///     "\)"
@@ -514,6 +516,8 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
                     '+' => Some('+' as u32),
                     '-' => Some('-' as u32),
                     '?' => Some('?' as u32),
+                    '^' => Some('^' as u32),
+                    '$' => Some('$' as u32),
                     '|' => Some('|' as u32),
                     '(' => Some('(' as u32),
                     ')' => Some(')' as u32),

@@ -361,6 +361,8 @@ fn parse_ascii_escape() {
     assert_eq!(parse(r"\+"), Ok('+' as u32));
     assert_eq!(parse(r"\-"), Ok('-' as u32));
     assert_eq!(parse(r"\?"), Ok('?' as u32));
+    assert_eq!(parse(r"\^"), Ok('^' as u32));
+    assert_eq!(parse(r"\$"), Ok('$' as u32));
     assert_eq!(parse(r"\|"), Ok('|' as u32));
     assert_eq!(parse(r"\("), Ok('(' as u32));
     assert_eq!(parse(r"\)"), Ok(')' as u32));
