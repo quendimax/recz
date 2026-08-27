@@ -15,7 +15,6 @@ recz-graph = { path = "../recz-graph" }
 thiserror.workspace = true
 
 [dev-dependencies]
-ntest.workspace = true
 pretty_assertions.workspace = true
 
 [features]

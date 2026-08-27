@@ -1,4 +1,3 @@
-use ntest::assert_panics;
 use pretty_assertions::{assert_eq, assert_str_eq};
 use recz_adt::SetU8;
 use recz_syntax::Hir;
@@ -102,11 +101,13 @@ fn hir_repeat() {
     assert_eq!(repeat.len_hint(), (6, None));
     assert_eq!(repeat.exact_len(), None);
     assert_str_eq!(repeat.to_string(), r#"("ab" | "cde"){3,}"#);
+}
 
-    assert_panics!({
-        let lit = Hir::literal(b"a");
-        let _ = Hir::repeat(lit, 3, Some(2));
-    });
+#[test]
+#[should_panic]
+fn hir_repeat_fails() {
+    let lit = Hir::literal(b"a");
+    let _ = Hir::repeat(lit, 3, Some(2));
 }
 
 #[test]

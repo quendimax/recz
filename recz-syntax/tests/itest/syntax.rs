@@ -34,6 +34,6 @@ fn parse_inverted_range() {
     assert_eq!(parse("[a-z]"), r#"['a'-'z']"#);
     assert_eq!(
         parse("[z-a]"),
-        r#"range `[z-a]` is inverted: first codepoint `\x7A` is greater than last one `\x61`"#
+        r#"range [z-a] is inverted: first codepoint `\x7A` is greater than last one `\x61`"#
     );
 }

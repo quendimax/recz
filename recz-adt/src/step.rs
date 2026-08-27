@@ -1,9 +1,7 @@
-use num_traits::Num;
-
 /// This trait adds some functionality needed by [`crate::Range`] type.
 ///
 /// It could be based on [`std::iter::Step`] trait, but it is unstable yet.
-pub trait Step: Num + Copy {
+pub trait Step: Copy {
     /// Returns the number of steps required to get from `self` to `other` or
     /// vice versa.
     fn steps_between(&self, other: Self) -> Self;
@@ -21,9 +19,7 @@ pub trait Step: Num + Copy {
     fn backward(&self, count: usize) -> Option<Self>;
 
     /// Checks if there is one step between the two values.
-    fn adjoins(&self, other: Self) -> bool {
-        self.steps_between(other) == Self::one()
-    }
+    fn adjoins(&self, other: Self) -> bool;
 }
 
 macro_rules! impl_step_for {
@@ -47,6 +43,10 @@ macro_rules! impl_step_for {
                 } else {
                     None
                 }
+            }
+
+            fn adjoins(&self, other: Self) -> bool {
+                self.steps_between(other) == 1
             }
         }
     };

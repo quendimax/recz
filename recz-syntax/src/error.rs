@@ -70,7 +70,7 @@ pub enum Error {
     },
 
     #[error(
-        r"range `{range}` is inverted: first codepoint `\x{fcp:X}` is greater than last one `\x{lcp:X}`"
+        r"range [{range}] is inverted: first codepoint `\x{fcp:X}` is greater than last one `\x{lcp:X}`"
     )]
     #[cfg_attr(feature = "miette", diagnostic(help("try swapping the codepoints")))]
     InvertedRange {
