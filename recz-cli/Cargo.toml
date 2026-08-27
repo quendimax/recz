@@ -12,4 +12,4 @@ miette = { workspace = true, features = ["fancy"] }
 owo-colors = { workspace = true, features = ["supports-colors"] }
 recz-adt = { path = "../recz-adt" }
 recz-graph = { path = "../recz-graph" }
-recz-syntax = { path = "../recz-syntax" }
+recz-syntax = { path = "../recz-syntax", features = ["miette"] }
