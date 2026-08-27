@@ -71,7 +71,7 @@ fn edge_symbols() {
         handle_edge_from_chunks(&[a, b, c, d], |tr| tr.symbols().collect::<Vec>())
     }
     fn vec<const N: usize>(buf: [u8; N]) -> Vec {
-        Vec::from(&buf as &[u8])
+        Vec::from_iter(buf)
     }
 
     assert_eq!(symbols(0, 0, 0, 0), vec([]));
@@ -95,7 +95,7 @@ fn edge_ranges() {
         handle_edge_from_chunks(&[a, b, c, d], |tr| tr.ranges().collect::<Vec>())
     }
     fn vec<const N: usize>(buf: [RangeU8; N]) -> Vec {
-        Vec::from(&buf as &[RangeU8])
+        Vec::from_iter(buf)
     }
 
     assert_eq!(ranges(0, 0, 0, 0), vec([]));

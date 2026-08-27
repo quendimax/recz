@@ -1,7 +1,6 @@
 use crate::codec::Codec;
 use crate::encoding::Encoding;
 use crate::error::{Error::*, Result};
-use arrayvec::ArrayVec;
 use recz_adt::Range;
 
 const ENCODING: Encoding = Encoding::Utf8;
@@ -164,7 +163,8 @@ fn handle_range<const N: usize>(start: u32, end: u32, handler: &mut impl FnMut(&
         start = tmp_end + 1;
     }
 
-    let mut reversed_codepoints = ArrayVec::<(u32, u32), N>::new();
+    let mut reversed_codepoints = [(0u32, 0u32); N];
+    let mut i = 0;
     let mut end = end;
     let mut mask = 0;
     for _ in 0..N - 1 {
@@ -178,7 +178,8 @@ fn handle_range<const N: usize>(start: u32, end: u32, handler: &mut impl FnMut(&
         if tmp_start < start {
             break;
         }
-        reversed_codepoints.push((tmp_start, end));
+        reversed_codepoints[i] = (tmp_start, end);
+        i += 1;
         end = tmp_start - 1;
     }
 
@@ -187,7 +188,7 @@ fn handle_range<const N: usize>(start: u32, end: u32, handler: &mut impl FnMut(&
     }
 
     // to save ascending order of the range sequences
-    for (start, end) in reversed_codepoints.iter().rev() {
+    for (start, end) in reversed_codepoints[0..i].iter().rev() {
         run_handler::<N>(*start, *end, handler);
     }
 }

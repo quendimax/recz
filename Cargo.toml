@@ -28,7 +28,7 @@ repository = "https://github.com/quendimax/recz"
 
 [workspace.dependencies]
 ahash = "0.8"
-arrayvec = "0.7.6"
+arrayvec = { version = "0.7", default-features = false }
 bumpish = { git = "https://codeberg.org/quendimax/bumpish.git"}
 clap = "4.6"
 equivalent = { version = "1", default-features = false }
