@@ -317,9 +317,9 @@ mod bruteforce {
     use pretty_assertions::assert_eq;
     use test_case::test_matrix;
 
-    #[test_matrix(0x0..0x40)]
+    #[test_matrix(0x0..0x1000)]
     fn encode_range(iteration: u32) {
-        const ITERATION_LEN: u32 = 0x40; // must be the same as in #[test_matrix]
+        const ITERATION_LEN: u32 = 0x1000; // must be the same as in #[test_matrix]
         const CODEPOINT_NUM: u32 = 0x110000;
         const ITER_CHUNK_LEN: u32 = CODEPOINT_NUM / ITERATION_LEN;
 
