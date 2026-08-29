@@ -1,7 +1,7 @@
 use pretty_assertions::assert_eq;
 use recz_adt::lit;
 use recz_graph::{Graph, algo};
-use recz_syntax::{Parser, Translator, codec::Utf8Codec};
+use recz_syntax::{Parser, Result, Translator, codec::Utf8Codec};
 
 #[test]
 fn determine_0() {
@@ -98,20 +98,20 @@ fn determine_2() {
     );
 }
 
-fn parse(s: &str) -> String {
+fn parse(s: &str) -> Result<String> {
     let parser = Parser::new(Utf8Codec);
-    let hir = parser.parse(s).unwrap();
+    let hir = parser.parse(s)?;
     let nfa = Graph::new();
     let mut tr = Translator::new(&nfa);
     tr.translate(&hir, nfa.start_node(), nfa.node().finalize());
     let dfa = algo::determine(nfa);
-    format!("{dfa}")
+    Ok(format!("{dfa}"))
 }
 
 #[test]
 fn determine_3() {
     assert_eq!(
-        parse(r"hello"),
+        parse(r"hello").unwrap(),
         lit!(
             ///graph {
             ///  no_0 { 'h' -> no_1 }
@@ -129,7 +129,7 @@ fn determine_3() {
 #[test]
 fn determine_4() {
     assert_eq!(
-        parse(r"aa*"),
+        parse(r"aa*").unwrap(),
         lit!(
             ///graph {
             ///  no_0 { 'a' -> fi_1 }
@@ -150,7 +150,7 @@ fn determine_4() {
 #[test]
 fn ambiguity_0() {
     assert_eq!(
-        parse(r"a*(?D<0>a*)"),
+        parse(r"a*(?D<1>a*)").unwrap(),
         lit!(
             ///graph {
             ///  fi_0 {
@@ -170,7 +170,7 @@ fn ambiguity_0() {
 #[test]
 fn ambiguity_1() {
     assert_eq!(
-        parse(r"(?D<0>a*)a*"),
+        parse(r"(?D<2>a*)a*").unwrap(),
         lit!(
             ///graph {
             ///  fi_0 {
@@ -190,7 +190,7 @@ fn ambiguity_1() {
 #[test]
 fn ambiguity_2() {
     assert_eq!(
-        parse(r"(?D<1>a)a*"),
+        parse(r"(?D<1>a)a*").unwrap(),
         lit!(
             ///graph {
             ///  no_0 { 'a' / +g0 -> fi_1 }
@@ -211,7 +211,7 @@ fn ambiguity_2() {
 #[test]
 fn ambiguity_3() {
     assert_eq!(
-        parse(r"a*(?D<1>a)"),
+        parse(r"a*(?D<1>a)").unwrap(),
         lit!(
             ///graph {
             ///  no_0 { 'a' / +g0 -> fi_1 }

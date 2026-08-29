@@ -101,6 +101,13 @@ pub enum Error {
         #[cfg_attr(feature = "miette", label("empty capture label"))]
         span: Range<usize>,
     },
+
+    #[error(r"`0`-labeled capture group is preset for entire match")]
+    #[cfg_attr(feature = "miette", diagnostic(help("just use another `u32` number")))]
+    ZeroCaptureGroup {
+        #[cfg_attr(feature = "miette", label("zero labeled capture group"))]
+        span: Range<usize>,
+    },
 }
 
 /// Helper module to facilitate creating new error instances.
@@ -199,5 +206,9 @@ pub(crate) mod err {
 
     pub(crate) fn empty_capture_label<T>(span: Range<usize>) -> Result<T> {
         Err(Box::new(Error::EmptyCaptureLabel { span }))
+    }
+
+    pub(crate) fn zero_capture_group<T>(span: Range<usize>) -> Result<T> {
+        Err(Box::new(Error::ZeroCaptureGroup { span }))
     }
 }

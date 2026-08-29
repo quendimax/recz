@@ -299,12 +299,15 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
             if let Ok(label_num) = u32::try_from(num) {
                 let label = label_num.into();
                 let r_angle = self.lexer.expect(tok::char('>'))?;
+                if label_num == 0 {
+                    let span = l_angle.span().end..r_angle.span().start;
+                    return err::zero_capture_group(span);
+                }
                 if self.capture_labels.contains(&label) {
                     let span = l_angle.span().end..r_angle.span().start;
                     return err::reuse_capture_label(label_num, span);
-                } else {
-                    self.capture_labels.insert(label);
                 }
+                self.capture_labels.insert(label);
                 let hir = self.parse_disjunct()?;
                 Ok(Hir::group(label_num, hir))
             } else {

@@ -171,11 +171,13 @@ fn parse_numbered_group() {
         parse("(?D<123450000000>hello)"),
         err::out_of_range("123450000000", 4..16, "`u32` range")
     );
+    assert_eq!(parse("(?D<0>hello)"), err::zero_capture_group(4..5));
+    assert_eq!(parse("(?D<00000>hello)"), err::zero_capture_group(4..9));
     assert_eq!(parse("(?D<a>hello)"), err::unexpected("a", 4..5, "decimal"));
 
-    let lexer = Lexer::new("(?D<0>he)(?D<0>llo)");
+    let lexer = Lexer::new("(?D<1>he)(?D<1>llo)");
     let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
-    assert_eq!(parser.parse(), err::reuse_capture_label(0u32, 13..14));
+    assert_eq!(parser.parse(), err::reuse_capture_label(1u32, 13..14));
 }
 
 #[test]

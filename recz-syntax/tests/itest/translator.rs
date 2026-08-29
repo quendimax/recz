@@ -1,23 +1,23 @@
 use pretty_assertions::assert_eq;
 use recz_adt::lit;
 use recz_graph::Graph;
-use recz_syntax::{Parser, Translator, codec::Utf8Codec};
+use recz_syntax::{Parser, Result, Translator, codec::Utf8Codec};
 
-fn parse(pattern: &str) -> String {
+fn parse(pattern: &str) -> Result<String> {
     let graph = Graph::new();
     let parser = Parser::new(Utf8Codec);
-    let hir = parser.parse(pattern).unwrap();
+    let hir = parser.parse(pattern)?;
     let mut translator = Translator::new(&graph);
     let start_node = graph.start_node();
     let end_node = graph.node();
     translator.translate(&hir, start_node, end_node);
-    graph.to_string()
+    Ok(graph.to_string())
 }
 
 #[test]
 fn translate_literal() {
     assert_eq!(
-        parse("sun"),
+        parse("sun").unwrap(),
         lit!(
             ///graph {
             ///  no_0 { 's' -> no_2 }
@@ -32,7 +32,7 @@ fn translate_literal() {
 #[test]
 fn translate_class() {
     assert_eq!(
-        parse("[a-ce]"),
+        parse("[a-ce]").unwrap(),
         lit!(
             ///graph {
             ///  no_0 {
@@ -48,7 +48,7 @@ fn translate_class() {
         )
     );
     assert_eq!(
-        parse("[a-я]"),
+        parse("[a-я]").unwrap(),
         lit!(
             ///graph {
             ///  no_0 {
@@ -73,7 +73,7 @@ fn translate_class() {
 #[test]
 fn translate_group_0_0() {
     assert_eq!(
-        parse("(?D<1>)"),
+        parse("(?D<1>)").unwrap(),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g0 -> no_2 }
@@ -88,7 +88,7 @@ fn translate_group_0_0() {
 #[test]
 fn translate_group_0_1() {
     assert_eq!(
-        parse("(?D<0>a)b(?D<1>c)"),
+        parse("(?D<2>a)b(?D<1>c)").unwrap(),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g0 -> no_3 }
@@ -107,7 +107,7 @@ fn translate_group_0_1() {
 #[test]
 fn translate_group_0_2() {
     assert_eq!(
-        parse("(?D<0>)(?D<1>)(?D<234>)"),
+        parse("(?D<3>)(?D<1>)(?D<234>)").unwrap(),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g0 -> no_3 }
@@ -128,7 +128,7 @@ fn translate_group_0_2() {
 #[test]
 fn translate_group_1() {
     assert_eq!(
-        parse("(?D<1>)(a|bc)(?D<2>)"),
+        parse("(?D<1>)(a|bc)(?D<2>)").unwrap(),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g0 -> no_3 }
@@ -155,7 +155,7 @@ fn translate_group_1() {
 #[test]
 fn translate_group_2() {
     assert_eq!(
-        parse("(?D<1>)(a|b)(?D<2>)"),
+        parse("(?D<1>)(a|b)(?D<2>)").unwrap(),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g0 -> no_3 }
@@ -181,7 +181,7 @@ fn translate_group_2() {
 #[test]
 fn translate_group_3() {
     assert_eq!(
-        parse("(?D<1>)((?D<2>a)|b(?D<3>a))"),
+        parse("(?D<1>)((?D<2>a)|b(?D<3>a))").unwrap(),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g0 -> no_3 }
@@ -209,7 +209,7 @@ fn translate_group_3() {
 #[test]
 fn translate_group_4() {
     assert_eq!(
-        parse("(?D<1>((?D<2>a((?D<3>d)|(?D<5>e)))|b(?D<4>a)))"),
+        parse("(?D<1>((?D<2>a((?D<3>d)|(?D<5>e)))|b(?D<4>a)))").unwrap(),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g0 -> no_2 }
@@ -248,7 +248,7 @@ fn translate_group_4() {
 #[test]
 fn translate_group_5() {
     assert_eq!(
-        parse("(?D<1>a)(?D<2>b)*(?D<3>c)"),
+        parse("(?D<1>a)(?D<2>b)*(?D<3>c)").unwrap(),
         lit!(
             ///graph {
             ///  no_0 { EPS / +g0 -> no_3 }
