@@ -1,5 +1,5 @@
-use ::core::iter::Iterator;
 use ::core::range::Range;
+use ::recz::Label;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Capture<'h> {
@@ -7,52 +7,38 @@ pub struct Capture<'h> {
     start: usize,
 }
 
-impl<'h> ::recz::str::Capture<'h> for Capture<'h> {
+impl<'h> Capture<'h> {
     #[inline]
-    fn as_str(&self) -> &'h str {
+    pub fn as_str(&self) -> &'h str {
         self.capture
     }
 
     #[inline]
-    fn start(&self) -> usize {
+    pub fn start(&self) -> usize {
         self.start
     }
 
     #[inline]
-    fn end(&self) -> usize {
-        self.start + self.capture.len()
-    }
-}
-
-impl<'h> Capture<'h> {
-    #[inline]
-    pub fn as_str(&self) -> &'h str {
-        ::recz::str::Capture::as_str(self)
-    }
-
-    #[inline]
-    pub fn start(&self) -> usize {
-        ::recz::str::Capture::start(self)
-    }
-
-    #[inline]
     pub fn end(&self) -> usize {
-        ::recz::str::Capture::end(self)
+        self.start + self.capture.len()
     }
 
     #[inline]
     pub fn range(&self) -> Range<usize> {
-        ::recz::str::Capture::range(self)
+        Range {
+            start: self.start(),
+            end: self.end(),
+        }
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        ::recz::str::Capture::len(self)
+        self.capture.len()
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        ::recz::str::Capture::is_empty(self)
+        self.capture.is_empty()
     }
 }
 
@@ -69,31 +55,52 @@ pub struct Match<'h> {
     ranges: [Range<usize>; GROUP_COUNT],
 }
 
-impl<'h> ::recz::str::Capture<'h> for Match<'h> {
+impl<'h> Match<'h> {
     #[inline]
-    fn as_str(&self) -> &'h str {
+    pub fn as_str(&self) -> &'h str {
         &self.hay[self.range()]
     }
 
     #[inline]
-    fn start(&self) -> usize {
+    pub fn start(&self) -> usize {
         self.ranges[0].start
     }
 
     #[inline]
-    fn end(&self) -> usize {
+    pub fn end(&self) -> usize {
         self.ranges[0].end
     }
-}
 
-impl<'h> ::recz::str::Match<'h> for Match<'h> {
     #[inline]
-    fn haystack(&self) -> &'h str {
+    pub fn range(&self) -> Range<usize> {
+        self.ranges[0]
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.ranges[0].end - self.ranges[0].start
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.ranges[0].end == self.ranges[0].start
+    }
+
+    #[inline]
+    pub fn haystack(&self) -> &'h str {
         self.hay
     }
 
-    fn group_by_num(&self, num: u32) -> Option<impl ::recz::str::Capture<'h>> {
-        let index = match num {
+    #[inline(always)]
+    pub fn capture<'a>(&self, label: impl Into<Label<'a>>) -> Option<Capture<'h>> {
+        match label.into() {
+            Label::Num(num) => self.capture_by_num(num),
+            Label::Str(name) => self.capture_by_str(name),
+        }
+    }
+
+    pub fn capture_by_num(&self, number: u32) -> Option<Capture<'h>> {
+        let index = match number {
             0 => 0,
             1 => 1,
             2 => 2,
@@ -102,65 +109,8 @@ impl<'h> ::recz::str::Match<'h> for Match<'h> {
         self.to_option(&self.ranges[index])
     }
 
-    fn group_by_str<'a>(&self, label: &'a str) -> Option<impl ::recz::str::Capture<'h>> {
-        let _ = label;
-        Option::<Capture<'h>>::None
-    }
-
-    fn groups(&self) -> impl ::core::iter::Iterator<Item = impl ::recz::str::Capture<'h>> {
-        self.ranges.iter().filter_map(|range| self.to_option(range))
-    }
-}
-
-impl<'h> Match<'h> {
-    #[inline]
-    pub fn as_str(&self) -> &'h str {
-        ::recz::str::Capture::as_str(self)
-    }
-
-    #[inline]
-    pub fn range(&self) -> Range<usize> {
-        ::recz::str::Capture::range(self)
-    }
-
-    #[inline]
-    pub fn start(&self) -> usize {
-        ::recz::str::Capture::start(self)
-    }
-
-    #[inline]
-    pub fn end(&self) -> usize {
-        ::recz::str::Capture::end(self)
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
-        ::recz::str::Capture::len(self)
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        ::recz::str::Capture::is_empty(self)
-    }
-
-    #[inline]
-    pub fn haystack(&self) -> &'h str {
-        ::recz::str::Match::haystack(self)
-    }
-
-    #[inline]
-    pub fn group_by_num(&self, label: u32) -> Option<impl ::recz::str::Capture<'h>> {
-        ::recz::str::Match::group_by_num(self, label)
-    }
-
-    #[inline]
-    pub fn group_by_str<'a>(&self, label: &'a str) -> Option<impl ::recz::str::Capture<'h>> {
-        ::recz::str::Match::group_by_str(self, label)
-    }
-
-    #[inline]
-    pub fn groups(&self) -> impl ::core::iter::Iterator<Item = impl ::recz::str::Capture<'h>> {
-        ::recz::str::Match::groups(self)
+    pub fn capture_by_str(&self, _name: &str) -> Option<Capture<'h>> {
+        None
     }
 }
 
@@ -189,29 +139,21 @@ enum State {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Regex;
 
-impl ::recz::str::Regex for Regex {
-    #[inline]
-    fn pattern(&self) -> &'static str {
-        "(?<0>(?<2>[a-c])*(?<3>[a-f])*)"
-    }
-
-    #[inline(always)]
-    fn find<'h>(&self, haystack: &'h str) -> Option<impl ::recz::str::Match<'h>> {
-        let mut m: Option<Match<'h>> = None;
-        self.find_impl(haystack, &mut m);
-        m
-    }
-}
-
 impl Regex {
     #[inline]
     pub fn pattern(&self) -> &'static str {
-        ::recz::str::Regex::pattern(self)
+        "(?<0>(?<2>[a-c])*(?<3>[a-f])*)"
+    }
+
+    pub fn capture_names(&self) -> &'static [Label<'static>] {
+        &[Label::Str("0"), Label::Str("2"), Label::Str("3")]
     }
 
     #[inline(always)]
-    pub fn find<'h>(&self, haystack: &'h str) -> Option<impl ::recz::str::Match<'h>> {
-        ::recz::str::Regex::find(self, haystack)
+    pub fn find<'h>(&self, haystack: &'h str) -> Option<Match<'h>> {
+        let mut m: Option<Match<'h>> = None;
+        self.find_impl(haystack, &mut m);
+        m
     }
 
     fn find_impl<'h>(&self, haystack: &'h str, result: &mut Option<Match<'h>>) {

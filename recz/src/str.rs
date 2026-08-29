@@ -1,4 +1,3 @@
-use core::iter::Iterator;
 use core::range::Range;
 
 pub trait Capture<'h> {
@@ -29,9 +28,8 @@ pub trait Capture<'h> {
 
 pub trait Match<'h>: Capture<'h> {
     fn haystack(&self) -> &'h str;
-    fn group_by_num(&self, label: u32) -> Option<impl Capture<'h>>;
-    fn group_by_str<'a>(&self, label: &'a str) -> Option<impl Capture<'h>>;
-    fn groups(&self) -> impl Iterator<Item = impl Capture<'h>> + '_;
+    fn capture<'a>(&self, name: &'a str) -> Option<impl Capture<'h>>;
+    fn capture_by_num(&self, number: u32) -> Option<impl Capture<'h>>;
 }
 
 pub trait Regex {
