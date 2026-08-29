@@ -1,5 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
+use quote::quote;
+use recz_codegen::{CodeGen, Config};
 use recz_graph::{Graph, algo};
 use recz_syntax::{Parser, Translator, codec::Utf8Codec};
 use syn::{Error, LitStr, parse2};
@@ -14,7 +16,7 @@ pub fn __re(body: TokenStream) -> TokenStream {
 fn re_impl(body: TokenStream2) -> syn::Result<TokenStream2> {
     let literal = parse2::<LitStr>(body)?;
     let re_str = literal.value();
-    let re_str = format!(".*(?<0>{re_str})");
+    let re_str = format!(".*(?D<0>{re_str})");
 
     let parser = Parser::new(Utf8Codec);
     let hir = parser
@@ -27,5 +29,15 @@ fn re_impl(body: TokenStream2) -> syn::Result<TokenStream2> {
 
     let dfa = algo::determine(nfa);
 
-    Ok(recz_codegen::re_impl(dfa))
+    let config = Config {
+        visibility: quote! { pub(crate) },
+        haystack_ty: quote! { str },
+        as_fn: quote! { as_str },
+        pattern: literal,
+    };
+
+    let generator = CodeGen::new(config);
+    let code = generator.generate(&dfa);
+
+    Ok(code)
 }

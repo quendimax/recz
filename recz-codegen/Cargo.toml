@@ -11,3 +11,4 @@ proc-macro2.workspace = true
 quote.workspace = true
 recz-adt = { path = "../recz-adt" }
 recz-graph = { path = "../recz-graph" }
+syn.workspace = true

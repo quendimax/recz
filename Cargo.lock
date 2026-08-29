@@ -711,6 +711,7 @@ dependencies = [
  "quote",
  "recz-adt",
  "recz-graph",
+ "syn 3.0.4",
 ]
 
 [[package]]
@@ -731,6 +732,7 @@ name = "recz-macro"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
+ "quote",
  "recz-codegen",
  "recz-graph",
  "recz-syntax",

@@ -141,11 +141,11 @@ pub struct Regex;
 
 impl Regex {
     #[inline]
-    pub fn pattern(&self) -> &'static str {
+    pub const fn pattern(&self) -> &'static str {
         "(?<0>(?<2>[a-c])*(?<3>[a-f])*)"
     }
 
-    pub fn capture_names(&self) -> &'static [Label<'static>] {
+    pub const fn capture_names(&self) -> &'static [Label<'static>] {
         &[Label::Str("0"), Label::Str("2"), Label::Str("3")]
     }
 

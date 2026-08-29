@@ -11,6 +11,7 @@ proc-macro = true
 
 [dependencies]
 proc-macro2.workspace = true
+quote.workspace = true
 recz-codegen = { path = "../recz-codegen" }
 recz-graph = { path = "../recz-graph" }
 recz-syntax = { path = "../recz-syntax" }
