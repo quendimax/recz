@@ -5,8 +5,12 @@ pub enum Label<'a> {
 }
 
 impl<'a> Label<'a> {
+    pub const fn invalid() -> Self {
+        Self::Str("")
+    }
+
     pub fn is_invalid(&self) -> bool {
-        matches!(self, Label::Str("") | Label::Num(u32::MAX))
+        matches!(self, Label::Str(""))
     }
 }
 
@@ -34,65 +38,27 @@ impl<'a> From<u32> for Label<'a> {
     }
 }
 
-impl<'a> From<u64> for Label<'a> {
-    fn from(n: u64) -> Self {
-        Label::Num(n.try_into().unwrap_or(u32::MAX))
-    }
+macro_rules! impl_from {
+    ($($ty:ty),* $(,)?) => {$(
+        impl<'a> From<$ty> for Label<'a> {
+            #[inline]
+            fn from(n: $ty) -> Self {
+                if let Ok(n) = n.try_into() {
+                    Label::Num(n)
+                } else {
+                    Label::invalid()
+                }
+            }
+        }
+    )*};
 }
-
-impl<'a> From<u128> for Label<'a> {
-    fn from(n: u128) -> Self {
-        Label::Num(n.try_into().unwrap_or(u32::MAX))
-    }
-}
-
-impl<'a> From<usize> for Label<'a> {
-    fn from(n: usize) -> Self {
-        Label::Num(n.try_into().unwrap_or(u32::MAX))
-    }
-}
-
-impl<'a> From<i8> for Label<'a> {
-    fn from(n: i8) -> Self {
-        Label::Num(n.try_into().unwrap_or(u32::MAX))
-    }
-}
-
-impl<'a> From<i16> for Label<'a> {
-    fn from(n: i16) -> Self {
-        Label::Num(n.try_into().unwrap_or(u32::MAX))
-    }
-}
-
-impl<'a> From<i32> for Label<'a> {
-    fn from(n: i32) -> Self {
-        Label::Num(n.try_into().unwrap_or(u32::MAX))
-    }
-}
-
-impl<'a> From<i64> for Label<'a> {
-    fn from(n: i64) -> Self {
-        Label::Num(n.try_into().unwrap_or(u32::MAX))
-    }
-}
-
-impl<'a> From<i128> for Label<'a> {
-    fn from(n: i128) -> Self {
-        Label::Num(n.try_into().unwrap_or(u32::MAX))
-    }
-}
-
-impl<'a> From<isize> for Label<'a> {
-    fn from(n: isize) -> Self {
-        Label::Num(n.try_into().unwrap_or(u32::MAX))
-    }
-}
+impl_from!(u64, u128, usize, i8, i16, i32, i64, i128, isize);
 
 impl<'a> core::fmt::Display for Label<'a> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Label::Num(n) => write!(f, "{}", n),
-            Label::Str(s) => write!(f, "\"{}\"", s),
+            Label::Num(n) => n.fmt(f),
+            Label::Str(s) => s.fmt(f),
         }
     }
 }
