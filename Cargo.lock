@@ -655,6 +655,7 @@ dependencies = [
 name = "recz"
 version = "0.1.0"
 dependencies = [
+ "pretty_assertions",
  "recz-macro",
 ]
 
@@ -711,6 +712,7 @@ dependencies = [
  "quote",
  "recz-adt",
  "recz-graph",
+ "recz-syntax",
  "syn 3.0.4",
 ]
 
@@ -734,7 +736,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "recz-codegen",
- "recz-graph",
  "recz-syntax",
  "syn 3.0.4",
 ]

@@ -1,18 +1,26 @@
 use crate::Config;
 use proc_macro2::TokenStream;
 use quote::quote;
-use recz_graph::Graph;
+use recz_graph::{Graph, algo};
+use recz_syntax::{Hir, Translator};
 
 pub struct CodeGen {
+    hir: Hir,
     config: Config,
 }
 
 impl CodeGen {
-    pub fn new(config: Config) -> Self {
-        Self { config }
+    pub fn new(hir: Hir, config: Config) -> Self {
+        Self { hir, config }
     }
 
-    pub fn generate(&self, _dfa: &Graph) -> TokenStream {
+    pub fn generate(&self) -> TokenStream {
+        let nfa = Graph::new();
+        let mut tr = Translator::new(&nfa);
+        tr.translate(&self.hir, nfa.start_node(), nfa.node().finalize());
+
+        let _dfa = algo::determine(nfa);
+
         let vis = &self.config.visibility;
         let hay_ty = &self.config.haystack_ty;
         let as_fn = &self.config.as_fn;
@@ -150,11 +158,11 @@ impl CodeGen {
                         &[Label::Num(0)]
                     }
 
-                    #vis fn r#match<'h>(&self, haystack: &'h #hay_ty) -> Option<Match<'h>> {
+                    #vis fn mtch<'h>(&self, haystack: &'h #hay_ty) -> Option<Match<'h>> {
                         None
                     }
 
-                    #vis fn search<'h>(&self, haystack: &'h #hay_ty) -> Option<Match<'h>> {
+                    #vis fn find<'h>(&self, haystack: &'h #hay_ty) -> Option<Match<'h>> {
                         None
                     }
                 }
