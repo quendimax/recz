@@ -151,8 +151,9 @@ checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
 
 [[package]]
 name = "bumpish"
-version = "0.5.0"
-source = "git+https://codeberg.org/quendimax/bumpish.git#f3582008b2e035762925a4bbf1e62912bb88e648"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "580322097097678f920bc6a1fff16f448a195454f677575c58d692520bd2e14d"
 dependencies = [
  "equivalent",
  "hashbrown 0.16.1",
