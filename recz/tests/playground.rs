@@ -94,8 +94,9 @@ impl<'h> Match<'h> {
     #[inline(always)]
     pub fn capture<'a>(&self, label: impl Into<Label<'a>>) -> Option<Capture<'h>> {
         match label.into() {
-            Label::Num(num) => self.capture_by_num(num),
+            Label::Str("") => None,
             Label::Str(name) => self.capture_by_str(name),
+            Label::Num(num) => self.capture_by_num(num),
         }
     }
 

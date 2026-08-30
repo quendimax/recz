@@ -1,23 +1,28 @@
 use crate::Config;
 use proc_macro2::TokenStream;
 use quote::quote;
-use recz_graph::{Graph, algo};
-use recz_syntax::{Parser, Result, Translator, codec::Utf8Codec};
+use recz_graph::{CaptureLabel, Graph, algo};
+use recz_syntax::{Hir, Parser, Result, Translator, codec::Utf8Codec};
 
 pub struct CodeGen {
     config: Config,
+    labels: Vec<CaptureLabel>,
 }
 
 impl CodeGen {
     pub fn build(config: Config) -> Result<Self> {
         let parser = Parser::new(Utf8Codec);
         let hir = parser.parse(&config.pattern.value())?;
+        let hir = Hir::group(0u32, hir);
         let nfa = Graph::new();
         let mut tr = Translator::new(&nfa);
         tr.translate(&hir, nfa.start_node(), nfa.node().finalize());
         let _dfa = algo::determine(&nfa);
 
-        Ok(Self { config })
+        let labels: Vec<_> = nfa.groups().map(|gr| gr.label()).collect();
+        assert_ne!(labels.len(), 0);
+
+        Ok(Self { config, labels })
     }
 
     fn generate_match_impl(&self) -> TokenStream {
@@ -38,6 +43,30 @@ impl CodeGen {
         } else {
             quote! { as_bytes }
         };
+
+        let labels_len = self.labels.len();
+        let labels = self.labels.iter().map(|label| match label {
+            CaptureLabel::Num(n) => quote! { Label::Num(#n) },
+            CaptureLabel::Str(s) => quote! { Label::Str(#s) },
+        });
+
+        let match_idx_from_num_branches =
+            self.labels.iter().enumerate().filter_map(|(idx, lbl)| {
+                if let CaptureLabel::Num(num) = lbl {
+                    Some(quote!(#num => #idx))
+                } else {
+                    None
+                }
+            });
+
+        let match_idx_from_str_branches =
+            self.labels.iter().enumerate().filter_map(|(idx, lbl)| {
+                if let CaptureLabel::Str(str) = lbl {
+                    Some(quote!(#str => #idx))
+                } else {
+                    None
+                }
+            });
 
         let match_impl_fn = self.generate_match_impl();
 
@@ -65,17 +94,17 @@ impl CodeGen {
                     }
 
                     #[inline]
-                    #vis fn start(&self) -> usize {
+                    #vis const fn start(&self) -> usize {
                         self.start
                     }
 
                     #[inline]
-                    #vis fn end(&self) -> usize {
+                    #vis const fn end(&self) -> usize {
                         self.start + self.capture.len()
                     }
 
                     #[inline]
-                    #vis fn range(&self) -> Range<usize> {
+                    #vis const fn range(&self) -> Range<usize> {
                         Range {
                             start: self.start(),
                             end: self.end(),
@@ -83,12 +112,12 @@ impl CodeGen {
                     }
 
                     #[inline]
-                    #vis fn len(&self) -> usize {
+                    #vis const fn len(&self) -> usize {
                         self.capture.len()
                     }
 
                     #[inline]
-                    #vis fn is_empty(&self) -> bool {
+                    #vis const fn is_empty(&self) -> bool {
                         self.capture.is_empty()
                     }
                 }
@@ -100,44 +129,45 @@ impl CodeGen {
                 #[derive(Debug, Clone, PartialEq, Eq)]
                 #vis struct Match<'h> {
                     hay: &'h #hay_ty,
+                    ranges: [Range<usize>; #labels_len]
                 }
 
                 /// Implementation of Capture API.
                 impl<'h> Match<'h> {
                     #[inline]
                     #vis fn #as_str_fn(&self) -> &'h #hay_ty {
-                        unimplemented!()
+                        &self.hay[self.range()]
                     }
 
                     #[inline]
-                    #vis fn start(&self) -> usize {
-                        unimplemented!()
+                    #vis const fn start(&self) -> usize {
+                        self.ranges[0].start
                     }
 
                     #[inline]
-                    #vis fn end(&self) -> usize {
-                        unimplemented!()
+                    #vis const fn end(&self) -> usize {
+                        self.ranges[0].end
                     }
 
                     #[inline]
-                    #vis fn range(&self) -> Range<usize> {
-                        unimplemented!()
+                    #vis const fn range(&self) -> Range<usize> {
+                        self.ranges[0]
                     }
 
                     #[inline]
-                    #vis fn len(&self) -> usize {
-                        unimplemented!()
+                    #vis const fn len(&self) -> usize {
+                        self.end() - self.start()
                     }
 
                     #[inline]
-                    #vis fn is_empty(&self) -> bool {
-                        unimplemented!()
+                    #vis const fn is_empty(&self) -> bool {
+                        self.end() == self.start()
                     }
                 }
 
                 impl<'h> Match<'h> {
                     #[inline]
-                    #vis fn haystack(&self) -> &'h #hay_ty {
+                    #vis const fn haystack(&self) -> &'h #hay_ty {
                         self.hay
                     }
 
@@ -150,12 +180,37 @@ impl CodeGen {
                         }
                     }
 
+                    #[inline]
                     #vis fn capture_by_num(&self, label: u32) -> Option<Capture<'h>> {
-                        None
+                        let idx = match label {
+                            #(#match_idx_from_num_branches,)*
+                            _ => return None,
+                        };
+                        self.range_to_capture(idx)
                     }
 
+                    #[inline]
                     #vis fn capture_by_str(&self, label: &str) -> Option<Capture<'h>> {
-                        None
+                        let idx = match label {
+                            #(#match_idx_from_str_branches,)*
+                            _ => return None,
+                        };
+                        self.range_to_capture(idx)
+                    }
+                }
+
+                impl<'h> Match<'h> {
+                    #[inline]
+                    fn range_to_capture(&self, idx: usize) -> Option<Capture<'h>> {
+                        let range = self.ranges[idx];
+                        if range.end == usize::MAX {
+                            Some(Capture {
+                                capture: &self.hay[range],
+                                start: range.start,
+                            })
+                        } else {
+                            None
+                        }
                     }
                 }
 
@@ -174,19 +229,23 @@ impl CodeGen {
 
                     #[inline]
                     #vis const fn capture_labels(&self) -> &'static [Label<'static>] {
-                        &[Label::Num(0)]
+                        &[#(#labels),*]
                     }
 
+                    #[inline]
                     #vis fn mtch<'h>(&self, haystack: &'h #hay_ty) -> Option<Match<'h>> {
                         let mut m = None;
                         self.match_impl(AsRef::<[u8]>::as_ref(haystack), &mut m);
                         m
                     }
 
+                    #[inline]
                     #vis fn find<'h>(&self, haystack: &'h #hay_ty) -> Option<Match<'h>> {
                         unimplemented!()
                     }
+                }
 
+                impl Regex {
                     #match_impl_fn
                 }
             }
