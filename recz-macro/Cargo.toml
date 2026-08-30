@@ -13,5 +13,4 @@ proc-macro = true
 proc-macro2.workspace = true
 quote.workspace = true
 recz-codegen = { path = "../recz-codegen" }
-recz-syntax = { path = "../recz-syntax" }
 syn.workspace = true

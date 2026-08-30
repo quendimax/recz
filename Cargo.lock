@@ -737,7 +737,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "recz-codegen",
- "recz-syntax",
  "syn 3.0.4",
 ]
 

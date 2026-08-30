@@ -30,7 +30,7 @@ fn build_dfa(regex: &str) -> Graph {
     let nfa = Graph::new();
     let mut tr = Translator::new(&nfa);
     tr.translate(&hir, nfa.start_node(), nfa.node().finalize());
-    let dfa = algo::determine(nfa);
+    let dfa = algo::determine(&nfa);
     black_box(dfa)
 }
 

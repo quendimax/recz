@@ -2,27 +2,25 @@ use crate::Config;
 use proc_macro2::TokenStream;
 use quote::quote;
 use recz_graph::{Graph, algo};
-use recz_syntax::{Hir, Translator};
+use recz_syntax::{Parser, Result, Translator, codec::Utf8Codec};
 
 pub struct CodeGen {
-    hir: Hir,
     config: Config,
 }
 
 impl CodeGen {
-    pub fn new(hir: Hir, config: Config) -> Self {
-        Self {
-            hir: Hir::group(0u32, hir),
-            config,
-        }
+    pub fn build(config: Config) -> Result<Self> {
+        let parser = Parser::new(Utf8Codec);
+        let hir = parser.parse(&config.pattern.value())?;
+        let nfa = Graph::new();
+        let mut tr = Translator::new(&nfa);
+        tr.translate(&hir, nfa.start_node(), nfa.node().finalize());
+        let _dfa = algo::determine(&nfa);
+
+        Ok(Self { config })
     }
 
     fn generate_match_impl(&self) -> TokenStream {
-        let nfa = Graph::new();
-        let mut tr = Translator::new(&nfa);
-        tr.translate(&self.hir, nfa.start_node(), nfa.node().finalize());
-        let _dfa = algo::determine(&nfa);
-
         quote! {
             fn match_impl<'h>(&self, haystack: &'h [u8], m: &mut Option<Match<'h>>) {
 
