@@ -7,7 +7,7 @@ use recz_syntax::{Parser, Result, Translator, codec::Utf8Codec};
 fn determine_0() {
     let nfa = Graph::new();
     nfa.node().connect(nfa.node());
-    let dfa = algo::determine(nfa);
+    let dfa = algo::determine(&nfa);
     assert_eq!(
         format!("{dfa}"),
         lit!(
@@ -18,7 +18,7 @@ fn determine_0() {
     );
 
     let nfa = Graph::new();
-    let dfa = algo::determine(nfa);
+    let dfa = algo::determine(&nfa);
     assert_eq!(
         format!("{dfa}"),
         lit!(
@@ -48,7 +48,7 @@ fn determine_1() {
     e.connect(f).add_tag(gr_1.close_tag());
     f.finalize();
 
-    let dfa = algo::determine(nfa);
+    let dfa = algo::determine(&nfa);
     assert_eq!(
         format!("{dfa}"),
         lit!(
@@ -81,7 +81,7 @@ fn determine_2() {
     e.connect(f).add_tag(gr_1.close_tag());
     f.finalize();
 
-    let dfa = algo::determine(nfa);
+    let dfa = algo::determine(&nfa);
     assert_eq!(
         format!("{dfa}"),
         lit!(
@@ -104,7 +104,7 @@ fn parse(s: &str) -> Result<String> {
     let nfa = Graph::new();
     let mut tr = Translator::new(&nfa);
     tr.translate(&hir, nfa.start_node(), nfa.node().finalize());
-    let dfa = algo::determine(nfa);
+    let dfa = algo::determine(&nfa);
     Ok(format!("{dfa}"))
 }
 

@@ -3,9 +3,9 @@ use recz_adt::{Map, OrdSet, Set, SetU8};
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
-pub fn determine(nfa: Graph) -> Graph {
+pub fn determine(nfa: &Graph) -> Graph {
     let dfa = Graph::new();
-    let mut determ = Determinator::new(&nfa, &dfa);
+    let mut determ = Determinator::new(nfa, &dfa);
     determ.determine();
     drop(determ);
     dfa

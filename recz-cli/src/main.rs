@@ -100,7 +100,8 @@ fn main() -> miette::Result<()> {
     }
 
     let dfa_start = Instant::now();
-    let dfa = algo::determine(nfa);
+    let dfa = algo::determine(&nfa);
+    drop(nfa);
     let dfa_duration = dfa_start.elapsed();
 
     if cli.print.contains(&PrintMode::Dfa) {

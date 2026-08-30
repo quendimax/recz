@@ -24,7 +24,6 @@ fn re_impl(body: TokenStream2) -> syn::Result<TokenStream2> {
     let config = Config {
         visibility: quote! { pub(crate) },
         haystack_ty: quote! { str },
-        as_fn: quote! { as_str },
         pattern: literal,
     };
 
