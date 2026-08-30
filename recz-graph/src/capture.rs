@@ -52,7 +52,7 @@ impl std::fmt::Display for CaptureLabel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CaptureLabel::Num(n) => write!(f, "{}", n),
-            CaptureLabel::Str(s) => write!(f, "{}", s),
+            CaptureLabel::Str(s) => write!(f, "\"{}\"", s),
         }
     }
 }
@@ -64,6 +64,10 @@ pub struct CaptureGroup {
 }
 
 impl CaptureGroup {
+    pub fn label(&self) -> CaptureLabel {
+        self.label.clone()
+    }
+
     pub fn open_tag(&self) -> Tag {
         Tag::new(OpenGroup(self.tag_index))
     }
