@@ -1,12 +1,14 @@
 use crate::Config;
 use proc_macro2::TokenStream;
-use quote::quote;
-use recz_graph::{CaptureLabel, Graph, algo};
+use quote::{format_ident, quote};
+use recz_adt::Set;
+use recz_graph::{CaptureLabel, Graph, Node, algo};
 use recz_syntax::{Hir, Parser, Result, Translator, codec::Utf8Codec};
 
 pub struct CodeGen {
     config: Config,
     labels: Vec<CaptureLabel>,
+    mtch_dfa: Graph,
 }
 
 impl CodeGen {
@@ -17,20 +19,16 @@ impl CodeGen {
         let nfa = Graph::new();
         let mut tr = Translator::new(&nfa);
         tr.translate(&hir, nfa.start_node(), nfa.node().finalize());
-        let _dfa = algo::determine(&nfa);
+        let mtch_dfa = algo::determine(&nfa);
 
         let labels: Vec<_> = nfa.groups().map(|gr| gr.label()).collect();
         assert_ne!(labels.len(), 0);
 
-        Ok(Self { config, labels })
-    }
-
-    fn generate_match_impl(&self) -> TokenStream {
-        quote! {
-            fn match_impl<'h>(&self, haystack: &'h [u8], m: &mut Option<Match<'h>>) {
-
-            }
-        }
+        Ok(Self {
+            config,
+            labels,
+            mtch_dfa,
+        })
     }
 
     pub fn generate(&self) -> TokenStream {
@@ -68,7 +66,13 @@ impl CodeGen {
                 }
             });
 
-        let match_impl_fn = self.generate_match_impl();
+        let mut mtch_gen = MatchGenerator::new(&self.mtch_dfa);
+        mtch_gen.run();
+
+        let mtch_states = mtch_gen.states();
+        let start_node = self.mtch_dfa.start_node();
+        let start_state_ident = format_ident!("{start_node}");
+        let match_branches = mtch_gen.branches();
 
         quote!({
             mod adhoc {
@@ -203,7 +207,7 @@ impl CodeGen {
                     #[inline]
                     fn range_to_capture(&self, idx: usize) -> Option<Capture<'h>> {
                         let range = self.ranges[idx];
-                        if range.end == usize::MAX {
+                        if range.end != usize::MAX {
                             Some(Capture {
                                 capture: &self.hay[range],
                                 start: range.start,
@@ -235,7 +239,7 @@ impl CodeGen {
                     #[inline]
                     #vis fn mtch<'h>(&self, haystack: &'h #hay_ty) -> Option<Match<'h>> {
                         let mut m = None;
-                        self.match_impl(AsRef::<[u8]>::as_ref(haystack), &mut m);
+                        self.match_impl(haystack, &mut m);
                         m
                     }
 
@@ -246,7 +250,30 @@ impl CodeGen {
                 }
 
                 impl Regex {
-                    #match_impl_fn
+                    fn match_impl<'h>(&self, haystack: &'h #hay_ty, m: &mut Option<Match<'h>>) {
+                        const INVALID_RANGE: Range<usize> = Range {
+                            start: usize::MAX,
+                            end: usize::MAX,
+                        };
+
+                        #[allow(non_camel_case_types)]
+                        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+                        enum stt {
+                            #(#mtch_states,)*
+                        }
+
+                        let source = AsRef::<[u8]>::as_ref(haystack);
+                        let mut ranges = [INVALID_RANGE; #labels_len];
+                        let mut pos = 0usize;
+                        let mut curr_state = stt::#start_state_ident;
+
+                        'main: loop {
+                            match curr_state {
+                                #(#match_branches)*
+                            }
+                            pos += 1;
+                        }
+                    }
                 }
             }
 
@@ -254,3 +281,104 @@ impl CodeGen {
         })
     }
 }
+
+struct MatchGenerator<'d> {
+    dfa: &'d Graph,
+    states: Set<syn::Ident>,
+    branches: Vec<TokenStream>,
+    stack: Vec<Node<'d>>,
+}
+
+impl<'d> MatchGenerator<'d> {
+    fn new(dfa: &'d Graph) -> Self {
+        Self {
+            dfa,
+            states: Set::default(),
+            branches: Vec::default(),
+            stack: Vec::with_capacity(dfa.node_count()),
+        }
+    }
+
+    fn run(&mut self) {
+        let visited = Set::default();
+
+        self.stack.push(self.dfa.start_node());
+        while let Some(node) = self.stack.pop() {
+            dbg!(node);
+            visited.insert(node);
+
+            let state_ident = format_ident!("{node}");
+            self.states.insert(state_ident.clone());
+
+            if node.is_epilogue() {
+                self.branches.push(quote! {
+                    stt::#state_ident => {
+                        *m = Some(Match {
+                            hay: haystack,
+                            ranges,
+                        });
+                        break 'main;
+                    }
+                });
+                continue;
+            }
+
+            let mut sub_branches = Vec::<TokenStream>::with_capacity(node.target_count());
+            let mut else_branch = quote! { _ => break 'main };
+
+            for (edge, target) in node.targets() {
+                let target_state_ident = format_ident!("{target}");
+                if edge.is_epsilon() {
+                    else_branch = quote! { _ => curr_state = stt::#target_state_ident };
+                } else {
+                    let dump_match =
+                        if node.is_final() && !target.is_final() && !target.is_epilogue() {
+                            Some(quote! {
+                                 *m = Some(Match { hay: haystack, ranges })
+                            })
+                        } else {
+                            None
+                        };
+                    for range in edge.ranges() {
+                        let start_byte = range.start();
+                        let end_byte = range.last();
+                        sub_branches.push(quote! {
+                            Some(#start_byte..=#end_byte) => {
+                                curr_state = stt::#target_state_ident;
+                                #dump_match;
+                            }
+                        });
+                    }
+                }
+                if !visited.contains(&target) {
+                    self.stack.push(target);
+                }
+            }
+
+            self.branches.push(quote! {
+                stt::#state_ident => {
+                    match source.get(pos) {
+                        #(#sub_branches)*
+                        #else_branch,
+                    }
+                }
+            });
+        }
+    }
+
+    fn states(&self) -> impl Iterator<Item = &syn::Ident> {
+        self.states.iter()
+    }
+
+    fn branches(&self) -> impl Iterator<Item = &TokenStream> {
+        self.branches.iter()
+    }
+}
+
+// Possible optimizations:
+//
+// 1. If final state doesnt have output edges exept for epsilone edge to
+// epilogue without tags, it can be removed
+//
+// 2. If node has only one outgoing edge with one symbol, it can be combined
+// with the next node.

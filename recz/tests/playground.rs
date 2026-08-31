@@ -161,12 +161,11 @@ impl Regex {
         let mut ranges = [INVALID_RANGE; GROUP_COUNT];
         let mut pos = 0;
         let mut curr_state = State::fi_0;
-        let mut iter = haystack.as_bytes().iter().copied();
+        let source = haystack.as_bytes();
         'main: loop {
-            let byte = iter.next();
             match curr_state {
                 State::fi_0 => {
-                    match byte {
+                    match source.get(pos) {
                         Some(b'a'..=b'c') => {
                             ranges[0].start = pos;
                             ranges[1].start = pos;
@@ -186,7 +185,7 @@ impl Regex {
                     };
                 }
                 State::fi_1 => {
-                    match byte {
+                    match source.get(pos) {
                         Some(b'a'..=b'c') => {
                             ranges[1].start = pos;
                             ranges[2].start = pos;
@@ -209,7 +208,7 @@ impl Regex {
                     };
                 }
                 State::fi_2 => {
-                    match byte {
+                    match source.get(pos) {
                         Some(b'a'..=b'f') => {
                             ranges[2].start = pos;
                             ranges[2].end = pos;
