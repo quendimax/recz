@@ -1,8 +1,8 @@
 use crate::Config;
-use proc_macro2::TokenStream;
+use proc_macro2::{Literal, TokenStream};
 use quote::{format_ident, quote};
 use recz_adt::Set;
-use recz_graph::{CaptureLabel, Graph, Node, algo};
+use recz_graph::{CaptureLabel, Edge, Graph, Node, NodeKind, algo};
 use recz_syntax::{Hir, Parser, Result, Translator, codec::Utf8Codec};
 
 pub struct CodeGen {
@@ -286,7 +286,7 @@ struct MatchGenerator<'d> {
     dfa: &'d Graph,
     states: Set<syn::Ident>,
     branches: Vec<TokenStream>,
-    stack: Vec<Node<'d>>,
+    visited: Set<Node<'d>>,
 }
 
 impl<'d> MatchGenerator<'d> {
@@ -295,75 +295,61 @@ impl<'d> MatchGenerator<'d> {
             dfa,
             states: Set::default(),
             branches: Vec::default(),
-            stack: Vec::with_capacity(dfa.node_count()),
+            visited: Set::default(),
         }
     }
 
     fn run(&mut self) {
-        let visited = Set::default();
+        self.handle_node(self.dfa.start_node());
+    }
 
-        self.stack.push(self.dfa.start_node());
-        while let Some(node) = self.stack.pop() {
-            dbg!(node);
-            visited.insert(node);
+    fn handle_node(&mut self, node: Node<'d>) {
+        if self.visited.contains(&node) {
+            return;
+        }
+        self.visited.insert(node);
 
-            let state_ident = format_ident!("{node}");
-            self.states.insert(state_ident.clone());
+        let curr_state_ident = format_ident!("{node}");
+        self.states.insert(curr_state_ident.clone());
 
-            if node.is_epilogue() {
-                self.branches.push(quote! {
-                    stt::#state_ident => {
-                        *m = Some(Match {
-                            hay: haystack,
-                            ranges,
-                        });
+        let match_branch = match node.kind() {
+            NodeKind::Epilogue => {
+                assert_eq!(node.target_count(), 0);
+                quote! {
+                    stt::#curr_state_ident => {
+                        *m = Some(Match { hay: haystack, ranges });
                         break 'main;
                     }
-                });
-                continue;
-            }
-
-            let mut sub_branches = Vec::<TokenStream>::with_capacity(node.target_count());
-            let mut else_branch = quote! { _ => break 'main };
-
-            for (edge, target) in node.targets() {
-                let target_state_ident = format_ident!("{target}");
-                if edge.is_epsilon() {
-                    else_branch = quote! { _ => curr_state = stt::#target_state_ident };
-                } else {
-                    let dump_match =
-                        if node.is_final() && !target.is_final() && !target.is_epilogue() {
-                            Some(quote! {
-                                 *m = Some(Match { hay: haystack, ranges })
-                            })
-                        } else {
-                            None
-                        };
-                    for range in edge.ranges() {
-                        let start_byte = range.start();
-                        let end_byte = range.last();
-                        sub_branches.push(quote! {
-                            Some(#start_byte..=#end_byte) => {
-                                curr_state = stt::#target_state_ident;
-                                #dump_match;
-                            }
-                        });
-                    }
-                }
-                if !visited.contains(&target) {
-                    self.stack.push(target);
                 }
             }
+            NodeKind::Normal | NodeKind::Final => {
+                let mut sub_branches = Vec::<TokenStream>::with_capacity(node.target_count());
+                let mut default_branch = quote! { _ => break 'main };
 
-            self.branches.push(quote! {
-                stt::#state_ident => {
-                    match source.get(pos) {
-                        #(#sub_branches)*
-                        #else_branch,
+                for (edge, target) in node.targets() {
+                    let match_branch = make_match_branch(node, edge, target);
+                    if edge.is_epsilon() {
+                        default_branch = match_branch;
+                    } else {
+                        sub_branches.push(match_branch);
+                    }
+                    self.handle_node(target);
+                }
+
+                quote! {
+                    stt::#curr_state_ident => {
+                        match source.get(pos) {
+                            #(#sub_branches,)*
+                            #default_branch,
+                        }
                     }
                 }
-            });
-        }
+            }
+            _ => {
+                todo!()
+            }
+        };
+        self.branches.push(match_branch);
     }
 
     fn states(&self) -> impl Iterator<Item = &syn::Ident> {
@@ -373,6 +359,44 @@ impl<'d> MatchGenerator<'d> {
     fn branches(&self) -> impl Iterator<Item = &TokenStream> {
         self.branches.iter()
     }
+}
+
+fn make_match_branch<'d>(source: Node<'d>, edge: Edge<'d>, target: Node<'d>) -> TokenStream {
+    let match_arm = make_match_arm(edge);
+    let match_expression = make_match_expression(source, edge, target);
+    quote! { #match_arm => #match_expression }
+}
+
+fn make_match_arm<'d>(edge: Edge<'d>) -> TokenStream {
+    if edge.is_epsilon() {
+        return quote!(_);
+    }
+    let ranges = edge.ranges().map(|r| {
+        if r.width() == Some(1) {
+            let byte = Literal::byte_character(r.start());
+            quote!(#byte)
+        } else {
+            let start = Literal::byte_character(r.start());
+            let last = Literal::byte_character(r.last());
+            quote!(#start..=#last)
+        }
+    });
+    quote! { Some(#(#ranges)*) }
+}
+
+fn make_match_expression<'d>(source: Node<'d>, _edge: Edge<'d>, target: Node<'d>) -> TokenStream {
+    let update_result_match = if source.is_final() && !target.is_final() && !target.is_epilogue() {
+        Some(quote! { *m = Some(Match { hay: haystack, ranges }) })
+    } else {
+        None
+    }
+    .into_iter();
+
+    let target_state_ident = format_ident!("{target}");
+    quote!({
+        curr_state = stt::#target_state_ident;
+        #(#update_result_match;)*
+    })
 }
 
 // Possible optimizations:
