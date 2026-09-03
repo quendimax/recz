@@ -20,17 +20,6 @@ pub enum TagKind {
 
     /// A tag used to mark a group's tags for deletion.
     DeleteGroup(u32),
-
-    /// A tag used to mark zero sized start of input text (or start of line in
-    /// multiline mode).
-    StartOfInput,
-
-    /// A tag used to mark zero sized end of input text (or end of line in
-    /// multiline mode).
-    EndOfInput,
-
-    /// A tag used to mark a border between a word and a non-word.
-    WordBoundary,
 }
 
 use TagKind::*;
@@ -52,18 +41,12 @@ impl Tag {
                 DeleteGroup(group_idx) => {
                     write!(f, "{}{}", "!g".bright_blue(), group_idx.bright_blue())
                 }
-                StartOfInput => write!(f, "{}", "^".bright_blue()),
-                EndOfInput => write!(f, "{}", "$".bright_blue()),
-                WordBoundary => write!(f, "{}", "\\b".bright_blue()),
             }
         } else {
             match self.kind {
                 OpenGroup(group_idx) => write!(f, "+g{group_idx}"),
                 CloseGroup(group_idx) => write!(f, "-g{group_idx}"),
                 DeleteGroup(group_idx) => write!(f, "!g{group_idx}"),
-                StartOfInput => write!(f, "^"),
-                EndOfInput => write!(f, "$"),
-                WordBoundary => write!(f, "\\b"),
             }
         }
     }

@@ -2,7 +2,7 @@ use crate::Config;
 use proc_macro2::{Literal, TokenStream};
 use quote::{format_ident, quote};
 use recz_adt::Set;
-use recz_graph::{CaptureLabel, Edge, Graph, Node, NodeKind, algo};
+use recz_graph::{CaptureLabel, Edge, Graph, Node, NodeKind, TagKind, algo};
 use recz_syntax::{Hir, Parser, Result, Translator, codec::Utf8Codec};
 
 pub struct CodeGen {
@@ -72,7 +72,7 @@ impl CodeGen {
         let mtch_states = mtch_gen.states();
         let start_node = self.mtch_dfa.start_node();
         let start_state_ident = format_ident!("{start_node}");
-        let match_branches = mtch_gen.branches();
+        let match_branches = mtch_gen.match_arms();
 
         quote!({
             mod adhoc {
@@ -285,7 +285,7 @@ impl CodeGen {
 struct MatchGenerator<'d> {
     dfa: &'d Graph,
     states: Set<syn::Ident>,
-    branches: Vec<TokenStream>,
+    state_arms: Vec<TokenStream>,
     visited: Set<Node<'d>>,
 }
 
@@ -294,7 +294,7 @@ impl<'d> MatchGenerator<'d> {
         Self {
             dfa,
             states: Set::default(),
-            branches: Vec::default(),
+            state_arms: Vec::default(),
             visited: Set::default(),
         }
     }
@@ -312,7 +312,7 @@ impl<'d> MatchGenerator<'d> {
         let curr_state_ident = format_ident!("{node}");
         self.states.insert(curr_state_ident.clone());
 
-        let match_branch = match node.kind() {
+        let state_arm = match node.kind() {
             NodeKind::Epilogue => {
                 assert_eq!(node.target_count(), 0);
                 quote! {
@@ -323,15 +323,15 @@ impl<'d> MatchGenerator<'d> {
                 }
             }
             NodeKind::Normal | NodeKind::Final => {
-                let mut sub_branches = Vec::<TokenStream>::with_capacity(node.target_count());
-                let mut default_branch = quote! { _ => break 'main };
+                let mut symbol_arms = Vec::<TokenStream>::with_capacity(node.target_count());
+                let mut default_arm = quote! { _ => break 'main };
 
                 for (edge, target) in node.targets() {
-                    let match_branch = make_match_branch(node, edge, target);
+                    let symbol_arm = make_match_arm(node, edge, target);
                     if edge.is_epsilon() {
-                        default_branch = match_branch;
+                        default_arm = symbol_arm;
                     } else {
-                        sub_branches.push(match_branch);
+                        symbol_arms.push(symbol_arm);
                     }
                     self.handle_node(target);
                 }
@@ -339,8 +339,8 @@ impl<'d> MatchGenerator<'d> {
                 quote! {
                     stt::#curr_state_ident => {
                         match source.get(pos) {
-                            #(#sub_branches,)*
-                            #default_branch,
+                            #(#symbol_arms,)*
+                            #default_arm,
                         }
                     }
                 }
@@ -349,25 +349,25 @@ impl<'d> MatchGenerator<'d> {
                 todo!()
             }
         };
-        self.branches.push(match_branch);
+        self.state_arms.push(state_arm);
     }
 
     fn states(&self) -> impl Iterator<Item = &syn::Ident> {
         self.states.iter()
     }
 
-    fn branches(&self) -> impl Iterator<Item = &TokenStream> {
-        self.branches.iter()
+    fn match_arms(&self) -> impl Iterator<Item = &TokenStream> {
+        self.state_arms.iter()
     }
 }
 
-fn make_match_branch<'d>(source: Node<'d>, edge: Edge<'d>, target: Node<'d>) -> TokenStream {
-    let match_arm = make_match_arm(edge);
-    let match_expression = make_match_expression(source, edge, target);
-    quote! { #match_arm => #match_expression }
+fn make_match_arm<'d>(source: Node<'d>, edge: Edge<'d>, target: Node<'d>) -> TokenStream {
+    let pattern = make_match_arm_pat(edge);
+    let expression = make_match_arm_expr(source, edge, target);
+    quote! { #pattern => #expression }
 }
 
-fn make_match_arm<'d>(edge: Edge<'d>) -> TokenStream {
+fn make_match_arm_pat<'d>(edge: Edge<'d>) -> TokenStream {
     if edge.is_epsilon() {
         return quote!(_);
     }
@@ -381,21 +381,27 @@ fn make_match_arm<'d>(edge: Edge<'d>) -> TokenStream {
             quote!(#start..=#last)
         }
     });
-    quote! { Some(#(#ranges)*) }
+    quote! { Some(#(#ranges)|*) }
 }
 
-fn make_match_expression<'d>(source: Node<'d>, _edge: Edge<'d>, target: Node<'d>) -> TokenStream {
+fn make_match_arm_expr<'d>(source: Node<'d>, edge: Edge<'d>, target: Node<'d>) -> TokenStream {
     let update_result_match = if source.is_final() && !target.is_final() && !target.is_epilogue() {
-        Some(quote! { *m = Some(Match { hay: haystack, ranges }) })
+        quote! { *m = Some(Match { hay: haystack, ranges }); }
     } else {
-        None
-    }
-    .into_iter();
+        quote! {}
+    };
+
+    let tag_exprs = edge.tags().map(|tag| match tag.kind() {
+        TagKind::OpenGroup(index) => quote! { ranges[#index as usize].start = pos; },
+        TagKind::CloseGroup(index) => quote! { ranges[#index as usize].end = pos; },
+        TagKind::DeleteGroup(index) => quote! { ranges[#index as usize].end = usize::MAX; },
+    });
 
     let target_state_ident = format_ident!("{target}");
     quote!({
+        #(#tag_exprs)*
         curr_state = stt::#target_state_ident;
-        #(#update_result_match;)*
+        #update_result_match
     })
 }
 

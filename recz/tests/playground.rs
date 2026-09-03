@@ -134,7 +134,7 @@ enum State {
     fi_0,
     fi_1,
     fi_2,
-    ge_3,
+    eg_3,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -180,7 +180,7 @@ impl Regex {
                         _ => {
                             ranges[0].start = pos;
                             ranges[0].end = pos;
-                            curr_state = State::ge_3;
+                            curr_state = State::eg_3;
                         }
                     };
                 }
@@ -203,7 +203,7 @@ impl Regex {
                             ranges[0].end = pos;
                             ranges[1].end = pos;
                             ranges[2].end = pos;
-                            curr_state = State::ge_3;
+                            curr_state = State::eg_3;
                         }
                     };
                 }
@@ -217,11 +217,11 @@ impl Regex {
                         _ => {
                             ranges[0].end = pos;
                             ranges[2].end = pos;
-                            curr_state = State::ge_3;
+                            curr_state = State::eg_3;
                         }
                     };
                 }
-                State::ge_3 => {
+                State::eg_3 => {
                     *result = Some(Match {
                         hay: haystack,
                         ranges,
