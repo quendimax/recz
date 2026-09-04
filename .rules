@@ -1,13 +1,15 @@
 # recz — project guide for AI agents
 
+This file provides guidance to Claude Code (claude.ai/code) when working with
+code in this repository.
+
 ## Overview
 
-`recz` is a Rust framework for working with regular expressions.
+`recz` is a Rust framework for working with regular expressions, distributed as
+a Cargo workspace of several crates.
 
 - **License**: MPL-2.0
 - **Repository**: <https://github.org/quendimax/recz>
-
----
 
 ## Commands
 
@@ -18,10 +20,10 @@ cargo build
 # run all tests (unit + integration + doctests)
 cargo test
 
-# run basic tests (unit + integration)
+# run basic tests (unit + integration), faster than `cargo test`
 cargo nextest run
 
-# run doc-tests
+# run doc-tests only
 cargo test --doc
 
 # run only the unit tests inside src/
@@ -33,7 +35,10 @@ cargo nextest run --test itest_std
 # run the no_std integration tests (ordmap, ordset, vec)
 cargo nextest run --test itest
 
-# check without building
+# run a single test by name
+cargo nextest run <test_name>
+
+# lint
 cargo clippy
 
 # run miri (memory safety checker)
@@ -44,4 +49,47 @@ cargo llvm-cov
 
 # run code coverage and open the report in the browser
 BROWSER=firefox cargo llvm-cov --open
+
+# run benchmarks (see recz-bench/README.md for the valgrind/AVX512 caveat)
+RUSTFLAGS="-Ctarget-cpu=x86-64-v3" cargo bench --target=x86_64-unknown-linux-musl -p recz-bench
 ```
+
+## Architecture
+
+The workspace implements a regex engine as a compile-time code generator: a
+pattern string is turned into a tagged NFA, determinized into a tagged DFA, and
+then emitted as Rust source that is spliced into the caller's code via a proc
+macro. Data flows through the crates in this order:
+
+1. **`recz-syntax`** — parses a pattern string into a syntax tree and then an HIR
+   (`Lexer`/`Token` in `lexis.rs` → `Parser` in `syntax.rs` → `Hir` variants in
+   `hir.rs`: `Literal`, `Class`, `Group`, `Repeat`, `Concat`, `Disjunct`). It also
+   re-exports `recz-codec` as `recz_syntax::codec`.
+2. **`recz-codec`** — encodes/decodes text for the byte-oriented matcher (`Codec`
+   trait implemented by `AsciiCodec`, `Latin1Codec`, `Utf8Codec`), since the graph
+   below operates on raw bytes, not chars.
+3. **`recz-graph`** — the NFA/DFA representation. `Translator` (in
+   `recz-syntax/src/translator.rs`) walks the HIR and builds a `Graph` of `Node`s
+   connected by `Edge`s (byte-set transitions, or epsilon transitions when a
+   transition carries no symbols). `Tag`/`TagKind` mark capture-group boundaries on
+   edges (a tagged NFA); `algo::determine` converts the NFA into a DFA `Graph`.
+   `capture.rs` defines `CaptureGroup`/`CaptureLabel` (numbered or named groups).
+4. **`recz-codegen`** — `CodeGen::build` drives the pipeline above (parse → HIR →
+   NFA via `Translator` → DFA via `algo::determine`) for a given `Config`
+   (visibility, haystack type, pattern literal), then `CodeGen::generate` emits a
+   `TokenStream` of Rust code implementing the matcher/capture logic for that DFA.
+5. **`recz-macro`** — the `__re` proc macro (re-exported as `re!` from `recz`)
+   parses a string literal at compile time and calls into `recz-codegen` to expand
+   to generated matcher code inline.
+6. **`recz`** — the public-facing crate. Exposes the `re!` macro, `Label` (capture
+   group labels, numeric or named), and the `str` module used by generated code.
+7. **`recz-adt`** — shared abstract data types used across the above crates:
+   arena-backed `Map`/`Set`/`OrdMap`/`OrdSet` (via the `bumpish` crate), `Range`/
+   `RangeList`, `SetU8` (byte-set representation used for edge labels), and the
+   `Step` trait. `recz-graph` and `recz-syntax` build directly on these types
+   rather than `std` collections.
+8. **`recz-cli`** and **`recz-bench`** — a CLI front-end and benchmark suite over
+   the crates above; not part of the default build members for the library crates.
+
+Because `recz` and `recz-adt` are `no_std` (see their `lib.rs`), avoid introducing
+`std`-only dependencies into those crates or their non-test code paths.
