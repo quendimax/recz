@@ -197,11 +197,30 @@ fn parse_named_group() {
     );
 
     assert_eq!(
+        parse("(?P<a1>hello)"),
+        Ok(Hir::group("a1", Hir::literal("hello")))
+    );
+    assert_eq!(
+        parse("(?P<__aA>hello)"),
+        Ok(Hir::group("__aA", Hir::literal("hello")))
+    );
+
+    assert_eq!(
         parse("(?<12345>hello)"),
         err::invalid_capture_label_char(3..4)
     );
     assert_eq!(parse("(?<a?>hello)"), err::invalid_capture_label_char(4..5));
     assert_eq!(parse("(?<>hello)"), err::empty_capture_label(2..4));
+
+    assert_eq!(
+        parse("(?P<12345>hello)"),
+        err::invalid_capture_label_char(4..5)
+    );
+    assert_eq!(
+        parse("(?P<a?>hello)"),
+        err::invalid_capture_label_char(5..6)
+    );
+    assert_eq!(parse("(?P<>hello)"), err::empty_capture_label(3..5));
 
     let lexer = Lexer::new("(?<a>he)(?<a>llo)");
     let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);

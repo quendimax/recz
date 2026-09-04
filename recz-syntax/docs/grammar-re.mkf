@@ -28,6 +28,7 @@ group
     "(" disjunct ")"                       ; just parentheses
     "(?:" disjunct ")"                     ; non-capturing group (the same as "(" disjunct ")")
     "(?<" capture_name ">" disjunct ")"    ; named capturing group
+    "(?P<" capture_name ">" disjunct ")"    ; named capturing group
     "(?D<" decimal ">" disjunct ")"        ; numbered capturing group
 
 class               ; class corresponds to a subset of unicode code points

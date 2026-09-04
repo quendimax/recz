@@ -272,8 +272,12 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
                 self.lexer.consume_peeked();
                 self.parse_disjunct()?
             }
-            tok::char('D') => self.parse_numbered_capture_group()?,
             tok::char('<') => self.parse_named_capture_group()?,
+            tok::char('P') => {
+                self.lexer.consume_peeked();
+                self.parse_named_capture_group()?
+            }
+            tok::char('D') => self.parse_numbered_capture_group()?,
             _ => {
                 let misspan = token.span();
                 let misspell = self.lexer.slice(misspan.clone());
