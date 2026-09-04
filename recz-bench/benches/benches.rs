@@ -14,7 +14,7 @@ fn rangeu8_into_setu8(range: impl Into<RangeU8>) -> SetU8 {
 library_benchmark_group!(name = adt, benchmarks = rangeu8_into_setu8);
 
 #[library_benchmark]
-#[benches::one(args = ["hello", "aa*", ".*(?D<0>aa*)"])]
+#[benches::one(args = ["hello", "aa*", ".*(?D<1>aa*)"])]
 fn parse_regex(regex: &str) -> Hir {
     let parser = Parser::new(Utf8Codec);
     parser.parse(regex).unwrap()
@@ -23,7 +23,7 @@ fn parse_regex(regex: &str) -> Hir {
 library_benchmark_group!(name = syntax, benchmarks = parse_regex);
 
 #[library_benchmark]
-#[benches::one(args = ["hello", "aa*", ".*(?D<0>aa*)"])]
+#[benches::one(args = ["hello", "aa*", ".*(?D<1>aa*)"])]
 fn build_dfa(regex: &str) -> Graph {
     let parser = Parser::new(Utf8Codec);
     let hir = parser.parse(regex).unwrap();
