@@ -6,17 +6,38 @@ use recz_graph::{CaptureLabel, Edge, Graph, Node, NodeKind, TagKind};
 
 pub struct CodeGen {
     config: Config,
-    labels: Vec<CaptureLabel>,
+    num_labels: Vec<u32>,
+    str_labels: Vec<Box<str>>,
     dfa: Graph,
 }
 
 impl CodeGen {
     pub fn build(config: Config, dfa: Graph) -> Self {
-        let labels: Vec<_> = dfa.groups().map(|gr| gr.label()).collect();
+        let num_labels: Vec<_> = dfa
+            .groups()
+            .filter_map(|gr| {
+                if let CaptureLabel::Num(num) = gr.label() {
+                    Some(num)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let str_labels: Vec<_> = dfa
+            .groups()
+            .filter_map(|gr| {
+                if let CaptureLabel::Str(str) = gr.label() {
+                    Some(str)
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         Self {
             config,
-            labels,
+            num_labels,
+            str_labels,
             dfa,
         }
     }
@@ -32,29 +53,45 @@ impl CodeGen {
             quote! { as_bytes }
         };
 
-        let labels_len = self.labels.len();
-        let labels = self.labels.iter().map(|label| match label {
+        let labels_len = self.num_labels.len() + self.str_labels.len();
+        let labels = self.dfa.groups().map(|group| match group.label() {
             CaptureLabel::Num(n) => quote! { Label::Num(#n) },
             CaptureLabel::Str(s) => quote! { Label::Str(#s) },
         });
 
-        let match_idx_from_num_branches =
-            self.labels.iter().enumerate().filter_map(|(idx, lbl)| {
-                if let CaptureLabel::Num(num) = lbl {
-                    Some(quote!(#num => #idx))
-                } else {
-                    None
-                }
+        let capture_by_num_body = if !self.num_labels.is_empty() {
+            let match_arms = self.num_labels.iter().map(|num| {
+                let group = self.dfa.group(CaptureLabel::Num(*num));
+                let idx = group.index();
+                quote!(#num => #idx)
             });
+            quote! {
+                let idx = match label {
+                    #(#match_arms,)*
+                    _ => return None,
+                };
+                self.range_to_capture(idx)
+            }
+        } else {
+            quote! { None }
+        };
 
-        let match_idx_from_str_branches =
-            self.labels.iter().enumerate().filter_map(|(idx, lbl)| {
-                if let CaptureLabel::Str(str) = lbl {
-                    Some(quote!(#str => #idx))
-                } else {
-                    None
-                }
+        let capture_by_str_body = if !self.str_labels.is_empty() {
+            let match_arms = self.str_labels.iter().map(|str| {
+                let group = self.dfa.group(CaptureLabel::Str(str.clone()));
+                let idx = group.index();
+                quote!(#str => #idx)
             });
+            quote! {
+                let idx = match label {
+                    #(#match_arms,)*
+                    _ => return None,
+                };
+                self.range_to_capture(idx)
+            }
+        } else {
+            quote! { None }
+        };
 
         let mut mtch_gen = MatchGenerator::new(&self.dfa);
         mtch_gen.run();
@@ -174,20 +211,12 @@ impl CodeGen {
 
                 #[inline]
                 #vis fn capture_by_num(&self, label: u32) -> Option<Capture<'h>> {
-                    let idx = match label {
-                        #(#match_idx_from_num_branches,)*
-                        _ => return None,
-                    };
-                    self.range_to_capture(idx)
+                    #capture_by_num_body
                 }
 
                 #[inline]
                 #vis fn capture_by_str(&self, label: &str) -> Option<Capture<'h>> {
-                    let idx = match label {
-                        #(#match_idx_from_str_branches,)*
-                        _ => return None,
-                    };
-                    self.range_to_capture(idx)
+                    #capture_by_str_body
                 }
             }
 

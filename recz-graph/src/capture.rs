@@ -68,6 +68,10 @@ impl CaptureGroup {
         self.label.clone()
     }
 
+    pub fn index(&self) -> usize {
+        self.tag_index as usize
+    }
+
     pub fn open_tag(&self) -> Tag {
         Tag::new(OpenGroup(self.tag_index))
     }
