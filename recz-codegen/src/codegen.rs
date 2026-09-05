@@ -2,33 +2,23 @@ use crate::Config;
 use proc_macro2::{Literal, TokenStream};
 use quote::{format_ident, quote};
 use recz_adt::Set;
-use recz_graph::{CaptureLabel, Edge, Graph, Node, NodeKind, TagKind, algo};
-use recz_syntax::{Hir, Parser, Result, Translator, codec::Utf8Codec};
+use recz_graph::{CaptureLabel, Edge, Graph, Node, NodeKind, TagKind};
 
 pub struct CodeGen {
     config: Config,
     labels: Vec<CaptureLabel>,
-    mtch_dfa: Graph,
+    dfa: Graph,
 }
 
 impl CodeGen {
-    pub fn build(config: Config) -> Result<Self> {
-        let parser = Parser::new(Utf8Codec);
-        let hir = parser.parse(&config.pattern.value())?;
-        let hir = Hir::group(0u32, hir);
-        let nfa = Graph::new();
-        let mut tr = Translator::new(&nfa);
-        tr.translate(&hir, nfa.start_node(), nfa.node().finalize());
-        let mtch_dfa = algo::determine(&nfa);
+    pub fn build(config: Config, dfa: Graph) -> Self {
+        let labels: Vec<_> = dfa.groups().map(|gr| gr.label()).collect();
 
-        let labels: Vec<_> = nfa.groups().map(|gr| gr.label()).collect();
-        assert_ne!(labels.len(), 0);
-
-        Ok(Self {
+        Self {
             config,
             labels,
-            mtch_dfa,
-        })
+            dfa,
+        }
     }
 
     pub fn generate(&self) -> TokenStream {
@@ -66,219 +56,214 @@ impl CodeGen {
                 }
             });
 
-        let mut mtch_gen = MatchGenerator::new(&self.mtch_dfa);
+        let mut mtch_gen = MatchGenerator::new(&self.dfa);
         mtch_gen.run();
 
         let mtch_states = mtch_gen.states();
-        let start_node = self.mtch_dfa.start_node();
+        let start_node = self.dfa.start_node();
         let start_state_ident = format_ident!("{start_node}");
         let match_branches = mtch_gen.match_arms();
 
-        quote!({
-            mod adhoc {
-                use ::core::convert::AsRef;
-                use ::core::option::Option;
-                use ::core::range::Range;
-                use ::recz::Label;
+        quote!(
+            use ::core::convert::AsRef;
+            use ::core::option::Option;
+            use ::core::range::Range;
+            use ::recz::Label;
 
-                //------------------------------------------------------------------
-                // Capture
-                //------------------------------------------------------------------
+            //------------------------------------------------------------------
+            // Capture
+            //------------------------------------------------------------------
 
-                #[derive(Debug, Clone, PartialEq, Eq)]
-                #vis struct Capture<'h> {
-                    capture: &'h #hay_ty,
-                    start: usize,
+            #[derive(Debug, Clone, PartialEq, Eq)]
+            #vis struct Capture<'h> {
+                capture: &'h #hay_ty,
+                start: usize,
+            }
+
+            impl<'h> Capture<'h> {
+                #[inline]
+                #vis fn #as_str_fn(&self) -> &'h #hay_ty {
+                    self.capture
                 }
 
-                impl<'h> Capture<'h> {
-                    #[inline]
-                    #vis fn #as_str_fn(&self) -> &'h #hay_ty {
-                        self.capture
-                    }
+                #[inline]
+                #vis const fn start(&self) -> usize {
+                    self.start
+                }
 
-                    #[inline]
-                    #vis const fn start(&self) -> usize {
-                        self.start
-                    }
+                #[inline]
+                #vis const fn end(&self) -> usize {
+                    self.start + self.capture.len()
+                }
 
-                    #[inline]
-                    #vis const fn end(&self) -> usize {
-                        self.start + self.capture.len()
-                    }
-
-                    #[inline]
-                    #vis const fn range(&self) -> Range<usize> {
-                        Range {
-                            start: self.start(),
-                            end: self.end(),
-                        }
-                    }
-
-                    #[inline]
-                    #vis const fn len(&self) -> usize {
-                        self.capture.len()
-                    }
-
-                    #[inline]
-                    #vis const fn is_empty(&self) -> bool {
-                        self.capture.is_empty()
+                #[inline]
+                #vis const fn range(&self) -> Range<usize> {
+                    Range {
+                        start: self.start(),
+                        end: self.end(),
                     }
                 }
 
-                //------------------------------------------------------------------
-                // Match
-                //------------------------------------------------------------------
-
-                #[derive(Debug, Clone, PartialEq, Eq)]
-                #vis struct Match<'h> {
-                    hay: &'h #hay_ty,
-                    ranges: [Range<usize>; #labels_len]
+                #[inline]
+                #vis const fn len(&self) -> usize {
+                    self.capture.len()
                 }
 
-                /// Implementation of Capture API.
-                impl<'h> Match<'h> {
-                    #[inline]
-                    #vis fn #as_str_fn(&self) -> &'h #hay_ty {
-                        &self.hay[self.range()]
-                    }
+                #[inline]
+                #vis const fn is_empty(&self) -> bool {
+                    self.capture.is_empty()
+                }
+            }
 
-                    #[inline]
-                    #vis const fn start(&self) -> usize {
-                        self.ranges[0].start
-                    }
+            //------------------------------------------------------------------
+            // Match
+            //------------------------------------------------------------------
 
-                    #[inline]
-                    #vis const fn end(&self) -> usize {
-                        self.ranges[0].end
-                    }
+            #[derive(Debug, Clone, PartialEq, Eq)]
+            #vis struct Match<'h> {
+                hay: &'h #hay_ty,
+                ranges: [Range<usize>; #labels_len]
+            }
 
-                    #[inline]
-                    #vis const fn range(&self) -> Range<usize> {
-                        self.ranges[0]
-                    }
-
-                    #[inline]
-                    #vis const fn len(&self) -> usize {
-                        self.end() - self.start()
-                    }
-
-                    #[inline]
-                    #vis const fn is_empty(&self) -> bool {
-                        self.end() == self.start()
-                    }
+            impl<'h> Match<'h> {
+                #[inline]
+                #vis fn #as_str_fn(&self) -> &'h #hay_ty {
+                    &self.hay[self.range()]
                 }
 
-                impl<'h> Match<'h> {
-                    #[inline]
-                    #vis const fn haystack(&self) -> &'h #hay_ty {
-                        self.hay
-                    }
+                #[inline]
+                #vis const fn start(&self) -> usize {
+                    self.ranges[0].start
+                }
 
-                    #[inline]
-                    #vis fn capture<'a>(&self, label: impl Into<Label<'a>>) -> Option<Capture<'h>> {
-                        match label.into() {
-                            Label::Str("") => None,
-                            Label::Str(s) => self.capture_by_str(s),
-                            Label::Num(n) => self.capture_by_num(n),
-                        }
-                    }
+                #[inline]
+                #vis const fn end(&self) -> usize {
+                    self.ranges[0].end
+                }
 
-                    #[inline]
-                    #vis fn capture_by_num(&self, label: u32) -> Option<Capture<'h>> {
-                        let idx = match label {
-                            #(#match_idx_from_num_branches,)*
-                            _ => return None,
-                        };
-                        self.range_to_capture(idx)
-                    }
+                #[inline]
+                #vis const fn range(&self) -> Range<usize> {
+                    self.ranges[0]
+                }
 
-                    #[inline]
-                    #vis fn capture_by_str(&self, label: &str) -> Option<Capture<'h>> {
-                        let idx = match label {
-                            #(#match_idx_from_str_branches,)*
-                            _ => return None,
-                        };
-                        self.range_to_capture(idx)
+                #[inline]
+                #vis const fn len(&self) -> usize {
+                    self.end() - self.start()
+                }
+
+                #[inline]
+                #vis const fn is_empty(&self) -> bool {
+                    self.end() == self.start()
+                }
+            }
+
+            impl<'h> Match<'h> {
+                #[inline]
+                #vis const fn haystack(&self) -> &'h #hay_ty {
+                    self.hay
+                }
+
+                #[inline]
+                #vis fn capture<'a>(&self, label: impl Into<Label<'a>>) -> Option<Capture<'h>> {
+                    match label.into() {
+                        Label::Str("") => None,
+                        Label::Str(s) => self.capture_by_str(s),
+                        Label::Num(n) => self.capture_by_num(n),
                     }
                 }
 
-                impl<'h> Match<'h> {
-                    #[inline]
-                    fn range_to_capture(&self, idx: usize) -> Option<Capture<'h>> {
-                        let range = self.ranges[idx];
-                        if range.end != usize::MAX {
-                            Some(Capture {
-                                capture: &self.hay[range],
-                                start: range.start,
-                            })
-                        } else {
-                            None
-                        }
-                    }
+                #[inline]
+                #vis fn capture_by_num(&self, label: u32) -> Option<Capture<'h>> {
+                    let idx = match label {
+                        #(#match_idx_from_num_branches,)*
+                        _ => return None,
+                    };
+                    self.range_to_capture(idx)
                 }
 
-                //------------------------------------------------------------------
-                // Regex
-                //------------------------------------------------------------------
-
-                #[derive(Debug, Clone, PartialEq, Eq)]
-                #vis struct Regex;
-
-                impl Regex {
-                    #[inline]
-                    #vis const fn pattern(&self) -> &'static str {
-                        #pattern
-                    }
-
-                    #[inline]
-                    #vis const fn capture_labels(&self) -> &'static [Label<'static>] {
-                        &[#(#labels),*]
-                    }
-
-                    #[inline]
-                    #vis fn mtch<'h>(&self, haystack: &'h #hay_ty) -> Option<Match<'h>> {
-                        let mut m = None;
-                        self.match_impl(haystack, &mut m);
-                        m
-                    }
-
-                    #[inline]
-                    #vis fn find<'h>(&self, haystack: &'h #hay_ty) -> Option<Match<'h>> {
-                        unimplemented!()
-                    }
+                #[inline]
+                #vis fn capture_by_str(&self, label: &str) -> Option<Capture<'h>> {
+                    let idx = match label {
+                        #(#match_idx_from_str_branches,)*
+                        _ => return None,
+                    };
+                    self.range_to_capture(idx)
                 }
+            }
 
-                impl Regex {
-                    fn match_impl<'h>(&self, haystack: &'h #hay_ty, m: &mut Option<Match<'h>>) {
-                        const INVALID_RANGE: Range<usize> = Range {
-                            start: usize::MAX,
-                            end: usize::MAX,
-                        };
-
-                        #[allow(non_camel_case_types)]
-                        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-                        enum stt {
-                            #(#mtch_states,)*
-                        }
-
-                        let source = AsRef::<[u8]>::as_ref(haystack);
-                        let mut ranges = [INVALID_RANGE; #labels_len];
-                        let mut pos = 0usize;
-                        let mut curr_state = stt::#start_state_ident;
-
-                        'main: loop {
-                            match curr_state {
-                                #(#match_branches)*
-                            }
-                            pos += 1;
-                        }
+            impl<'h> Match<'h> {
+                #[inline]
+                fn range_to_capture(&self, idx: usize) -> Option<Capture<'h>> {
+                    let range = self.ranges[idx];
+                    if range.end != usize::MAX {
+                        Some(Capture {
+                            capture: &self.hay[range],
+                            start: range.start,
+                        })
+                    } else {
+                        None
                     }
                 }
             }
 
-            adhoc::Regex
-        })
+            //------------------------------------------------------------------
+            // Regex
+            //------------------------------------------------------------------
+
+            #[derive(Debug, Clone, PartialEq, Eq)]
+            #vis struct Regex;
+
+            impl Regex {
+                #[inline]
+                #vis const fn pattern(&self) -> &'static str {
+                    #pattern
+                }
+
+                #[inline]
+                #vis const fn capture_labels(&self) -> &'static [Label<'static>] {
+                    &[#(#labels),*]
+                }
+
+                #[inline]
+                #vis fn mtch<'h>(&self, haystack: &'h #hay_ty) -> Option<Match<'h>> {
+                    let mut m = None;
+                    self.match_impl(haystack, &mut m);
+                    m
+                }
+
+                #[inline]
+                #vis fn find<'h>(&self, haystack: &'h #hay_ty) -> Option<Match<'h>> {
+                    unimplemented!()
+                }
+            }
+
+            impl Regex {
+                fn match_impl<'h>(&self, haystack: &'h #hay_ty, m: &mut Option<Match<'h>>) {
+                    const INVALID_RANGE: Range<usize> = Range {
+                        start: usize::MAX,
+                        end: usize::MAX,
+                    };
+
+                    #[allow(non_camel_case_types)]
+                    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+                    enum stt {
+                        #(#mtch_states,)*
+                    }
+
+                    let source = AsRef::<[u8]>::as_ref(haystack);
+                    let mut ranges = [INVALID_RANGE; #labels_len];
+                    let mut pos = 0usize;
+                    let mut curr_state = stt::#start_state_ident;
+
+                    'main: loop {
+                        match curr_state {
+                            #(#match_branches)*
+                        }
+                        pos += 1;
+                    }
+                }
+            }
+        )
     }
 }
 

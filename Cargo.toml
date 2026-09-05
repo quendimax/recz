@@ -29,12 +29,14 @@ repository = "https://github.com/quendimax/recz"
 [workspace.dependencies]
 ahash = "0.8"
 arrayvec = { version = "0.7", default-features = false }
+bat = "0.26"
 bumpish = "0.5.1"
 clap = "4.6"
 equivalent = { version = "1", default-features = false }
 miette = "7"
 owo-colors = "4"
 pretty_assertions = "1"
+prettyplease = "0.3"
 proc-macro2 = "1"
 proptest = "1"
 quote = "1"

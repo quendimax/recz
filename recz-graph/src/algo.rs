@@ -62,6 +62,10 @@ impl<'d, 'n> Determinator<'d, 'n> {
             return;
         }
 
+        for group in self.nfa.groups() {
+            _ = self.dfa.group(group.label().clone());
+        }
+
         let start_closure = self.e_close(Rc::new([self.nfa.start_node()].into()));
         self.lambda(start_closure);
 
