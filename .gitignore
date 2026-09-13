@@ -1,6 +1,7 @@
-/target
-/.zed
 .DS_Store
+/.claude
+/.zed
+/target
 
 # output of different profiling tools
 *.perf
