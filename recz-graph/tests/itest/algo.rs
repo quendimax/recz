@@ -224,3 +224,23 @@ fn ambiguity_3() {
         )
     );
 }
+
+#[test]
+fn ambiguity_4() {
+    assert_eq!(
+        parse(r"(?<out>(?<in>a*)*)").unwrap(),
+        lit!(
+            ///graph {
+            ///  fi_0 {
+            ///    'a' / +g0,+g1,-g1 -> fi_1
+            ///    EPS / +g0,+g1,-g0,-g1 -> eg_2
+            ///  }
+            ///  fi_1 {
+            ///    'a' / +g1,-g1 -> self
+            ///    EPS / +g1,-g0,-g1 -> eg_2
+            ///  }
+            ///  eg_2 {}
+            ///}
+        ),
+    );
+}
