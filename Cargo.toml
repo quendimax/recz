@@ -52,4 +52,5 @@ incremental = false
 
 [profile.bench]
 debug = true
+incremental = false
 strip = false
