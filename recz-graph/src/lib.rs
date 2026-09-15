@@ -1,4 +1,5 @@
 pub mod algo;
+pub mod algo2;
 
 mod capture;
 pub use capture::{CaptureGroup, CaptureLabel};

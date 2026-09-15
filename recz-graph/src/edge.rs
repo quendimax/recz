@@ -1,7 +1,7 @@
 use crate::tag::Tag;
 use owo_colors::OwoColorize;
 use recz_adt::{ByteIter, Legible, RangeIter, Set, SetU8};
-use std::iter::Iterator;
+use std::iter::DoubleEndedIterator;
 
 /// Edge is a transition from one node to another that contains symbols and
 /// tags. The symbols are bytes. If the edge doesn't have any symbols it is
@@ -240,7 +240,7 @@ impl<'a> Edge<'a> {
     /// assert_eq!(edge.tags().count(), 2);
     /// ```
     #[inline]
-    pub fn tags(&self) -> impl Iterator<Item = Tag> {
+    pub fn tags(&self) -> impl DoubleEndedIterator<Item = Tag> {
         self.0.tags.iter().copied()
     }
 }
