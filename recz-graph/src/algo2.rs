@@ -74,6 +74,8 @@ impl<'d, 'n> Determinator<'d, 'n> {
             self.final_tags.insert(dfa_node, final_tags);
         }
 
+        dbg!(dfa_node);
+
         for (symbol, (tags, nodes)) in &closure.sym_table {
             let sym_closure = self.closure_eval.eval(Rc::clone(nodes));
             let sym_dfa_node = self
@@ -118,7 +120,7 @@ impl<'n> EClosure<'n> {
 #[derive(Debug)]
 struct EClosureEval<'n> {
     cache: Map<Rc<OrdSet<Node<'n>>>, Rc<EClosure<'n>>>,
-    visited: Map<Node<'n>, u64>,
+    visited: Map<Node<'n>, Set<u64>>,
     tag_collector: TagCollector,
     closure: Rc<EClosure<'n>>,
 }
@@ -156,16 +158,20 @@ impl<'n> EClosureEval<'n> {
 
     fn eval_one(&mut self, node: Node<'n>) {
         let new_check = self.tag_collector.checksum();
-        if self.visited.replace(node, new_check) == Some(new_check) {
+        let passed_checks = self.visited.entry(node).or_default();
+        if passed_checks.contains(&new_check) {
             return;
         }
+        passed_checks.insert(new_check);
         self.closure.nodes.insert(node);
 
         if node.is_final() {
             let closure = Rc::get_mut(&mut self.closure).unwrap();
+            dbg!("final");
             if let Some(tags) = &mut closure.final_tags {
                 merge_tags(tags, &self.tag_collector);
             } else {
+                dbg!(&self.tag_collector.tags);
                 closure.final_tags = Some(Set::from_iter(self.tag_collector.tags()));
             }
         }
@@ -178,10 +184,12 @@ impl<'n> EClosureEval<'n> {
             } else {
                 let closure = Rc::get_mut(&mut self.closure).unwrap();
                 for symbol in edge.symbols() {
+                    dbg!(symbol);
                     if let Some((tags, sym_closure)) = closure.sym_table.get_mut(&symbol) {
                         merge_tags(tags, &self.tag_collector);
                         sym_closure.insert(target);
                     } else {
+                        dbg!(&self.tag_collector.tags);
                         closure.sym_table.insert(
                             symbol,
                             (
@@ -198,18 +206,6 @@ impl<'n> EClosureEval<'n> {
 
         self.visited.remove(&node);
     }
-}
-
-/// The Grail of this determinization algorithm. It decides how tags are merged.
-fn merge_tags(dest_tags: &mut Set<Tag>, source_tags: &TagCollector) {
-    // for tag in src.into_iter() {
-    //     match tag {
-    //         Tag::OpenGroup(_) | Tag::CloseGroup(_) | Tag::DeleteGroup(_) => {
-    //             dest.insert(tag);
-    //         }
-    //     }
-    // }
-    dest_tags.extend(source_tags.tags());
 }
 
 #[derive(Debug)]
@@ -264,15 +260,60 @@ impl TagCollector {
         }
     }
 
-    fn contains(&self, tag: Tag) -> bool {
-        self.tags.contains(&tag)
+    fn contains(&self, tag: &Tag) -> bool {
+        self.tags.contains(tag)
     }
 
     fn tags(&self) -> impl Iterator<Item = Tag> + '_ {
         self.tags.iter().copied()
     }
 
+    fn is_empty(&self) -> bool {
+        self.tags.is_empty()
+    }
+
     fn checksum(&self) -> u64 {
         self.hashers.last().unwrap().finish()
+    }
+}
+
+/// The Grail of this determinization algorithm. It decides how tags are merged.
+fn merge_tags(dest_tags: &mut Set<Tag>, source_tags: &TagCollector) {
+    dbg!(&source_tags.tags);
+
+    if dest_tags.is_empty() {
+        return;
+    }
+    if source_tags.is_empty() {
+        dest_tags.clear();
+        return;
+    }
+
+    use Tag::*;
+    for tag in source_tags.tags() {
+        match tag {
+            CloseGroup(id) => {
+                let open_tag = OpenGroup(id);
+                match (
+                    dest_tags.contains(&open_tag),
+                    source_tags.contains(&open_tag),
+                ) {
+                    (true, true) => {}
+                    (true, false) => {
+                        dest_tags.remove(&open_tag);
+                    }
+                    (false, true) => {}
+                    (false, false) => {}
+                }
+                dest_tags.insert(tag);
+            }
+            Tag::OpenGroup(id) => {
+                let close_tag = CloseGroup(id);
+                if !dest_tags.contains(&close_tag) {
+                    dest_tags.insert(tag);
+                }
+            }
+            Tag::DeleteGroup(_) => {}
+        }
     }
 }
