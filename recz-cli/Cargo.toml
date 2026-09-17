@@ -17,3 +17,4 @@ recz-codegen = { path = "../recz-codegen" }
 recz-graph = { path = "../recz-graph" }
 recz-syntax = { path = "../recz-syntax", features = ["miette"] }
 syn = { workspace = true, features = ["parsing"] }
+synoptic.workspace = true

@@ -1,129 +1,90 @@
-//! A minimal, dependency-free (beyond `owo-colors`) Rust syntax highlighter.
+//! Rust syntax highlighting for `recz-cli`'s generated-code output, built on
+//! the lightweight `synoptic` crate's bundled Rust ruleset
+//! (`synoptic::from_extension("rs", ..)`) rather than a full
+//! syntax-highlighting engine like `syntect`/`bat`.
 //!
-//! It's a hand-rolled lexer over already-formatted source text (as produced
-//! by `prettyplease`), not a general-purpose Rust parser: it only needs to
-//! classify tokens well enough for terminal coloring, and preserves every
-//! byte of whitespace/formatting verbatim since it never rebuilds the layout.
+//! Note that synoptic's bundled ruleset lumps keywords and primitive types
+//! (and even a few std types like `String`/`Vec`/`Option`) into a single
+//! "keyword" category, so those aren't distinguished from one another here.
 
 use owo_colors::{OwoColorize, Stream};
 use std::fmt::Write as _;
-
-const KEYWORDS: &[&str] = &[
-    "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else", "enum", "extern",
-    "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref",
-    "return", "Self", "self", "static", "struct", "super", "trait", "type", "union", "unsafe",
-    "use", "where", "while", "yield",
-];
-
-/// Keyword-shaped literals, e.g. booleans. Colored like other literals
-/// (numbers, strings) rather than like control-flow/declaration keywords.
-const LITERAL_KEYWORDS: &[&str] = &["true", "false"];
-
-/// Primitive types, which are lowercase and so wouldn't otherwise be
-/// distinguished from plain identifiers or user-defined types.
-const BUILTIN_TYPES: &[&str] = &[
-    "bool", "char", "f32", "f64", "i8", "i16", "i32", "i64", "i128", "isize", "str", "u8", "u16",
-    "u32", "u64", "u128", "usize",
-];
+use synoptic::TokOpt;
 
 /// Colors the given Rust source for terminal output. Falls back to plain
 /// text when the output stream doesn't support color.
 pub fn highlight(code: &str) -> String {
-    let bytes = code.as_bytes();
-    let mut out = String::with_capacity(code.len() + code.len() / 4);
-    let mut i = 0;
+    let mut h = synoptic::from_extension("rs", 4).expect("synoptic bundles a Rust highlighter");
+    let lines: Vec<String> = code.split('\n').map(str::to_owned).collect();
+    h.run(&lines);
 
-    while i < bytes.len() {
-        let c = bytes[i];
-        match c {
-            b'/' if bytes.get(i + 1) == Some(&b'/') => {
-                let start = i;
-                while i < bytes.len() && bytes[i] != b'\n' {
-                    i += 1;
-                }
-                push(&mut out, &code[start..i], |s| s.bright_black().to_string());
-            }
-            b'/' if bytes.get(i + 1) == Some(&b'*') => {
-                let start = i;
-                i += 2;
-                while i < bytes.len() && !(bytes[i] == b'*' && bytes.get(i + 1) == Some(&b'/')) {
-                    i += 1;
-                }
-                i = (i + 2).min(bytes.len());
-                push(&mut out, &code[start..i], |s| s.bright_black().to_string());
-            }
-            b'"' => {
-                let start = i;
-                i += 1;
-                while i < bytes.len() && bytes[i] != b'"' {
-                    i += if bytes[i] == b'\\' { 2 } else { 1 };
-                }
-                i = (i + 1).min(bytes.len());
-                push(&mut out, &code[start..i], |s| s.green().to_string());
-            }
-            b'\'' => {
-                let start = i;
-                i += 1;
-                if bytes.get(i) == Some(&b'\\') {
-                    // escape sequence: consume until the closing quote.
-                    i += 1;
-                    while i < bytes.len() && bytes[i] != b'\'' {
-                        i += 1;
-                    }
-                    i = (i + 1).min(bytes.len());
-                    push(&mut out, &code[start..i], |s| s.green().to_string());
-                } else if bytes.get(i + 1) == Some(&b'\'') {
-                    // a single-character literal, e.g. 'x'.
-                    i += 2;
-                    push(&mut out, &code[start..i], |s| s.green().to_string());
-                } else {
-                    // a lifetime, e.g. 'a, 'static, '_.
-                    while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_')
-                    {
-                        i += 1;
-                    }
-                    push(&mut out, &code[start..i], |s| s.magenta().to_string());
-                }
-            }
-            b'0'..=b'9' => {
-                let start = i;
-                while i < bytes.len()
-                    && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_' || bytes[i] == b'.')
-                {
-                    i += 1;
-                }
-                push(&mut out, &code[start..i], |s| s.green().to_string());
-            }
-            b'_' | b'a'..=b'z' | b'A'..=b'Z' => {
-                let start = i;
-                while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
-                    i += 1;
-                }
-                let word = &code[start..i];
-                if KEYWORDS.contains(&word) {
-                    push(&mut out, word, |s| s.blue().to_string());
-                } else if LITERAL_KEYWORDS.contains(&word) {
-                    push(&mut out, word, |s| s.green().to_string());
-                } else if BUILTIN_TYPES.contains(&word) {
-                    push(&mut out, word, |s| s.bright_cyan().to_string());
-                } else if bytes.get(i) == Some(&b'!') {
-                    push(&mut out, word, |s| s.cyan().to_string());
-                } else if word.chars().next().is_some_and(char::is_uppercase) {
-                    push(&mut out, word, |s| s.cyan().to_string());
-                } else {
-                    push(&mut out, word, |s| s.yellow().to_string());
-                }
-            }
-            _ => {
-                out.push(c as char);
-                i += 1;
+    let mut out = String::with_capacity(code.len() + code.len() / 4);
+    for (y, line) in lines.iter().enumerate() {
+        if y > 0 {
+            out.push('\n');
+        }
+        for token in h.line(y, line) {
+            match token {
+                TokOpt::Some(text, kind) => push(&mut out, &text, &kind),
+                TokOpt::None(text) => out.push_str(&text),
             }
         }
     }
-
     out
 }
 
-fn push<D: std::fmt::Display>(out: &mut String, text: &str, apply: impl Fn(&&str) -> D) {
+// Ayu Dark palette (https://github.com/ayu-theme/ayu-colors), applied via
+// true color so the terminal output tracks the theme's actual hues rather
+// than an approximation from the 16 ANSI colors.
+mod ayu {
+    pub const COMMENT: (u8, u8, u8) = (0x5C, 0x67, 0x73);
+    pub const STRING: (u8, u8, u8) = (0xAA, 0xD9, 0x4C);
+    pub const CONSTANT: (u8, u8, u8) = (0xD2, 0xA6, 0xFF);
+    pub const KEYWORD: (u8, u8, u8) = (0xFF, 0x8F, 0x40);
+    pub const SPECIAL: (u8, u8, u8) = (0xE6, 0xB6, 0x73);
+    pub const ENTITY: (u8, u8, u8) = (0x59, 0xC2, 0xFF);
+    pub const FUNC: (u8, u8, u8) = (0xFF, 0xB4, 0x54);
+    pub const OPERATOR: (u8, u8, u8) = (0xF2, 0x96, 0x68);
+}
+
+fn push(out: &mut String, text: &str, kind: &str) {
+    match kind {
+        "comment" => color(out, text, |s| {
+            let (r, g, b) = ayu::COMMENT;
+            s.truecolor(r, g, b).italic().to_string()
+        }),
+        "string" | "character" => color(out, text, |s| {
+            let (r, g, b) = ayu::STRING;
+            s.truecolor(r, g, b).to_string()
+        }),
+        "digit" | "boolean" => color(out, text, |s| {
+            let (r, g, b) = ayu::CONSTANT;
+            s.truecolor(r, g, b).to_string()
+        }),
+        "keyword" => color(out, text, |s| {
+            let (r, g, b) = ayu::KEYWORD;
+            s.truecolor(r, g, b).to_string()
+        }),
+        "attribute" => color(out, text, |s| {
+            let (r, g, b) = ayu::SPECIAL;
+            s.truecolor(r, g, b).to_string()
+        }),
+        "namespace" | "struct" => color(out, text, |s| {
+            let (r, g, b) = ayu::ENTITY;
+            s.truecolor(r, g, b).to_string()
+        }),
+        "macro" | "function" => color(out, text, |s| {
+            let (r, g, b) = ayu::FUNC;
+            s.truecolor(r, g, b).to_string()
+        }),
+        "operator" | "reference" => color(out, text, |s| {
+            let (r, g, b) = ayu::OPERATOR;
+            s.truecolor(r, g, b).to_string()
+        }),
+        _ => out.push_str(text),
+    }
+}
+
+fn color<D: std::fmt::Display>(out: &mut String, text: &str, apply: impl Fn(&&str) -> D) {
     write!(out, "{}", text.if_supports_color(Stream::Stdout, apply)).unwrap();
 }

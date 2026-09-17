@@ -42,6 +42,7 @@ quote = "1"
 regex-syntax = "0.8.5"
 smallvec = "1"
 syn = "3"
+synoptic = "2"
 test-case = "3.3"
 thiserror = "2"
 
