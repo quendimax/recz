@@ -257,16 +257,8 @@ impl TagCollector {
         }
     }
 
-    fn contains(&self, tag: &Tag) -> bool {
-        self.tags.contains(tag)
-    }
-
     fn tags(&self) -> impl Iterator<Item = Tag> + '_ {
         self.tags.iter().copied()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.tags.is_empty()
     }
 
     fn checksum(&self) -> u64 {
