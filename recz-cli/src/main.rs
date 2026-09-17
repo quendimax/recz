@@ -1,4 +1,3 @@
-use bat::PrettyPrinter;
 use clap::{Parser as ClapParser, ValueEnum};
 use core::fmt;
 use miette::Report;
@@ -10,6 +9,8 @@ use recz_graph::{Graph, algo};
 use recz_syntax::codec::{AsciiCodec, Latin1Codec, Utf8Codec};
 use recz_syntax::{Error as SyntaxError, Parser, Translator};
 use std::time::Instant;
+
+mod highlight;
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Codec {
@@ -135,13 +136,7 @@ fn main() -> miette::Result<()> {
         let code = prettyplease::unparse(&code_file);
         println!("--- Code ---------------------------- {code_duration:?} --------");
         println!();
-        PrettyPrinter::new()
-            .input_from_bytes(code.as_bytes())
-            .language("rust")
-            .theme("ansi")
-            .tab_width(Some(4))
-            .print()
-            .unwrap();
+        println!("{}", highlight::highlight(&code));
         println!();
     }
 
