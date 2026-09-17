@@ -1,6 +1,7 @@
 use crate::{Graph, Node, Tag};
-use recz_adt::{Map, OrdSet, Set};
+use recz_adt::{Map, Set};
 use std::cell::Cell;
+use std::collections::BTreeSet;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::rc::Rc;
 
@@ -63,10 +64,6 @@ impl<'d, 'n> Determinator<'d, 'n> {
     }
 
     fn recurse(&mut self, closure: Rc<EClosure<'d, 'n>>) -> Node<'d> {
-        if let Some(dfa_node) = closure.dfa_node.get() {
-            return dfa_node;
-        }
-
         let dfa_node = self.dfa.node();
         closure.dfa_node.set(Some(dfa_node));
 
@@ -95,12 +92,12 @@ impl<'d, 'n> Determinator<'d, 'n> {
 #[derive(Debug)]
 struct EClosure<'d, 'n> {
     /// Epsilon closure of the nodes.
-    nodes: Rc<OrdSet<Node<'n>>>,
+    nodes: Rc<BTreeSet<Node<'n>>>,
 
     /// The table that contains corresponding to every symbol a set of nodes
     /// that have outgoing edges with this symbols, and tags that are associated
     /// with those nodes.
-    sym_table: Map<u8, (Set<Tag>, Rc<OrdSet<Node<'n>>>)>,
+    sym_table: Map<u8, (Set<Tag>, Rc<BTreeSet<Node<'n>>>)>,
 
     /// All tags that are going to the final nodes. If it is `None` the closure
     /// doesn't have any final nodes.
@@ -114,7 +111,7 @@ struct EClosure<'d, 'n> {
 impl<'d, 'n> EClosure<'d, 'n> {
     pub fn default() -> Rc<Self> {
         Rc::new(Self {
-            nodes: Rc::new(OrdSet::default()),
+            nodes: Rc::new(BTreeSet::default()),
             sym_table: Map::default(),
             final_tags: None,
             dfa_node: Cell::new(None),
@@ -124,7 +121,7 @@ impl<'d, 'n> EClosure<'d, 'n> {
 
 #[derive(Debug)]
 struct EClosureEval<'d, 'n> {
-    cache: Map<Rc<OrdSet<Node<'n>>>, Rc<EClosure<'d, 'n>>>,
+    cache: Map<Rc<BTreeSet<Node<'n>>>, Rc<EClosure<'d, 'n>>>,
     visited: Map<Node<'n>, Set<u64>>,
     tag_collector: TagCollector,
     closure: Rc<EClosure<'d, 'n>>,
@@ -140,7 +137,7 @@ impl<'d, 'n> EClosureEval<'d, 'n> {
         }
     }
 
-    fn eval(&mut self, start_nodes: Rc<OrdSet<Node<'n>>>) -> Rc<EClosure<'d, 'n>> {
+    fn eval(&mut self, start_nodes: Rc<BTreeSet<Node<'n>>>) -> Rc<EClosure<'d, 'n>> {
         if let Some(closure) = self.cache.get(&start_nodes) {
             return Rc::clone(closure);
         }
@@ -167,10 +164,10 @@ impl<'d, 'n> EClosureEval<'d, 'n> {
             return;
         }
         passed_checks.insert(new_check);
-        self.closure.nodes.insert(node);
+        let closure = Rc::get_mut(&mut self.closure).unwrap();
+        Rc::get_mut(&mut closure.nodes).unwrap().insert(node);
 
         if node.is_final() {
-            let closure = Rc::get_mut(&mut self.closure).unwrap();
             if let Some(tags) = &mut closure.final_tags {
                 merge_tags(tags, &self.tag_collector);
             } else {
@@ -187,14 +184,14 @@ impl<'d, 'n> EClosureEval<'d, 'n> {
                 let closure = Rc::get_mut(&mut self.closure).unwrap();
                 for symbol in edge.symbols() {
                     if let Some((tags, sym_closure)) = closure.sym_table.get_mut(&symbol) {
+                        Rc::get_mut(sym_closure).unwrap().insert(target);
                         merge_tags(tags, &self.tag_collector);
-                        sym_closure.insert(target);
                     } else {
                         closure.sym_table.insert(
                             symbol,
                             (
                                 Set::from_iter(self.tag_collector.tags()),
-                                Rc::new(OrdSet::from([target])),
+                                Rc::new(BTreeSet::from([target])),
                             ),
                         );
                     }
@@ -279,39 +276,5 @@ impl TagCollector {
 
 /// The Grail of this determinization algorithm. It decides how tags are merged.
 fn merge_tags(dest_tags: &mut Set<Tag>, source_tags: &TagCollector) {
-    if dest_tags.is_empty() {
-        return;
-    }
-    if source_tags.is_empty() {
-        dest_tags.clear();
-        return;
-    }
-
-    use Tag::*;
-    for tag in source_tags.tags() {
-        match tag {
-            CloseGroup(id) => {
-                let open_tag = OpenGroup(id);
-                match (
-                    dest_tags.contains(&open_tag),
-                    source_tags.contains(&open_tag),
-                ) {
-                    (true, true) => {}
-                    (true, false) => {
-                        dest_tags.remove(&open_tag);
-                    }
-                    (false, true) => {}
-                    (false, false) => {}
-                }
-                dest_tags.insert(tag);
-            }
-            Tag::OpenGroup(id) => {
-                let close_tag = CloseGroup(id);
-                if !dest_tags.contains(&close_tag) {
-                    dest_tags.insert(tag);
-                }
-            }
-            Tag::DeleteGroup(_) => {}
-        }
-    }
+    dest_tags.lazy_extend(source_tags.tags());
 }
