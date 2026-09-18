@@ -8,6 +8,9 @@ mod collections;
 pub use collections::{Map, MapIter, Set, SetIter};
 pub use collections::{OrdMap, OrdMapIter, OrdSet, OrdSetIter};
 
+mod hash;
+pub use hash::{DefaultHasher, RandomState};
+
 mod legible;
 pub use legible::Legible;
 
