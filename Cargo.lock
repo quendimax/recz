@@ -827,7 +827,10 @@ name = "recz-bench"
 version = "0.1.0"
 dependencies = [
  "gungraun",
+ "proc-macro2",
+ "quote",
  "recz-adt",
+ "recz-codegen",
  "recz-graph",
  "recz-syntax",
 ]

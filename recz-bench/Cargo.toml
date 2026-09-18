@@ -7,15 +7,16 @@ authors.workspace = true
 edition.workspace = true
 repository.workspace = true
 
-[dependencies]
+[dev-dependencies]
+gungraun = "0.19.4"
+proc-macro2.workspace = true
+quote.workspace = true
 recz-adt = { path = "../recz-adt" }
+recz-codegen = { path = "../recz-codegen" }
 recz-graph = { path = "../recz-graph" }
 recz-syntax = { path = "../recz-syntax" }
 
-[dev-dependencies]
-gungraun = "0.19.4"
-
 [[bench]]
 harness = false
-name = "recz-bench"
-path = "benches/benches.rs"
+name = "gungraun"
+path = "benches/gungraun.rs"
