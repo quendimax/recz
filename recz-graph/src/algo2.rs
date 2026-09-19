@@ -1,8 +1,8 @@
 use crate::{Graph, Node, Tag};
-use recz_adt::{Map, Set};
+use recz_adt::{DefaultHasher, Map, Set};
 use std::cell::Cell;
 use std::collections::BTreeSet;
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 pub fn determine(nfa: &Graph) -> Graph {
@@ -61,6 +61,9 @@ impl<'d, 'n> Determinator<'d, 'n> {
             }
             epilogue_node.epilogize();
         }
+
+        let mut path_finder = PathFinder::new(self.dfa);
+        path_finder.run();
     }
 
     fn recurse(&mut self, closure: Rc<EClosure<'d, 'n>>) -> Node<'d> {
@@ -142,9 +145,6 @@ impl<'d, 'n> EClosureEval<'d, 'n> {
             return Rc::clone(closure);
         }
 
-        self.tag_collector.clear();
-        assert!(self.visited.is_empty());
-
         for start_node in start_nodes.iter().copied() {
             self.visited.clear();
             self.tag_collector.clear();
@@ -200,8 +200,6 @@ impl<'d, 'n> EClosureEval<'d, 'n> {
 
             self.tag_collector.shorten(edge.tags().rev());
         }
-
-        self.visited.remove(&node);
     }
 }
 
@@ -213,7 +211,7 @@ struct TagCollector {
 
 impl TagCollector {
     fn new() -> Self {
-        let mut initial_hasher = DefaultHasher::new();
+        let mut initial_hasher = DefaultHasher::default();
         initial_hasher.write_u64(0xDEADBEEF);
         Self {
             tags: Vec::default(),
@@ -224,7 +222,7 @@ impl TagCollector {
     fn clear(&mut self) {
         self.tags.clear();
         self.hashers.clear();
-        let mut initial_hasher = DefaultHasher::new();
+        let mut initial_hasher = DefaultHasher::default();
         initial_hasher.write_u64(0xDEADBEEF);
         self.hashers.push(initial_hasher);
     }
@@ -269,4 +267,56 @@ impl TagCollector {
 /// The Grail of this determinization algorithm. It decides how tags are merged.
 fn merge_tags(dest_tags: &mut Set<Tag>, source_tags: &TagCollector) {
     dest_tags.lazy_extend(source_tags.tags());
+}
+
+struct PathFinder<'a> {
+    graph: &'a Graph,
+    tag_collector: TagCollector,
+    visited: Map<Node<'a>, Set<u64>>,
+    path: Vec<Node<'a>>,
+}
+
+impl<'a> PathFinder<'a> {
+    fn new(graph: &'a Graph) -> Self {
+        Self {
+            graph,
+            tag_collector: TagCollector::new(),
+            visited: Map::default(),
+            path: Vec::default(),
+        }
+    }
+
+    fn run(&mut self) {
+        self.tag_collector.clear();
+        self.visited.clear();
+        self.recurse(self.graph.start_node());
+    }
+
+    fn recurse(&mut self, node: Node<'a>) {
+        let new_check = self.tag_collector.checksum();
+        let passed_checks = self.visited.entry(node).or_default();
+        if passed_checks.contains(&new_check) {
+            return;
+        }
+        if node.is_epilogue() {
+            self.path.push(node);
+            self.handle_path();
+            self.path.pop();
+            return;
+        }
+        passed_checks.insert(new_check);
+        self.path.push(node);
+
+        for (edge, target) in node.targets() {
+            self.tag_collector.extend(edge.tags());
+            self.recurse(target);
+            self.tag_collector.shorten(edge.tags().rev());
+        }
+
+        self.path.pop();
+    }
+
+    fn handle_path(&mut self) {
+        println!("{:?}", self.path);
+    }
 }
