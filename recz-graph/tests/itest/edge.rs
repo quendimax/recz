@@ -61,7 +61,16 @@ where
 
 #[test]
 fn edge_clone() {
-    handle_edge(|edge| assert_eq!(edge, edge.clone()));
+    handle_edge(|edge| {
+        #[allow(clippy::clone_on_copy)]
+        let clone = edge.clone();
+        edge.tags()
+            .zip(clone.tags())
+            .for_each(|(a, b)| assert_eq!(a, b));
+        edge.symbols()
+            .zip(clone.symbols())
+            .for_each(|(a, b)| assert_eq!(a, b));
+    });
 }
 
 #[test]

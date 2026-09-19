@@ -324,9 +324,15 @@ impl Clone for Edge<'_> {
 impl std::cmp::Eq for Edge<'_> {}
 
 impl std::cmp::PartialEq for Edge<'_> {
-    /// Tests equality between symbols only, not instructions.
+    /// Tests if two edges are actually the same edge.
     fn eq(&self, other: &Self) -> bool {
-        self.0.symbols.eq(&other.0.symbols)
+        core::ptr::eq(self.0, other.0)
+    }
+}
+
+impl std::hash::Hash for Edge<'_> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (self.0 as *const EdgeInner).hash(state)
     }
 }
 

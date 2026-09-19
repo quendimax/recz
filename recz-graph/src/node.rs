@@ -1,7 +1,6 @@
 use crate::edge::{Edge, EdgePtr};
 use crate::graph::{Graph, GraphInner, GraphPtr};
 use core::cell::Cell;
-use core::fmt;
 use core::iter::Iterator;
 use owo_colors::OwoColorize;
 use recz_adt::{Legible, Map};
@@ -257,10 +256,10 @@ impl Legible for Node<'_> {
         self
     }
 
-    fn colored(&self) -> impl fmt::Display {
+    fn colored(&self) -> impl core::fmt::Display {
         struct Colored<'a, 'b>(&'a Node<'b>);
         impl core::fmt::Display for Colored<'_, '_> {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 Node::fmt(self.0, f, false)
             }
         }
