@@ -1,19 +1,11 @@
+use super::util::TagCollector;
 use crate::{Graph, Node, Tag};
-use recz_adt::{DefaultHasher, Map, Set};
+use recz_adt::{Map, Set};
 use std::cell::Cell;
 use std::collections::BTreeSet;
-use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-pub fn determine(nfa: &Graph) -> Graph {
-    let dfa = Graph::new();
-    let mut determ = Determinator::new(nfa, &dfa);
-    determ.determine();
-    drop(determ);
-    dfa
-}
-
-struct Determinator<'d, 'n> {
+pub struct Determinator<'d, 'n> {
     nfa: &'n Graph,
     dfa: &'d Graph,
     closure_eval: EClosureEval<'d, 'n>,
@@ -21,7 +13,7 @@ struct Determinator<'d, 'n> {
 }
 
 impl<'d, 'n> Determinator<'d, 'n> {
-    fn new(nfa: &'n Graph, dfa: &'d Graph) -> Self {
+    pub fn new(nfa: &'n Graph, dfa: &'d Graph) -> Self {
         assert!(
             !nfa.is(dfa),
             "NFA and DFA must be different graph instances"
@@ -36,7 +28,7 @@ impl<'d, 'n> Determinator<'d, 'n> {
         }
     }
 
-    fn determine(&mut self) {
+    pub fn determine(&mut self) {
         if self.nfa.is_empty() {
             return;
         }
@@ -62,8 +54,8 @@ impl<'d, 'n> Determinator<'d, 'n> {
             epilogue_node.epilogize();
         }
 
-        let mut path_finder = PathFinder::new(self.dfa);
-        path_finder.run();
+        // let mut path_finder = PathFinder::new(self.dfa);
+        // path_finder.run();
     }
 
     fn recurse(&mut self, closure: Rc<EClosure<'d, 'n>>) -> Node<'d> {
@@ -112,7 +104,7 @@ struct EClosure<'d, 'n> {
 }
 
 impl<'d, 'n> EClosure<'d, 'n> {
-    pub fn default() -> Rc<Self> {
+    fn default() -> Rc<Self> {
         Rc::new(Self {
             nodes: Rc::new(BTreeSet::default()),
             sym_table: Map::default(),
@@ -203,120 +195,7 @@ impl<'d, 'n> EClosureEval<'d, 'n> {
     }
 }
 
-#[derive(Debug)]
-struct TagCollector {
-    tags: Vec<Tag>,
-    hashers: Vec<DefaultHasher>,
-}
-
-impl TagCollector {
-    fn new() -> Self {
-        let mut initial_hasher = DefaultHasher::default();
-        initial_hasher.write_u64(0xDEADBEEF);
-        Self {
-            tags: Vec::default(),
-            hashers: vec![initial_hasher],
-        }
-    }
-
-    fn clear(&mut self) {
-        self.tags.clear();
-        self.hashers.clear();
-        let mut initial_hasher = DefaultHasher::default();
-        initial_hasher.write_u64(0xDEADBEEF);
-        self.hashers.push(initial_hasher);
-    }
-
-    fn insert(&mut self, tag: Tag) {
-        if !self.tags.contains(&tag) {
-            let mut hasher = self.hashers.last().unwrap().clone();
-            tag.hash(&mut hasher);
-            self.hashers.push(hasher);
-        }
-        self.tags.push(tag);
-    }
-
-    fn extend(&mut self, tags: impl IntoIterator<Item = Tag>) {
-        for tag in tags.into_iter() {
-            self.insert(tag);
-        }
-    }
-
-    fn remove(&mut self, tag: Tag) {
-        assert_eq!(self.tags.pop(), Some(tag));
-        if !self.tags.contains(&tag) {
-            self.hashers.pop();
-        }
-    }
-
-    fn shorten(&mut self, tags: impl IntoIterator<Item = Tag>) {
-        for tag in tags.into_iter() {
-            self.remove(tag);
-        }
-    }
-
-    fn tags(&self) -> impl Iterator<Item = Tag> + '_ {
-        self.tags.iter().copied()
-    }
-
-    fn checksum(&self) -> u64 {
-        self.hashers.last().unwrap().finish()
-    }
-}
-
 /// The Grail of this determinization algorithm. It decides how tags are merged.
 fn merge_tags(dest_tags: &mut Set<Tag>, source_tags: &TagCollector) {
     dest_tags.lazy_extend(source_tags.tags());
-}
-
-struct PathFinder<'a> {
-    graph: &'a Graph,
-    tag_collector: TagCollector,
-    visited: Map<Node<'a>, Set<u64>>,
-    path: Vec<Node<'a>>,
-}
-
-impl<'a> PathFinder<'a> {
-    fn new(graph: &'a Graph) -> Self {
-        Self {
-            graph,
-            tag_collector: TagCollector::new(),
-            visited: Map::default(),
-            path: Vec::default(),
-        }
-    }
-
-    fn run(&mut self) {
-        self.tag_collector.clear();
-        self.visited.clear();
-        self.recurse(self.graph.start_node());
-    }
-
-    fn recurse(&mut self, node: Node<'a>) {
-        let new_check = self.tag_collector.checksum();
-        let passed_checks = self.visited.entry(node).or_default();
-        if passed_checks.contains(&new_check) {
-            return;
-        }
-        if node.is_epilogue() {
-            self.path.push(node);
-            self.handle_path();
-            self.path.pop();
-            return;
-        }
-        passed_checks.insert(new_check);
-        self.path.push(node);
-
-        for (edge, target) in node.targets() {
-            self.tag_collector.extend(edge.tags());
-            self.recurse(target);
-            self.tag_collector.shorten(edge.tags().rev());
-        }
-
-        self.path.pop();
-    }
-
-    fn handle_path(&mut self) {
-        println!("{:?}", self.path);
-    }
 }
