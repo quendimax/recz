@@ -98,7 +98,7 @@ impl<'a> Node<'a> {
         if let Some(edge) = self.0.targets.get(&to.as_ptr()) {
             Edge::from_ref(unsafe { edge.as_ref() })
         } else {
-            let edge = self.0.graph_inner().edge();
+            let edge = self.0.graph_inner().edge(self.as_ptr(), to.as_ptr());
             self.0.targets.insert(to.as_ptr(), edge.as_ptr());
             to.0.sources.insert(self.as_ptr(), edge.as_ptr());
             edge

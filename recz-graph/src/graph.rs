@@ -333,8 +333,8 @@ impl GraphInner {
     /// Creates a new edge.
     ///
     /// This method is not available for external use. Use [`Node::connect`] instead.
-    pub(crate) fn edge(&self) -> Edge<'_> {
-        Edge::from_ref(self.bump_edges.push(EdgeInner::new()))
+    pub(crate) fn edge(&self, source: NodePtr, target: NodePtr) -> Edge<'_> {
+        Edge::from_ref(self.bump_edges.push(EdgeInner::new(source, target)))
     }
 }
 

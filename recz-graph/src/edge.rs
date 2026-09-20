@@ -1,3 +1,4 @@
+use crate::node::{Node, NodePtr};
 use crate::tag::Tag;
 use owo_colors::OwoColorize;
 use recz_adt::{ByteIter, Legible, RangeIter, Set, SetU8};
@@ -15,6 +16,8 @@ use std::iter::DoubleEndedIterator;
 pub struct Edge<'a>(&'a EdgeInner);
 
 pub(crate) struct EdgeInner {
+    source: NodePtr,
+    target: NodePtr,
     symbols: SetU8,
     tags: Set<Tag>,
 }
@@ -24,7 +27,7 @@ pub(crate) type EdgePtr = core::ptr::NonNull<EdgeInner>;
 
 /// Public API
 impl<'a> Edge<'a> {
-    /// Checks if these edges are two references to the same edge.
+    /// Returns the source node of this edge.
     ///
     /// # Examples
     ///
@@ -33,12 +36,27 @@ impl<'a> Edge<'a> {
     /// let graph = Graph::new();
     /// let node_a = graph.node();
     /// let node_b = graph.node();
-    /// assert!(node_a.connect(node_b).is(node_a.connect(node_b)));
-    /// assert!(!node_a.connect(node_b).is(node_b.connect(node_a)));
+    /// let edge = node_a.connect(node_b);
+    /// assert_eq!(edge.source(), node_a);
     /// ```
-    #[inline]
-    pub fn is(self, other: Self) -> bool {
-        std::ptr::eq(self.0, other.0)
+    pub fn source(&self) -> Node<'a> {
+        Node::from_ref(unsafe { self.0.source.as_ref() })
+    }
+
+    /// Returns the target node of this edge.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use recz_graph::Graph;
+    /// let graph = Graph::new();
+    /// let node_a = graph.node();
+    /// let node_b = graph.node();
+    /// let edge = node_a.connect(node_b);
+    /// assert_eq!(edge.target(), node_b);
+    /// ```
+    pub fn target(&self) -> Node<'a> {
+        Node::from_ref(unsafe { self.0.target.as_ref() })
     }
 
     /// Checks if this edge is an epsilon edge (contains no symbols).
@@ -367,8 +385,10 @@ impl Legible for Edge<'_> {
 impl EdgeInner {
     /// Creates a new empty edge.
     #[inline(always)]
-    pub(crate) fn new() -> EdgeInner {
+    pub(crate) fn new(source: NodePtr, target: NodePtr) -> EdgeInner {
         EdgeInner {
+            source,
+            target,
             symbols: SetU8::default(),
             tags: Set::default(),
         }
