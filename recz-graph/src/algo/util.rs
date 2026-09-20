@@ -1,5 +1,5 @@
-use crate::{Node, Tag};
-use recz_adt::{DefaultHasher, Map, Set};
+use crate::Tag;
+use recz_adt::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug)]
@@ -62,55 +62,5 @@ impl TagCollector {
 
     pub(super) fn checksum(&self) -> u64 {
         self.hashers.last().unwrap().finish()
-    }
-}
-
-pub(super) struct PathFinder<'a, F: FnMut(&[Node<'a>])> {
-    start_node: Node<'a>,
-    tag_collector: TagCollector,
-    visited: Map<Node<'a>, Set<u64>>,
-    path: Vec<Node<'a>>,
-    handler: F,
-}
-
-impl<'a, F: FnMut(&[Node<'a>])> PathFinder<'a, F> {
-    pub(super) fn new(start_node: Node<'a>, handler: F) -> Self {
-        Self {
-            start_node,
-            tag_collector: TagCollector::new(),
-            visited: Map::default(),
-            path: Vec::default(),
-            handler,
-        }
-    }
-
-    pub(super) fn run(&mut self) {
-        self.tag_collector.clear();
-        self.visited.clear();
-        self.recurse(self.start_node);
-    }
-
-    fn recurse(&mut self, node: Node<'a>) {
-        let new_check = self.tag_collector.checksum();
-        let passed_checks = self.visited.entry(node).or_default();
-        if passed_checks.contains(&new_check) {
-            return;
-        }
-        if node.is_epilogue() {
-            self.path.push(node);
-            (self.handler)(&self.path);
-            self.path.pop();
-            return;
-        }
-        passed_checks.insert(new_check);
-        self.path.push(node);
-
-        for (edge, target) in node.targets() {
-            self.tag_collector.extend(edge.tags());
-            self.recurse(target);
-            self.tag_collector.shorten(edge.tags().rev());
-        }
-
-        self.path.pop();
     }
 }
