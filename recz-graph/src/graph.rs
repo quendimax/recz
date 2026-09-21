@@ -245,6 +245,23 @@ impl Graph {
         self.0.bump_nodes.iter().map(Node::from_ref)
     }
 
+    /// Returns an iterator over the nodes in the graph.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use recz_graph::Graph;
+    ///
+    /// let graph = Graph::new();
+    /// assert!(graph.edges().next().is_none());
+    ///
+    /// graph.node().connect(graph.node());
+    /// assert!(graph.edges().next().is_some());
+    /// ```
+    pub fn edges(&self) -> impl Iterator<Item = Edge<'_>> {
+        self.0.bump_edges.iter().map(Edge::from_ref)
+    }
+
     /// Returns an iterator over the capture group labels in the graph. The
     /// order of group labels is the same as the order they were added.
     ///
