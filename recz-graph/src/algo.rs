@@ -1,5 +1,6 @@
 mod determ;
 mod pathfd;
+mod tagclean;
 mod util;
 
 use crate::{Edge, Graph, Node};
@@ -17,4 +18,12 @@ pub fn determine(nfa: &Graph) -> Graph {
 pub fn find_paths(start_node: Node<'_>, end_node: Node<'_>, handler: impl FnMut(&[Edge<'_>])) {
     let mut pathfinder = pathfd::PathFinder::new(start_node, end_node, handler);
     pathfinder.run();
+}
+
+pub fn clean_tags_up(dfa: &Graph) -> Graph {
+    let new_dfa = Graph::new();
+    let mut tagmin = tagclean::TagCleaner::new(dfa, &new_dfa);
+    tagmin.run();
+    drop(tagmin);
+    new_dfa
 }
