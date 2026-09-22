@@ -100,7 +100,7 @@ fn main() -> miette::Result<()> {
     let nfa_start = Instant::now();
     let nfa = Graph::new();
     let mut tr = Translator::new(&nfa);
-    tr.translate(&hir, nfa.start_node(), nfa.node().finalize());
+    tr.translate(&hir, nfa.start_node()).finalize();
     let nfa_duration = nfa_start.elapsed();
 
     if cli.print.contains(&PrintMode::Nfa) || print_all {

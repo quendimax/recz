@@ -28,7 +28,7 @@ fn parse_and_group(regex: &str) -> Hir {
 fn translate(hir: &Hir) -> Graph {
     let nfa = Graph::new();
     let mut tr = Translator::new(&nfa);
-    tr.translate(hir, nfa.start_node(), nfa.node().finalize());
+    tr.translate(hir, nfa.start_node()).finalize();
     nfa
 }
 

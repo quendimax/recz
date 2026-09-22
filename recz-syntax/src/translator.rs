@@ -2,15 +2,6 @@ use crate::{ConcatHir, DisjunctHir, GroupHir, Hir, RepeatHir};
 use recz_adt::{Set, SetU8};
 use recz_graph::{Graph, Node, Tag};
 
-struct Pair<'a> {
-    first: Node<'a>,
-    last: Node<'a>,
-}
-
-fn pair<'a>(first: Node<'a>, last: Node<'a>) -> Pair<'a> {
-    Pair { first, last }
-}
-
 /// Translator for translating a HIR into a NFA.
 pub struct Translator<'a> {
     graph: &'a Graph,
@@ -22,66 +13,68 @@ impl<'a> Translator<'a> {
         Self { graph }
     }
 
-    pub fn translate(&mut self, hir: &Hir, start_hode: Node<'a>, end_node: Node<'a>) {
-        _ = self.translate_hir(hir, pair(start_hode, end_node));
+    pub fn translate(&mut self, hir: &Hir, start_hode: Node<'a>) -> Node<'a> {
+        self.translate_hir(hir, start_hode).node
     }
 
-    fn translate_hir(&mut self, hir: &Hir, sub: Pair<'a>) -> Set<Tag> {
+    fn translate_hir(&mut self, hir: &Hir, start_node: Node<'a>) -> Tail<'a> {
         match hir {
-            Hir::Literal(literal) => self.translate_literal(literal, sub),
-            Hir::Class(class) => self.translate_class(class, sub),
-            Hir::Group(group) => self.translate_group(group, sub),
-            Hir::Repeat(repeat) => self.translate_repeat(repeat, sub),
-            Hir::Concat(concat) => self.translate_concat(concat, sub),
-            Hir::Disjunct(disjunct) => self.translate_disjunct(disjunct, sub),
+            Hir::Literal(literal) => self.translate_literal(literal, start_node),
+            Hir::Class(class) => self.translate_class(class, start_node),
+            Hir::Group(group) => self.translate_group(group, start_node),
+            Hir::Repeat(repeat) => self.translate_repeat(repeat, start_node),
+            Hir::Concat(concat) => self.translate_concat(concat, start_node),
+            Hir::Disjunct(disjunct) => self.translate_disjunct(disjunct, start_node),
         }
     }
 
-    fn translate_literal(&self, literal: &[u8], sub: Pair<'a>) -> Set<Tag> {
+    fn translate_literal(&self, literal: &[u8], head_node: Node<'a>) -> Tail<'a> {
         if literal.is_empty() {
-            sub.first.connect(sub.last);
-            return Set::default();
+            let end_node = self.graph.node();
+            head_node.connect(end_node);
+            return Tail::new(end_node);
         }
-        let mut first = sub.first;
-        for byte in &literal[..literal.len() - 1] {
+        let mut curr = head_node;
+        for byte in literal {
             let next = self.graph.node();
-            first.connect(next).add_symbol(*byte);
-            first = next;
+            curr.connect(next).add_symbol(*byte);
+            curr = next;
         }
-        let last_byte = literal.last().unwrap();
-        first.connect(sub.last).add_symbol(*last_byte);
-        Set::default()
+        Tail::new(curr)
     }
 
-    fn translate_class(&self, class: &SetU8, sub: Pair<'a>) -> Set<Tag> {
+    fn translate_class(&self, class: &SetU8, head_node: Node<'a>) -> Tail<'a> {
+        let end_node = self.graph.node();
         for range in class.ranges() {
-            sub.first.connect(sub.last).add_symbols(range);
+            head_node.connect(end_node).add_symbols(range);
         }
-        Set::default()
+        Tail::new(end_node)
     }
 
     // Only this function can create a new tag
     //
     // (○)──ε/+g0─→(○)...(○)──ε/-g0─→(○)
     //
-    fn translate_group(&mut self, group: &GroupHir, sub: Pair<'a>) -> Set<Tag> {
+    fn translate_group(&mut self, group: &GroupHir, head_node: Node<'a>) -> Tail<'a> {
         let capture_group = self.graph.group(group.label());
         let open_tag = capture_group.open_tag();
         let close_tag = capture_group.close_tag();
 
         let first = self.graph.node();
-        sub.first.connect(first).add_tag(open_tag);
+        head_node.connect(first).add_tag(open_tag);
 
-        let last = self.graph.node();
-        last.connect(sub.last).add_tag(close_tag);
+        let mut tail = self.translate_hir(group.inner(), first);
+        tail.tags.insert(open_tag);
+        tail.tags.insert(close_tag);
 
-        let tags = self.translate_hir(group.inner(), pair(first, last));
-        tags.insert(open_tag);
-        tags.insert(close_tag);
-        tags
+        let end_node = self.graph.node();
+        tail.node.connect(end_node).add_tag(close_tag);
+        tail.node = end_node;
+
+        tail
     }
 
-    fn translate_repeat(&mut self, repeat: &RepeatHir, mut sub: Pair<'a>) -> Set<Tag> {
+    fn translate_repeat(&mut self, repeat: &RepeatHir, head_node: Node<'a>) -> Tail<'a> {
         match repeat.iter_hint() {
             // Kleene star
             //          ╭────ε────╮
@@ -92,12 +85,14 @@ impl<'a> Translator<'a> {
             //
             (0, None) => {
                 let first = self.graph.node();
-                let last = self.graph.node();
-                sub.first.connect(first);
-                last.connect(sub.last);
-                last.connect(first);
-                sub.first.connect(sub.last);
-                self.translate_hir(repeat.inner(), pair(first, last))
+                head_node.connect(first);
+                let mut tail = self.translate_hir(repeat.inner(), first);
+                let end = self.graph.node();
+                tail.node.connect(first);
+                tail.node.connect(end);
+                head_node.connect(end);
+                tail.node = end;
+                tail
             }
             //
             //          ╭────ε────╮
@@ -106,11 +101,13 @@ impl<'a> Translator<'a> {
             //
             (1, None) => {
                 let first = self.graph.node();
-                let last = self.graph.node();
-                sub.first.connect(first);
-                last.connect(sub.last);
-                last.connect(first);
-                self.translate_hir(repeat.inner(), pair(first, last))
+                head_node.connect(first);
+                let mut tail = self.translate_hir(repeat.inner(), first);
+                let end = self.graph.node();
+                tail.node.connect(first);
+                tail.node.connect(end);
+                tail.node = end;
+                tail
             }
             //
             //                               ╭─────ε─────╮
@@ -119,22 +116,23 @@ impl<'a> Translator<'a> {
             //
             (n, None) => {
                 let mut tags = Set::default();
-                let mut first = sub.first;
+                let mut first = head_node;
                 for _ in 1..n {
-                    let last = self.graph.node();
-                    let new_tags = self.translate_hir(repeat.inner(), pair(first, last));
-                    tags.extend(new_tags);
-                    first = last;
+                    let tail = self.translate_hir(repeat.inner(), first);
+                    tags.extend(tail.tags);
+                    first = tail.node;
                 }
-                sub.first = first;
+                let tmp = first;
                 let first = self.graph.node();
-                let last = self.graph.node();
-                let new_tags = self.translate_hir(repeat.inner(), pair(first, last));
-                tags.extend(new_tags);
-                sub.first.connect(first);
-                last.connect(sub.last);
-                last.connect(first);
-                tags
+                tmp.connect(first);
+                let mut tail = self.translate_hir(repeat.inner(), first);
+                tags.extend(tail.tags);
+                let end = self.graph.node();
+                tail.node.connect(first);
+                tail.node.connect(end);
+                tail.node = end;
+                tail.tags = tags;
+                tail
             }
             //
             // (0)──'a'──(1)──'a'──...──'a'─→(n)
@@ -142,19 +140,19 @@ impl<'a> Translator<'a> {
             (n, Some(m)) if n == m => {
                 let mut tags = Set::default();
                 if n == 0 {
-                    sub.first.connect(sub.last);
-                    tags
+                    let end_node = self.graph.node();
+                    head_node.connect(end_node);
+                    Tail::new(end_node)
                 } else {
-                    let mut first = sub.first;
+                    let mut first = head_node;
                     for _ in 0..n - 1 {
-                        let last = self.graph.node();
-                        let new_tags = self.translate_hir(repeat.inner(), pair(first, last));
-                        tags.extend(new_tags);
-                        first = last;
+                        let tail = self.translate_hir(repeat.inner(), first);
+                        tags.extend(tail.tags);
+                        first = tail.node;
                     }
-                    let new_tags = self.translate_hir(repeat.inner(), pair(first, sub.last));
-                    tags.extend(new_tags);
-                    tags
+                    let mut tail = self.translate_hir(repeat.inner(), first);
+                    tail.tags.extend(tags);
+                    tail
                 }
             }
             //
@@ -166,26 +164,27 @@ impl<'a> Translator<'a> {
             //
             (n, Some(m)) if n < m => {
                 let mut tags = Set::default();
-                let mut first = sub.first;
+                let mut curr = head_node;
                 for _ in 0..n {
-                    let last = self.graph.node();
-                    let new_tags = self.translate_hir(repeat.inner(), pair(first, last));
-                    tags.extend(new_tags);
-                    first = last;
+                    let tail = self.translate_hir(repeat.inner(), curr);
+                    tags.extend(tail.tags);
+                    curr = tail.node;
                 }
+                let mut last_nodes = Vec::with_capacity(m - n);
                 for _ in n..m {
+                    last_nodes.push(curr);
                     let mid_one = self.graph.node();
-                    first.connect(mid_one);
-                    let mid_two = self.graph.node();
-                    let new_tags = self.translate_hir(repeat.inner(), pair(mid_one, mid_two));
-                    tags.extend(new_tags);
+                    curr.connect(mid_one);
+                    let tail = self.translate_hir(repeat.inner(), mid_one);
+                    tags.extend(tail.tags);
                     let last = self.graph.node();
-                    mid_two.connect(last);
-                    first.connect(sub.last);
-                    first = last;
+                    tail.node.connect(last);
+                    curr = last;
                 }
-                first.connect(sub.last);
-                tags
+                for last in last_nodes {
+                    last.connect(curr);
+                }
+                Tail { node: curr, tags }
             }
             (n, Some(m)) => {
                 panic!("invalid repetition counters: {{{n},{m}}}");
@@ -193,24 +192,27 @@ impl<'a> Translator<'a> {
         }
     }
 
-    fn translate_concat(&mut self, concat: &ConcatHir, sub: Pair<'a>) -> Set<Tag> {
-        let mut tags = Set::default();
+    fn translate_concat(&mut self, concat: &ConcatHir, head_node: Node<'a>) -> Tail<'a> {
         let items = concat.items();
         if items.is_empty() {
-            sub.first.connect(sub.last);
-            return tags;
+            let end_node = self.graph.node();
+            head_node.connect(end_node);
+            return Tail::new(end_node);
         }
-        let mut first = sub.first;
+        let mut tags = Set::default();
+        let mut first = head_node;
         for hir in &items[..items.len() - 1] {
-            let last = self.graph.node();
-            let new_tags = self.translate_hir(hir, pair(first, last));
-            tags.extend(new_tags);
-            first = last;
+            let tail = self.translate_hir(hir, first);
+            tags.extend(tail.tags);
+            first = tail.node;
         }
         let hir = items.last().unwrap();
-        let new_tags = self.translate_hir(hir, pair(first, sub.last));
-        tags.extend(new_tags);
-        tags
+        let tail = self.translate_hir(hir, first);
+        tags.extend(tail.tags);
+        Tail {
+            node: tail.node,
+            tags,
+        }
     }
 
     /// ```txt
@@ -220,36 +222,43 @@ impl<'a> Translator<'a> {
     ///  │                          ↑
     ///  ╰───ε──→(○)──'c'─→(○)──ε───╯
     /// ```
-    fn translate_disjunct(&mut self, disjunct: &DisjunctHir, sub: Pair<'a>) -> Set<Tag> {
-        let mut branches = Vec::new();
+    fn translate_disjunct(&mut self, disjunct: &DisjunctHir, head_node: Node<'a>) -> Tail<'a> {
+        let mut branch_tails = Vec::new();
         for hir in disjunct.alternatives() {
             let first = self.graph.node();
-            let last = self.graph.node();
-            sub.first.connect(first);
-            let branch_tags = self.translate_hir(hir, pair(first, last));
-            branches.push((last, branch_tags));
+            head_node.connect(first);
+            let tail = self.translate_hir(hir, first);
+            branch_tails.push(tail);
         }
-        for (last, _) in &branches {
-            let mut is_connected = false;
-            for (other_last, other_tags) in &branches {
-                if last != other_last {
-                    for tag in other_tags {
+        let tail = Tail::new(self.graph.node());
+        for lhs_tail in &branch_tails {
+            let edge = lhs_tail.node.connect(tail.node);
+            for rhs_tail in &branch_tails {
+                if lhs_tail.node != rhs_tail.node {
+                    for tag in &rhs_tail.tags {
                         if let Some(tag) = tag.delete_group() {
-                            last.connect(sub.last).add_tag(tag);
-                            is_connected = true;
+                            edge.add_tag(tag);
                         }
                     }
                 }
             }
-            if !is_connected {
-                last.connect(sub.last);
-            }
         }
-        let mut tags = Set::default();
-        for (_, branch_tags) in &branches {
-            tags.extend(branch_tags);
+        tail
+    }
+}
+
+#[derive(Debug)]
+struct Tail<'a> {
+    node: Node<'a>,
+    tags: Set<Tag>,
+}
+
+impl<'a> Tail<'a> {
+    fn new(node: Node<'a>) -> Self {
+        Self {
+            node,
+            tags: Set::default(),
         }
-        tags
     }
 }
 

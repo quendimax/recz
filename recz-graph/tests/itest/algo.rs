@@ -103,7 +103,7 @@ fn parse(s: &str) -> Result<String> {
     let hir = parser.parse(s)?;
     let nfa = Graph::new();
     let mut tr = Translator::new(&nfa);
-    tr.translate(&hir, nfa.start_node(), nfa.node().finalize());
+    tr.translate(&hir, nfa.start_node()).finalize();
     let dfa = algo::determine(&nfa);
     Ok(format!("{dfa}"))
 }

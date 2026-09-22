@@ -1,4 +1,4 @@
-use super::{Translator, pair};
+use super::Translator;
 use crate::hir::Hir;
 use pretty_assertions::assert_eq;
 use recz_adt::{Range, SetU8, lit};
@@ -9,8 +9,7 @@ fn translate_literal() {
     fn tr(literal: &[u8]) -> String {
         let graph = Graph::new();
         let translator = Translator::new(&graph);
-        let pair = pair(graph.node(), graph.node());
-        translator.translate_literal(literal, pair);
+        translator.translate_literal(literal, graph.node());
         graph.to_string()
     }
 
@@ -27,9 +26,9 @@ fn translate_literal() {
         tr(b"ab"),
         lit!(
             ///graph {
-            ///  no_0 { 'a' -> no_2 }
-            ///  no_1 {}
-            ///  no_2 { 'b' -> no_1 }
+            ///  no_0 { 'a' -> no_1 }
+            ///  no_1 { 'b' -> no_2 }
+            ///  no_2 {}
             ///}
         )
     );
@@ -40,8 +39,7 @@ fn translate_class() {
     fn tr(set: &SetU8) -> String {
         let graph = Graph::new();
         let translator = Translator::new(&graph);
-        let pair = pair(graph.node(), graph.node());
-        translator.translate_class(set, pair);
+        translator.translate_class(set, graph.node());
         graph.to_string()
     }
 
@@ -65,11 +63,10 @@ fn translate_repeat() {
         assert!(repeat.is_repeat());
         let graph = Graph::new();
         let mut translator = Translator::new(&graph);
-        let pair = pair(graph.node(), graph.node());
         let Hir::Repeat(repeat) = repeat else {
             unreachable!()
         };
-        translator.translate_repeat(repeat, pair);
+        translator.translate_repeat(repeat, graph.node());
         graph.to_string()
     }
 
@@ -80,15 +77,15 @@ fn translate_repeat() {
         lit!(
             ///graph {
             ///  no_0 {
-            ///    EPS -> no_2
             ///    EPS -> no_1
+            ///    EPS -> no_3
             ///  }
-            ///  no_1 {}
-            ///  no_2 { 'a' -> no_3 }
-            ///  no_3 {
+            ///  no_1 { 'a' -> no_2 }
+            ///  no_2 {
             ///    EPS -> no_1
-            ///    EPS -> no_2
+            ///    EPS -> no_3
             ///  }
+            ///  no_3 {}
             ///}
         )
     );
@@ -99,13 +96,13 @@ fn translate_repeat() {
         tr(&hir),
         lit!(
             ///graph {
-            ///  no_0 { EPS -> no_2 }
-            ///  no_1 {}
-            ///  no_2 { 'a' -> no_3 }
-            ///  no_3 {
+            ///  no_0 { EPS -> no_1 }
+            ///  no_1 { 'a' -> no_2 }
+            ///  no_2 {
             ///    EPS -> no_1
-            ///    EPS -> no_2
+            ///    EPS -> no_3
             ///  }
+            ///  no_3 {}
             ///}
         )
     );
@@ -116,15 +113,15 @@ fn translate_repeat() {
         tr(&hir),
         lit!(
             ///graph {
-            ///  no_0 { 'a' -> no_2 }
-            ///  no_1 {}
-            ///  no_2 { 'a' -> no_3 }
-            ///  no_3 { EPS -> no_4 }
-            ///  no_4 { 'a' -> no_5 }
-            ///  no_5 {
-            ///    EPS -> no_1
-            ///    EPS -> no_4
+            ///  no_0 { 'a' -> no_1 }
+            ///  no_1 { 'a' -> no_2 }
+            ///  no_2 { EPS -> no_3 }
+            ///  no_3 { 'a' -> no_4 }
+            ///  no_4 {
+            ///    EPS -> no_3
+            ///    EPS -> no_5
             ///  }
+            ///  no_5 {}
             ///}
         )
     );
@@ -147,10 +144,10 @@ fn translate_repeat() {
         tr(&hir),
         lit!(
             ///graph {
-            ///  no_0 { 'a' -> no_2 }
-            ///  no_1 {}
+            ///  no_0 { 'a' -> no_1 }
+            ///  no_1 { 'a' -> no_2 }
             ///  no_2 { 'a' -> no_3 }
-            ///  no_3 { 'a' -> no_1 }
+            ///  no_3 {}
             ///}
         )
     );
@@ -161,21 +158,20 @@ fn translate_repeat() {
         tr(&hir),
         lit!(
             ///graph {
-            ///  no_0 { 'a' -> no_2 }
-            ///  no_1 {}
-            ///  no_2 {
-            ///    EPS -> no_3
-            ///    EPS -> no_1
+            ///  no_0 { 'a' -> no_1 }
+            ///  no_1 {
+            ///    EPS -> no_2
+            ///    EPS -> no_7
             ///  }
-            ///  no_3 { 'a' -> no_4 }
-            ///  no_4 { EPS -> no_5 }
-            ///  no_5 {
-            ///    EPS -> no_6
-            ///    EPS -> no_1
+            ///  no_2 { 'a' -> no_3 }
+            ///  no_3 { EPS -> no_4 }
+            ///  no_4 {
+            ///    EPS -> no_5
+            ///    EPS -> no_7
             ///  }
-            ///  no_6 { 'a' -> no_7 }
-            ///  no_7 { EPS -> no_8 }
-            ///  no_8 { EPS -> no_1 }
+            ///  no_5 { 'a' -> no_6 }
+            ///  no_6 { EPS -> no_7 }
+            ///  no_7 {}
             ///}
         )
     );
@@ -188,11 +184,10 @@ fn translate_repeat_fails() {
     let repeat = Hir::repeat(literal, 3, Some(2));
     let graph = Graph::new();
     let mut translator = Translator::new(&graph);
-    let sub = pair(graph.node(), graph.node());
     let Hir::Repeat(repeat) = repeat else {
         unreachable!()
     };
-    translator.translate_repeat(&repeat, sub);
+    translator.translate_repeat(&repeat, graph.node());
 }
 
 #[test]
@@ -200,11 +195,10 @@ fn translate_concat() {
     let concat = Hir::concat([]);
     let graph = Graph::new();
     let translator = Translator::new(&graph);
-    let sub = pair(graph.node(), graph.node());
     let Hir::Literal(concat) = concat else {
         unreachable!()
     };
-    translator.translate_literal(&concat, sub);
+    translator.translate_literal(&concat, graph.node());
     assert_eq!(
         graph.to_string(),
         lit!(
@@ -218,19 +212,18 @@ fn translate_concat() {
     let concat = Hir::concat([Hir::literal("a"), Hir::literal("b"), Hir::literal("c")]);
     let graph = Graph::new();
     let mut translator = Translator::new(&graph);
-    let sub = pair(graph.node(), graph.node());
     let Hir::Concat(concat) = concat else {
         unreachable!()
     };
-    translator.translate_concat(&concat, sub);
+    translator.translate_concat(&concat, graph.node());
     assert_eq!(
         graph.to_string(),
         lit!(
             ///graph {
-            ///  no_0 { 'a' -> no_2 }
-            ///  no_1 {}
-            ///  no_2 { 'b' -> no_3 }
-            ///  no_3 { 'c' -> no_1 }
+            ///  no_0 { 'a' -> no_1 }
+            ///  no_1 { 'b' -> no_2 }
+            ///  no_2 { 'c' -> no_3 }
+            ///  no_3 {}
             ///}
         )
     );
@@ -241,27 +234,26 @@ fn translate_disjunct() {
     let disjunct = Hir::disjunct([Hir::literal("a"), Hir::literal("b"), Hir::literal("c")]);
     let graph = Graph::new();
     let mut translator = Translator::new(&graph);
-    let sub = pair(graph.node(), graph.node());
     let Hir::Disjunct(disjunct) = disjunct else {
         unreachable!()
     };
-    translator.translate_disjunct(&disjunct, sub);
+    translator.translate_disjunct(&disjunct, graph.node());
     assert_eq!(
         graph.to_string(),
         lit!(
             ///graph {
             ///  no_0 {
-            ///    EPS -> no_2
-            ///    EPS -> no_4
-            ///    EPS -> no_6
+            ///    EPS -> no_1
+            ///    EPS -> no_3
+            ///    EPS -> no_5
             ///  }
-            ///  no_1 {}
-            ///  no_2 { 'a' -> no_3 }
-            ///  no_3 { EPS -> no_1 }
-            ///  no_4 { 'b' -> no_5 }
-            ///  no_5 { EPS -> no_1 }
-            ///  no_6 { 'c' -> no_7 }
-            ///  no_7 { EPS -> no_1 }
+            ///  no_1 { 'a' -> no_2 }
+            ///  no_2 { EPS -> no_7 }
+            ///  no_3 { 'b' -> no_4 }
+            ///  no_4 { EPS -> no_7 }
+            ///  no_5 { 'c' -> no_6 }
+            ///  no_6 { EPS -> no_7 }
+            ///  no_7 {}
             ///}
         )
     );
