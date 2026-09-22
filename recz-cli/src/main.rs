@@ -35,7 +35,9 @@ enum PrintMode {
     Dfa,
     /// Print Code
     Code,
-    /// Print all transformation steps
+    /// Print duration of every step
+    Timings,
+    /// Print all transformation steps and timings
     All,
 }
 
@@ -44,14 +46,14 @@ enum PrintMode {
 #[derive(clap::Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
-    /// the regex pattern to analyze
+    /// Regex pattern to analyze
     regex: String,
 
-    /// what inner representation to print
+    /// Choose what information you want to see
     #[arg(short, long, value_enum)]
     print: Vec<PrintMode>,
 
-    /// encoding system that regex engine is built for
+    /// Choose the encoding system that regex engine is built with
     #[arg(short, long, value_enum, default_value = "ascii")]
     codec: Codec,
 }
@@ -89,7 +91,7 @@ fn main() -> miette::Result<()> {
     let hir_duration = hir_start.elapsed();
 
     if cli.print.contains(&PrintMode::Hir) || print_all {
-        println!("--- HIR ----------------------------- {hir_duration:?} --------");
+        println!("--- HIR -------------------------------- {hir_duration:?} --------");
         println!();
         println!("{}", dysplay(&hir));
         println!();
@@ -102,7 +104,7 @@ fn main() -> miette::Result<()> {
     let nfa_duration = nfa_start.elapsed();
 
     if cli.print.contains(&PrintMode::Nfa) || print_all {
-        println!("--- NFA ----------------------------- {nfa_duration:?} --------");
+        println!("--- NFA -------------------------------- {nfa_duration:?} --------");
         println!();
         println!("{}", dysplay(&nfa));
         println!();
@@ -114,7 +116,7 @@ fn main() -> miette::Result<()> {
     let dfa_duration = dfa_start.elapsed();
 
     if cli.print.contains(&PrintMode::Dfa) || print_all {
-        println!("--- DFA ----------------------------- {dfa_duration:?} --------");
+        println!("--- DFA -------------------------------- {dfa_duration:?} --------");
         println!();
         println!("{}", dysplay(&dfa));
         println!();
@@ -134,19 +136,23 @@ fn main() -> miette::Result<()> {
     if cli.print.contains(&PrintMode::Code) || print_all {
         let code_file: syn::File = syn::parse2(code_stream).unwrap();
         let code = prettyplease::unparse(&code_file);
-        println!("--- Code ---------------------------- {code_duration:?} --------");
+        println!("--- Code ------------------------------- {code_duration:?} --------");
         println!();
         println!("{}", highlight::highlight(&code));
         println!();
     }
 
     let total_duration = hir_duration + nfa_duration + dfa_duration + code_duration;
-    println!("Elapsed time for building");
-    println!("- HIR:   {hir_duration:?}");
-    println!("- NFA:   {nfa_duration:?}");
-    println!("- DFA:   {dfa_duration:?}");
-    println!("- Code:  {code_duration:?}");
-    println!("> Total: {total_duration:?}");
+    if cli.print.contains(&PrintMode::Timings) || print_all {
+        println!("--- Timings -----------------------------------------------");
+        println!();
+        println!("Elapsed time for building");
+        println!("- HIR:   {hir_duration:?}");
+        println!("- NFA:   {nfa_duration:?}");
+        println!("- DFA:   {dfa_duration:?}");
+        println!("- Code:  {code_duration:?}");
+        println!("> Total: {total_duration:?}");
+    }
 
     Ok(())
 }
