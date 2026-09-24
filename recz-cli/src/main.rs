@@ -14,8 +14,8 @@ mod highlight;
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Codec {
-    #[default]
     /// ASCII codec
+    #[default]
     Ascii,
 
     /// Latin-1 codec
@@ -50,7 +50,7 @@ struct Cli {
     regex: String,
 
     /// Choose what information you want to see
-    #[arg(short, long, value_enum)]
+    #[arg(short, long, value_enum, value_delimiter = ',')]
     print: Vec<PrintMode>,
 
     /// Choose the encoding system that regex engine is built with

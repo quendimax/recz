@@ -53,9 +53,6 @@ impl<'d, 'n> Determinator<'d, 'n> {
             }
             epilogue_node.epilogize();
         }
-
-        // let mut path_finder = PathFinder::new(self.dfa);
-        // path_finder.run();
     }
 
     fn recurse(&mut self, closure: Rc<EClosure<'d, 'n>>) -> Node<'d> {

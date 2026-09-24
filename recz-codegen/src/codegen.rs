@@ -314,6 +314,7 @@ impl<'d> MatchGenerator<'d> {
     }
 
     fn run(&mut self) {
+        self.visited.clear();
         self.handle_node(self.dfa.start_node());
     }
 
