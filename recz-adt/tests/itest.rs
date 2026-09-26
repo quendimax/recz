@@ -1,3 +1,6 @@
+#[path = "itest/hint.rs"]
+mod hint;
+
 #[path = "itest/legible.rs"]
 mod legible;
 
