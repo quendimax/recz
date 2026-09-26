@@ -62,10 +62,11 @@ fn hir_repeat() {
     assert_eq!(repeat.len_hint(), (0, None));
     assert_eq!(repeat.exact_len(), None);
     assert_str_eq!(repeat.to_string(), r#""a"*"#);
-    if let Hir::Repeat(hir) = repeat {
-        assert_eq!(hir.inner(), &Hir::literal("a"));
-        assert_eq!(hir.iter_hint(), (0, None));
-    }
+    let Hir::Repeat(hir) = repeat else {
+        panic!("expected repeat");
+    };
+    assert_eq!(hir.inner(), &Hir::literal("a"));
+    assert_eq!(hir.multiplier(), (0, None));
 
     let lit = Hir::literal(b"abc");
     let repeat = Hir::repeat(lit, 1, None);

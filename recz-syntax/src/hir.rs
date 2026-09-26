@@ -1,5 +1,5 @@
 use owo_colors::OwoColorize;
-use recz_adt::{Legible, SetU8};
+use recz_adt::{Legible, LenHint, SetU8};
 use recz_graph::CaptureLabel;
 use std::fmt::{Display, Write};
 
@@ -25,24 +25,9 @@ impl Hir {
         if alters.len() == 1 {
             return alters.into_iter().next().unwrap();
         }
-        let mut min_len = usize::MAX;
-        let mut max_len = Some(0);
-        for alter in &alters {
-            let (alter_min_len, alter_max_len) = alter.len_hint();
-            min_len = min_len.min(alter_min_len);
-            max_len = if let Some(max_len) = max_len
-                && let Some(alter_max_len) = alter_max_len
-            {
-                Some(max_len.max(alter_max_len))
-            } else {
-                None
-            };
-        }
-        Hir::Disjunct(DisjunctHir {
-            alters,
-            min_len,
-            max_len,
-        })
+        let init = LenHint::new(usize::MAX - 1, Some(0));
+        let len_hint = alters.iter().fold(init, |acc, len| acc | len.len_hint());
+        Hir::Disjunct(DisjunctHir { alters, len_hint })
     }
 
     /// Creates a new concatenation hir instance. If there is only one item, it
@@ -52,27 +37,13 @@ impl Hir {
         if items.len() == 1 {
             return items.into_iter().next().unwrap();
         }
-        let mut min_len = 0;
-        let mut max_len = Some(0);
-        for item in &items {
-            let (item_min, item_max) = item.len_hint();
-            min_len += item_min;
-            if let Some(max) = max_len
-                && let Some(item_max) = item_max
-            {
-                max_len = Some(max + item_max);
-            } else {
-                max_len = None;
-            }
-        }
+        let len_hint = items
+            .iter()
+            .fold(LenHint::new(0, Some(0)), |acc, len| acc & len.len_hint());
         if items.is_empty() {
             Hir::empty()
         } else {
-            Hir::Concat(ConcatHir {
-                items,
-                min_len,
-                max_len,
-            })
+            Hir::Concat(ConcatHir { items, len_hint })
         }
     }
 
@@ -85,8 +56,7 @@ impl Hir {
             );
         }
         Hir::Repeat(RepeatHir {
-            lower,
-            upper,
+            multiplier: LenHint::new(lower, upper),
             item: Box::new(item),
         })
     }
@@ -147,22 +117,21 @@ impl Hir {
     }
 
     /// Returns the bounds of the Hir's length. `None` means infinite.
-    pub fn len_hint(&self) -> (usize, Option<usize>) {
+    pub fn len_hint(&self) -> LenHint {
         match self {
             Hir::Disjunct(hir) => hir.len_hint(),
             Hir::Concat(hir) => hir.len_hint(),
             Hir::Repeat(hir) => hir.len_hint(),
             Hir::Group(hir) => hir.len_hint(),
-            Hir::Class(_) => (1, Some(1)),
-            Hir::Literal(bytes) => (bytes.len(), Some(bytes.len())),
+            Hir::Class(_) => LenHint::new(1, Some(1)),
+            Hir::Literal(bytes) => LenHint::new(bytes.len(), Some(bytes.len())),
         }
     }
 
     /// Returns `Some(len)` if this hir instance has the exact length, otherwise
     /// returns `None`.
     pub fn exact_len(&self) -> Option<usize> {
-        let (lower, upper) = self.len_hint();
-        if Some(lower) == upper { upper } else { None }
+        self.len_hint().exact_len()
     }
 }
 
@@ -205,8 +174,7 @@ impl Legible for Hir {
 #[derive(Debug, Clone, PartialEq)]
 pub struct DisjunctHir {
     alters: Vec<Hir>,
-    min_len: usize,
-    max_len: Option<usize>,
+    len_hint: LenHint,
 }
 
 impl DisjunctHir {
@@ -216,13 +184,12 @@ impl DisjunctHir {
     }
 
     #[inline]
-    pub fn len_hint(&self) -> (usize, Option<usize>) {
-        (self.min_len, self.max_len)
+    pub fn len_hint(&self) -> LenHint {
+        self.len_hint
     }
 
     pub fn exact_len(&self) -> Option<usize> {
-        let (lower, upper) = self.len_hint();
-        if Some(lower) == upper { upper } else { None }
+        self.len_hint.exact_len()
     }
 }
 
@@ -276,8 +243,7 @@ impl Legible for DisjunctHir {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConcatHir {
     items: Vec<Hir>,
-    min_len: usize,
-    max_len: Option<usize>,
+    len_hint: LenHint,
 }
 
 impl ConcatHir {
@@ -287,8 +253,8 @@ impl ConcatHir {
     }
 
     #[inline]
-    pub fn len_hint(&self) -> (usize, Option<usize>) {
-        (self.min_len, self.max_len)
+    pub fn len_hint(&self) -> LenHint {
+        self.len_hint
     }
 }
 
@@ -342,8 +308,7 @@ impl Legible for ConcatHir {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RepeatHir {
-    lower: usize,
-    upper: Option<usize>,
+    multiplier: LenHint,
     item: Box<Hir>,
 }
 
@@ -353,21 +318,14 @@ impl RepeatHir {
         &self.item
     }
 
-    pub fn len_hint(&self) -> (usize, Option<usize>) {
-        let (min_len, max_len) = self.item.len_hint();
-        if let Some(max) = self.upper
-            && let Some(max_len) = max_len
-        {
-            (self.lower * min_len, Some(max * max_len))
-        } else {
-            (self.lower * min_len, None)
-        }
+    pub fn len_hint(&self) -> LenHint {
+        self.multiplier * self.item.len_hint()
     }
 
     /// Lower and upper bounds of possible number of iterations. `None` means infinite.
     #[inline]
-    pub fn iter_hint(&self) -> (usize, Option<usize>) {
-        (self.lower, self.upper)
+    pub fn multiplier(&self) -> LenHint {
+        self.multiplier
     }
 }
 
@@ -382,7 +340,7 @@ impl Display for RepeatHir {
         if needs_parens {
             f.write_char(')')?;
         }
-        match (self.lower, self.upper) {
+        match self.multiplier.to_tuple() {
             (0, None) => f.write_char('*'),
             (1, None) => f.write_char('+'),
             (0, Some(1)) => f.write_char('?'),
@@ -411,7 +369,7 @@ impl Legible for RepeatHir {
                 if needs_parens {
                     ')'.white().fmt(f)?;
                 }
-                match (self.0.lower, self.0.upper) {
+                match self.0.multiplier.to_tuple() {
                     (0, None) => '*'.bold().bright_yellow().fmt(f),
                     (1, None) => '+'.bold().bright_yellow().fmt(f),
                     (0, Some(1)) => '?'.bold().bright_yellow().fmt(f),
@@ -457,7 +415,7 @@ impl GroupHir {
     }
 
     #[inline]
-    pub fn len_hint(&self) -> (usize, Option<usize>) {
+    pub fn len_hint(&self) -> LenHint {
         self.item.len_hint()
     }
 }

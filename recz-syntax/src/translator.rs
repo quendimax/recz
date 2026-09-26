@@ -75,7 +75,7 @@ impl<'a> Translator<'a> {
     }
 
     fn translate_repeat(&mut self, repeat: &RepeatHir, head_node: Node<'a>) -> Tail<'a> {
-        match repeat.iter_hint() {
+        match repeat.multiplier().to_tuple() {
             // Kleene star
             //          ╭────ε────╮
             //          ↓         │

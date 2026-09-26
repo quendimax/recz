@@ -11,6 +11,9 @@ pub use collections::{OrdMap, OrdMapIter, OrdSet, OrdSetIter};
 mod hash;
 pub use hash::{DefaultHasher, RandomState};
 
+mod hint;
+pub use hint::LenHint;
+
 mod legible;
 pub use legible::Legible;
 
