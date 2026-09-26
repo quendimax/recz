@@ -51,10 +51,13 @@ impl<'a> Translator<'a> {
         Tail::new(end_node)
     }
 
-    // Only this function can create a new tag
-    //
-    // (○)──ε/+g0─→(○)...(○)──ε/-g0─→(○)
-    //
+    /// Group.
+    ///
+    /// Only this function can create a new tag
+    ///
+    /// ```txt
+    /// (○)──ε/+g0─→(○)...(○)──ε/-g0─→(○)
+    /// ```
     fn translate_group(&mut self, group: &GroupHir, head_node: Node<'a>) -> Tail<'a> {
         let capture_group = self.graph.group(group.label());
         let open_tag = capture_group.open_tag();
@@ -76,120 +79,114 @@ impl<'a> Translator<'a> {
 
     fn translate_repeat(&mut self, repeat: &RepeatHir, head_node: Node<'a>) -> Tail<'a> {
         match repeat.multiplier().to_tuple() {
-            // Kleene star
-            //          ╭────ε────╮
-            //          ↓         │
-            // (1)──ε─→(2)──'a'─→(3)──ε─→(4)
-            //  │                         ↑
-            //  ╰────────────ε────────────╯
-            //
-            (0, None) => {
-                let first = self.graph.node();
-                head_node.connect(first);
-                let mut tail = self.translate_hir(repeat.inner(), first);
-                let end = self.graph.node();
-                tail.node.connect(first);
-                tail.node.connect(end);
-                head_node.connect(end);
-                tail.node = end;
-                tail
-            }
-            //
-            //          ╭────ε────╮
-            //          ↓         │
-            // (1)──ε─→(2)──'a'─→(3)──ε─→(4)
-            //
-            (1, None) => {
-                let first = self.graph.node();
-                head_node.connect(first);
-                let mut tail = self.translate_hir(repeat.inner(), first);
-                let end = self.graph.node();
-                tail.node.connect(first);
-                tail.node.connect(end);
-                tail.node = end;
-                tail
-            }
-            //
-            //                               ╭─────ε─────╮
-            //                               ↓           │
-            // (1)──'a'──...──'a'─→(n)──ε─→(n+1)──'a'─→(n+2)──ε─→(n+3)
-            //
+            (0, None) => self.translate_kleene_star(repeat.inner(), head_node),
+            (1, None) => self.translate_one_plus(repeat.inner(), head_node),
             (n, None) => {
-                let mut tags = Set::default();
-                let mut first = head_node;
-                for _ in 1..n {
-                    let tail = self.translate_hir(repeat.inner(), first);
-                    tags.extend(tail.tags);
-                    first = tail.node;
-                }
-                let tmp = first;
-                let first = self.graph.node();
-                tmp.connect(first);
-                let mut tail = self.translate_hir(repeat.inner(), first);
-                tags.extend(tail.tags);
-                let end = self.graph.node();
-                tail.node.connect(first);
-                tail.node.connect(end);
-                tail.node = end;
-                tail.tags = tags;
-                tail
+                let n_tail = self.translate_n_times(n - 1, repeat.inner(), head_node);
+                let mut plus_tail = self.translate_one_plus(repeat.inner(), n_tail.node);
+                plus_tail.tags.extend(n_tail.tags);
+                plus_tail
             }
-            //
-            // (0)──'a'──(1)──'a'──...──'a'─→(n)
-            //
-            (n, Some(m)) if n == m => {
-                let mut tags = Set::default();
-                if n == 0 {
-                    let end_node = self.graph.node();
-                    head_node.connect(end_node);
-                    Tail::new(end_node)
-                } else {
-                    let mut first = head_node;
-                    for _ in 0..n - 1 {
-                        let tail = self.translate_hir(repeat.inner(), first);
-                        tags.extend(tail.tags);
-                        first = tail.node;
-                    }
-                    let mut tail = self.translate_hir(repeat.inner(), first);
-                    tail.tags.extend(tags);
-                    tail
-                }
-            }
-            //
-            // (0)──'a'─..─'a'─→(n)──ε─→(○)──'a'─→(○)──ε─→(○)──ε─→(○)──'a'──(○)──ε─→(○)──...──ε─→(○)
-            //                   │                         │                         │            ↑
-            //                   │                         │                         ╰──────ε─────╯
-            //                   │                         ╰───────────────────ε──────────────────╯
-            //                   ╰────────────────────────────────ε───────────────────────────────╯
-            //
+            (n, Some(m)) if n == m => self.translate_n_times(n, repeat.inner(), head_node),
             (n, Some(m)) if n < m => {
-                let mut tags = Set::default();
-                let mut curr = head_node;
-                for _ in 0..n {
-                    let tail = self.translate_hir(repeat.inner(), curr);
-                    tags.extend(tail.tags);
-                    curr = tail.node;
-                }
-                let mut last_nodes = Vec::with_capacity(m - n);
-                for _ in n..m {
-                    last_nodes.push(curr);
-                    let mid_one = self.graph.node();
-                    curr.connect(mid_one);
-                    let tail = self.translate_hir(repeat.inner(), mid_one);
-                    tags.extend(tail.tags);
-                    let last = self.graph.node();
-                    tail.node.connect(last);
-                    curr = last;
-                }
-                for last in last_nodes {
-                    last.connect(curr);
-                }
-                Tail { node: curr, tags }
+                let n_tail = self.translate_n_times(n, repeat.inner(), head_node);
+                let mut tail = self.translate_possible(m - n, repeat.inner(), n_tail.node);
+                tail.tags.extend(n_tail.tags);
+                tail
             }
             (n, Some(m)) => {
                 panic!("invalid repetition counters: {{{n},{m}}}");
             }
         }
+    }
+
+    /// Kleene star `a*`.
+    ///
+    /// ```txt
+    ///          ╭────ε────╮
+    ///          ↓         │
+    /// (1)──ε─→(2)──'a'─→(3)──ε─→(4)
+    ///  │                         ↑
+    ///  ╰────────────ε────────────╯
+    /// ```
+    fn translate_kleene_star(&mut self, inner_hir: &Hir, head_node: Node<'a>) -> Tail<'a> {
+        let first = self.graph.node();
+        head_node.connect(first);
+        let mut tail = self.translate_hir(inner_hir, first);
+        let end = self.graph.node();
+        tail.node.connect(first);
+        tail.node.connect(end);
+        head_node.connect(end);
+        tail.node = end;
+        tail
+    }
+
+    /// Plus iteration `a+`.
+    ///
+    /// ```txt
+    ///          ╭────ε────╮
+    ///          ↓         │
+    /// (1)──ε─→(2)──'a'─→(3)──ε─→(4)
+    /// ```
+    fn translate_one_plus(&mut self, inner_hir: &Hir, head_node: Node<'a>) -> Tail<'a> {
+        let first = self.graph.node();
+        head_node.connect(first);
+        let mut tail = self.translate_hir(inner_hir, first);
+        let end = self.graph.node();
+        tail.node.connect(first);
+        tail.node.connect(end);
+        tail.node = end;
+        tail
+    }
+
+    /// N-times iteration `a{n}`.
+    ///
+    /// ```txt
+    /// (1)──'a'─→(2)──'a'─→(3)──'a'─→(4)
+    /// ```
+    fn translate_n_times(&mut self, n: usize, inner_hir: &Hir, head_node: Node<'a>) -> Tail<'a> {
+        if n == 0 {
+            let end_node = self.graph.node();
+            head_node.connect(end_node);
+            return Tail::new(end_node);
+        }
+        let mut tags = Set::default();
+        let mut first = head_node;
+        for _ in 0..n {
+            let tail = self.translate_hir(inner_hir, first);
+            tags.extend(tail.tags);
+            first = tail.node;
+        }
+        Tail { node: first, tags }
+    }
+
+    /// Possible repetition `a{0,n}`.
+    ///
+    /// ```txt
+    /// (○)─ε─→(○)─'a'→(○)─ε─→(○)─ε─→(○)─'a'─→(○)─ε─→(○)─...─ε─→(○)
+    ///  │                     │                      │          ↑
+    ///  │                     │                      ╰─────ε────╯
+    ///  │                     ╰────────────────ε────────────────╯
+    ///  ╰───────────────────────────ε───────────────────────────╯
+    /// ```
+    fn translate_possible(&mut self, n: usize, inner_hir: &Hir, head_node: Node<'a>) -> Tail<'a> {
+        let mut tags = Set::default();
+        let mut head_nodes = Vec::with_capacity(n);
+        let mut curr = head_node;
+        for _ in 0..n {
+            head_nodes.push(curr);
+            let before = self.graph.node();
+            curr.connect(before);
+            let tail = self.translate_hir(inner_hir, before);
+            tags.extend(tail.tags);
+            let after = self.graph.node();
+            tail.node.connect(after);
+            curr = after;
+        }
+        for head in head_nodes {
+            head.connect(curr);
+        }
+        Tail { node: curr, tags }
     }
 
     fn translate_concat(&mut self, concat: &ConcatHir, head_node: Node<'a>) -> Tail<'a> {
