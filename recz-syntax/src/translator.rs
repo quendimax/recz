@@ -1,6 +1,6 @@
 use crate::{ConcatHir, DisjunctHir, GroupHir, Hir, RepeatHir};
 use recz_adt::{Set, SetU8};
-use recz_graph::{Graph, Node, Tag};
+use recz_graph::{Attr, Graph, Node, Tag};
 
 /// Translator for translating a HIR into a NFA.
 pub struct Translator<'a> {
@@ -79,18 +79,18 @@ impl<'a> Translator<'a> {
 
     fn translate_repeat(&mut self, repeat: &RepeatHir, head_node: Node<'a>) -> Tail<'a> {
         match repeat.multiplier().to_tuple() {
-            (0, None) => self.translate_kleene_star(repeat.inner(), head_node),
-            (1, None) => self.translate_one_plus(repeat.inner(), head_node),
+            (0, None) => self.translate_kleene_star(repeat, head_node),
+            (1, None) => self.translate_one_plus(repeat, head_node),
             (n, None) => {
-                let n_tail = self.translate_n_times(n - 1, repeat.inner(), head_node);
-                let mut plus_tail = self.translate_one_plus(repeat.inner(), n_tail.node);
+                let n_tail = self.translate_n_times(n - 1, repeat, head_node);
+                let mut plus_tail = self.translate_one_plus(repeat, n_tail.node);
                 plus_tail.tags.extend(n_tail.tags);
                 plus_tail
             }
-            (n, Some(m)) if n == m => self.translate_n_times(n, repeat.inner(), head_node),
+            (n, Some(m)) if n == m => self.translate_n_times(n, repeat, head_node),
             (n, Some(m)) if n < m => {
-                let n_tail = self.translate_n_times(n, repeat.inner(), head_node);
-                let mut tail = self.translate_possible(m - n, repeat.inner(), n_tail.node);
+                let n_tail = self.translate_n_times(n, repeat, head_node);
+                let mut tail = self.translate_possible(m - n, repeat, n_tail.node);
                 tail.tags.extend(n_tail.tags);
                 tail
             }
@@ -109,10 +109,14 @@ impl<'a> Translator<'a> {
     ///  │                         ↑
     ///  ╰────────────ε────────────╯
     /// ```
-    fn translate_kleene_star(&mut self, inner_hir: &Hir, head_node: Node<'a>) -> Tail<'a> {
+    fn translate_kleene_star(&mut self, repeat: &RepeatHir, head_node: Node<'a>) -> Tail<'a> {
         let first = self.graph.node();
         head_node.connect(first);
-        let mut tail = self.translate_hir(inner_hir, first);
+        let mut tail = self.translate_hir(repeat.inner(), first);
+        if repeat.is_lazy() {
+            first.add_attr(Attr::Lazy);
+            tail.node.add_attr(Attr::Lazy);
+        }
         let end = self.graph.node();
         tail.node.connect(first);
         tail.node.connect(end);
@@ -128,10 +132,14 @@ impl<'a> Translator<'a> {
     ///          ↓         │
     /// (1)──ε─→(2)──'a'─→(3)──ε─→(4)
     /// ```
-    fn translate_one_plus(&mut self, inner_hir: &Hir, head_node: Node<'a>) -> Tail<'a> {
+    fn translate_one_plus(&mut self, repeat: &RepeatHir, head_node: Node<'a>) -> Tail<'a> {
         let first = self.graph.node();
         head_node.connect(first);
-        let mut tail = self.translate_hir(inner_hir, first);
+        let mut tail = self.translate_hir(repeat.inner(), first);
+        if repeat.is_lazy() {
+            first.add_attr(Attr::Lazy);
+            tail.node.add_attr(Attr::Lazy);
+        }
         let end = self.graph.node();
         tail.node.connect(first);
         tail.node.connect(end);
@@ -144,7 +152,7 @@ impl<'a> Translator<'a> {
     /// ```txt
     /// (1)──'a'─→(2)──'a'─→(3)──'a'─→(4)
     /// ```
-    fn translate_n_times(&mut self, n: usize, inner_hir: &Hir, head_node: Node<'a>) -> Tail<'a> {
+    fn translate_n_times(&mut self, n: usize, repeat: &RepeatHir, head_node: Node<'a>) -> Tail<'a> {
         if n == 0 {
             let end_node = self.graph.node();
             head_node.connect(end_node);
@@ -153,7 +161,7 @@ impl<'a> Translator<'a> {
         let mut tags = Set::default();
         let mut first = head_node;
         for _ in 0..n {
-            let tail = self.translate_hir(inner_hir, first);
+            let tail = self.translate_hir(repeat.inner(), first);
             tags.extend(tail.tags);
             first = tail.node;
         }
@@ -169,7 +177,12 @@ impl<'a> Translator<'a> {
     ///  │                     ╰────────────────ε────────────────╯
     ///  ╰───────────────────────────ε───────────────────────────╯
     /// ```
-    fn translate_possible(&mut self, n: usize, inner_hir: &Hir, head_node: Node<'a>) -> Tail<'a> {
+    fn translate_possible(
+        &mut self,
+        n: usize,
+        repeat: &RepeatHir,
+        head_node: Node<'a>,
+    ) -> Tail<'a> {
         let mut tags = Set::default();
         let mut head_nodes = Vec::with_capacity(n);
         let mut curr = head_node;
@@ -177,7 +190,11 @@ impl<'a> Translator<'a> {
             head_nodes.push(curr);
             let before = self.graph.node();
             curr.connect(before);
-            let tail = self.translate_hir(inner_hir, before);
+            let tail = self.translate_hir(repeat.inner(), before);
+            if repeat.is_lazy() {
+                before.add_attr(Attr::Lazy);
+                tail.node.add_attr(Attr::Lazy);
+            }
             tags.extend(tail.tags);
             let after = self.graph.node();
             tail.node.connect(after);

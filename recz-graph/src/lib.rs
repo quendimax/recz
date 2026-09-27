@@ -1,5 +1,8 @@
 pub mod algo;
 
+mod attr;
+pub use attr::Attr;
+
 mod capture;
 pub use capture::{CaptureGroup, CaptureLabel};
 

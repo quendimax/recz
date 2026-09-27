@@ -1,9 +1,10 @@
+use crate::attr::Attr;
 use crate::edge::{Edge, EdgePtr};
 use crate::graph::{Graph, GraphInner, GraphPtr};
 use core::cell::Cell;
 use core::iter::Iterator;
 use owo_colors::OwoColorize;
-use recz_adt::{Legible, Map};
+use recz_adt::{Legible, Map, Set};
 use std::ptr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,6 +23,7 @@ pub struct Node<'a>(&'a NodeInner);
 pub(crate) struct NodeInner {
     nid: u32,
     kind: Cell<NodeKind>,
+    attrs: Set<Attr>,
     sources: Map<NodePtr, EdgePtr>,
     targets: Map<NodePtr, EdgePtr>,
     graph_ptr: GraphPtr,
@@ -80,6 +82,23 @@ impl<'a> Node<'a> {
     pub fn epilogize(&self) -> Self {
         self.set_kind(NodeKind::Epilogue);
         *self
+    }
+
+    /// Returns `true` if the node has the given attribute, `false` otherwise.
+    pub fn has_attr(&self, attribute: &Attr) -> bool {
+        self.0.attrs.contains(attribute)
+    }
+
+    /// Adds an attribute with the given key and value to the node.
+    ///
+    /// If the key already exists, the value is not overwritten.
+    pub fn add_attr(&self, attribute: Attr) {
+        self.0.attrs.insert(attribute);
+    }
+
+    /// Returns an iterator over the node's attributes.
+    pub fn attrs(&self) -> impl DoubleEndedIterator<Item = Attr> {
+        self.0.attrs.iter().copied()
     }
 
     /// Returns `true` if the node belongs to the given graph, `false`
@@ -192,6 +211,7 @@ impl NodeInner {
         NodeInner {
             nid,
             kind: Cell::new(NodeKind::Normal),
+            attrs: Default::default(),
             sources: Default::default(),
             targets: Default::default(),
             graph_ptr: GraphPtr::from(graph),
