@@ -84,7 +84,7 @@ fn lexer_peek() {
 
 #[test]
 fn lexer_consume_peeked() {
-    let mut lexer = Lexer::new("+?");
+    let mut lexer = Lexer::new("+|");
 
     let token = lexer.peek();
     assert_eq!(token.kind(), tok::plus);
@@ -94,9 +94,9 @@ fn lexer_consume_peeked() {
     lexer.consume_peeked();
 
     let token = lexer.lex();
-    assert_eq!(token.kind(), tok::question);
+    assert_eq!(token.kind(), tok::pipe);
     assert_eq!(token.span(), 1..2);
-    assert_eq!(lexer.slice(token.span()), "?");
+    assert_eq!(lexer.slice(token.span()), "|");
 
     lexer.consume_peeked();
 }
@@ -127,21 +127,25 @@ fn lexer_lex_all_tokens() {
 
 #[test]
 fn token_display_fmt() {
-    let mut lexer = Lexer::new("[[^]{}((?)|*+?-.^\\aa\\");
+    let mut lexer = Lexer::new("[[^]{}}?((?)|?*+-??*?+?.^\\aa\\");
     let mut next = || format!("{}", lexer.lex().kind());
     assert_eq!(next(), "[");
     assert_eq!(next(), "[^");
     assert_eq!(next(), "]");
     assert_eq!(next(), "{");
     assert_eq!(next(), "}");
+    assert_eq!(next(), "}?");
     assert_eq!(next(), "(");
     assert_eq!(next(), "(?");
     assert_eq!(next(), ")");
     assert_eq!(next(), "|");
+    assert_eq!(next(), "?");
     assert_eq!(next(), "*");
     assert_eq!(next(), "+");
-    assert_eq!(next(), "?");
     assert_eq!(next(), "-");
+    assert_eq!(next(), "??");
+    assert_eq!(next(), "*?");
+    assert_eq!(next(), "+?");
     assert_eq!(next(), ".");
     assert_eq!(next(), "^");
     assert_eq!(next(), "\\a");

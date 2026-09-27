@@ -49,7 +49,7 @@ fn parse_concat() {
         parse("вжух+ыs"),
         Ok(Hir::concat(vec![
             Hir::literal("вжу"),
-            Hir::repeat(Hir::literal("х"), 1, None),
+            Hir::repeat(Hir::literal("х"), 1, None, false),
             Hir::literal("ыs"),
         ]))
     );
@@ -94,12 +94,18 @@ fn parse_postfix() {
         let mut parser = ParserImpl::<Utf8Codec, true>::new(lexer, &Utf8Codec);
         parser.try_parse_postfix()
     };
-    assert_eq!(parse("*"), Ok(Some((0, None))));
-    assert_eq!(parse("{0,}"), Ok(Some((0, None))));
-    assert_eq!(parse("+"), Ok(Some((1, None))));
-    assert_eq!(parse("{1,}"), Ok(Some((1, None))));
-    assert_eq!(parse("?"), Ok(Some((0, Some(1)))));
-    assert_eq!(parse("{0,1}"), Ok(Some((0, Some(1)))));
+    assert_eq!(parse("*"), Ok(Some(((0, None).into(), false))));
+    assert_eq!(parse("{0,}"), Ok(Some(((0, None).into(), false))));
+    assert_eq!(parse("+"), Ok(Some(((1, None).into(), false))));
+    assert_eq!(parse("{1,}"), Ok(Some(((1, None).into(), false))));
+    assert_eq!(parse("?"), Ok(Some(((0, Some(1)).into(), false))));
+    assert_eq!(parse("{0,1}"), Ok(Some(((0, Some(1)).into(), false))));
+    assert_eq!(parse("*?"), Ok(Some(((0, None).into(), true))));
+    assert_eq!(parse("{0,}?"), Ok(Some(((0, None).into(), true))));
+    assert_eq!(parse("+?"), Ok(Some(((1, None).into(), true))));
+    assert_eq!(parse("{1,}?"), Ok(Some(((1, None).into(), true))));
+    assert_eq!(parse("??"), Ok(Some(((0, Some(1)).into(), true))));
+    assert_eq!(parse("{0,1}?"), Ok(Some(((0, Some(1)).into(), true))));
     assert_eq!(parse("."), Ok(None));
     assert_eq!(parse("{}"), err::unexpected("}", 1..2, "a decimal number"));
 }
@@ -122,7 +128,10 @@ fn parse_braces() {
     );
     assert_eq!(parse("{}"), err::unexpected("}", 1..2, "a decimal number"));
     assert_eq!(parse("{,}"), err::unexpected(",", 1..2, "a decimal number"));
-    assert_eq!(parse("{0,s}"), err::unexpected("s", 3..4, "`}`"));
+    assert_eq!(
+        parse("{0,s}"),
+        err::unexpected("s", 3..4, "either `}` or `}?`")
+    );
     assert_eq!(
         parse("{0s}"),
         err::unexpected("s", 2..3, "either `}` or `,`")

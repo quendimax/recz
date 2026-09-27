@@ -48,7 +48,7 @@ impl Hir {
     }
 
     /// Creates a new repeat hir instance.
-    pub fn repeat(item: Hir, lower: usize, upper: Option<usize>) -> Hir {
+    pub fn repeat(item: Hir, lower: usize, upper: Option<usize>, lazy: bool) -> Hir {
         if let Some(upper) = upper {
             assert!(
                 lower <= upper,
@@ -58,6 +58,22 @@ impl Hir {
         Hir::Repeat(RepeatHir {
             multiplier: LenHint::new(lower, upper),
             item: Box::new(item),
+            lazy,
+        })
+    }
+
+    /// Creates a new lazy repeat hir instance.
+    pub fn repeat_lazy(item: Hir, lower: usize, upper: Option<usize>) -> Hir {
+        if let Some(upper) = upper {
+            assert!(
+                lower <= upper,
+                "invalid repetition counters: {{{lower},{upper}}}"
+            );
+        }
+        Hir::Repeat(RepeatHir {
+            multiplier: LenHint::new(lower, upper),
+            item: Box::new(item),
+            lazy: true,
         })
     }
 
@@ -310,12 +326,18 @@ impl Legible for ConcatHir {
 pub struct RepeatHir {
     multiplier: LenHint,
     item: Box<Hir>,
+    lazy: bool,
 }
 
 impl RepeatHir {
     #[inline]
     pub fn inner(&self) -> &Hir {
         &self.item
+    }
+
+    #[inline]
+    pub fn is_lazy(&self) -> bool {
+        self.lazy
     }
 
     pub fn len_hint(&self) -> LenHint {

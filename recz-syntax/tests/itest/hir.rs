@@ -56,7 +56,7 @@ fn hir_group() {
 #[test]
 fn hir_repeat() {
     let lit = Hir::literal(b"a");
-    let repeat = Hir::repeat(lit, 0, None);
+    let repeat = Hir::repeat(lit, 0, None, false);
     assert!(repeat.is_repeat());
     assert!(!repeat.is_disjunct());
     assert_eq!(repeat.len_hint(), (0, None));
@@ -69,35 +69,35 @@ fn hir_repeat() {
     assert_eq!(hir.multiplier(), (0, None));
 
     let lit = Hir::literal(b"abc");
-    let repeat = Hir::repeat(lit, 1, None);
+    let repeat = Hir::repeat(lit, 1, None, false);
     assert!(repeat.is_repeat());
     assert_eq!(repeat.len_hint(), (3, None));
     assert_eq!(repeat.exact_len(), None);
     assert_str_eq!(repeat.to_string(), r#""abc"+"#);
 
     let class = Hir::class(SetU8::from(&[49, 50, 52]));
-    let repeat = Hir::repeat(class, 0, Some(1));
+    let repeat = Hir::repeat(class, 0, Some(1), false);
     assert!(repeat.is_repeat());
     assert_eq!(repeat.len_hint(), (0, Some(1)));
     assert_eq!(repeat.exact_len(), None);
     assert_str_eq!(repeat.to_string(), r#"['1'-'2' | '4']?"#);
 
     let concat = Hir::concat(vec![Hir::literal(b"ab"), Hir::literal(b"cde")]);
-    let repeat = Hir::repeat(concat, 3, Some(3));
+    let repeat = Hir::repeat(concat, 3, Some(3), false);
     assert!(repeat.is_repeat());
     assert_eq!(repeat.len_hint(), (15, Some(15)));
     assert_eq!(repeat.exact_len(), Some(15));
     assert_str_eq!(repeat.to_string(), r#"("ab" & "cde"){3}"#);
 
     let disjunct = Hir::disjunct(vec![Hir::literal(b"ab"), Hir::literal(b"cde")]);
-    let repeat = Hir::repeat(disjunct, 3, Some(5));
+    let repeat = Hir::repeat(disjunct, 3, Some(5), false);
     assert!(repeat.is_repeat());
     assert_eq!(repeat.len_hint(), (6, Some(15)));
     assert_eq!(repeat.exact_len(), None);
     assert_str_eq!(repeat.to_string(), r#"("ab" | "cde"){3,5}"#);
 
     let disjunct = Hir::disjunct(vec![Hir::literal(b"ab"), Hir::literal(b"cde")]);
-    let repeat = Hir::repeat(disjunct, 3, None);
+    let repeat = Hir::repeat(disjunct, 3, None, false);
     assert!(repeat.is_repeat());
     assert_eq!(repeat.len_hint(), (6, None));
     assert_eq!(repeat.exact_len(), None);
@@ -108,7 +108,7 @@ fn hir_repeat() {
 #[should_panic]
 fn hir_repeat_fails() {
     let lit = Hir::literal(b"a");
-    let _ = Hir::repeat(lit, 3, Some(2));
+    let _ = Hir::repeat(lit, 3, Some(2), false);
 }
 
 #[test]
@@ -124,7 +124,7 @@ fn hir_concat() {
     }
 
     let lit = Hir::literal(b"abc");
-    let repeat = Hir::repeat(lit, 1, None);
+    let repeat = Hir::repeat(lit, 1, None, false);
     let concat = Hir::concat(vec![Hir::literal(b"ab"), repeat]);
     assert!(concat.is_concat());
     assert_eq!(concat.len_hint(), (5, None));
@@ -160,7 +160,7 @@ fn hir_disjunct() {
 
     let concat = Hir::concat(vec![
         Hir::literal(b"ab"),
-        Hir::repeat(Hir::literal(b"cde"), 0, None),
+        Hir::repeat(Hir::literal(b"cde"), 0, None, false),
     ]);
     let disjunct = Hir::disjunct(vec![Hir::literal(b"ab"), concat]);
     assert!(disjunct.is_disjunct());

@@ -1,7 +1,7 @@
 use crate::error::{Result, err};
 use crate::hir::Hir;
 use crate::lexis::{Lexer, tok};
-use recz_adt::{RangeList, SetU8};
+use recz_adt::{LenHint, RangeList, SetU8};
 use recz_codec::Codec;
 use recz_graph::CaptureLabel;
 use std::collections::HashSet as Set;
@@ -163,8 +163,8 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
                 }
             }
         }?;
-        while let Some((iter_min, iter_max)) = self.try_parse_postfix()? {
-            hir = Hir::repeat(hir, iter_min, iter_max);
+        while let Some((multiplier, lazy)) = self.try_parse_postfix()? {
+            hir = Hir::repeat(hir, multiplier.min(), multiplier.max(), lazy);
         }
         Ok(Some(hir))
     }
@@ -182,20 +182,32 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     ///     '{' decimal ',' '}'
     ///     '{' decimal ',' decimal '}'
     /// ```
-    fn try_parse_postfix(&mut self) -> Result<Option<(usize, Option<usize>)>> {
+    fn try_parse_postfix(&mut self) -> Result<Option<(LenHint, bool)>> {
         let token = self.lexer.peek();
         match token.kind() {
             tok::star => {
                 self.lexer.consume_peeked();
-                Ok(Some((0, None)))
+                Ok(Some((LenHint::new(0, None), false)))
             }
             tok::plus => {
                 self.lexer.consume_peeked();
-                Ok(Some((1, None)))
+                Ok(Some((LenHint::new(1, None), false)))
             }
             tok::question => {
                 self.lexer.consume_peeked();
-                Ok(Some((0, Some(1))))
+                Ok(Some((LenHint::new(0, Some(1)), false)))
+            }
+            tok::star_question => {
+                self.lexer.consume_peeked();
+                Ok(Some((LenHint::new(0, None), true)))
+            }
+            tok::plus_question => {
+                self.lexer.consume_peeked();
+                Ok(Some((LenHint::new(1, None), true)))
+            }
+            tok::question_question => {
+                self.lexer.consume_peeked();
+                Ok(Some((LenHint::new(0, Some(1)), true)))
             }
             tok::l_brace => Ok(Some(self.parse_braces()?)),
             _ => Ok(None),
@@ -208,10 +220,13 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
     ///
     /// ```mkf
     ///     '{' decimal '}'
+    ///     '{' decimal '}' '?'
     ///     '{' decimal ',' '}'
+    ///     '{' decimal ',' '}' '?'
     ///     '{' decimal ',' decimal '}'
+    ///     '{' decimal ',' decimal '}' '?'
     /// ```
-    fn parse_braces(&mut self) -> Result<(usize, Option<usize>)> {
+    fn parse_braces(&mut self) -> Result<(LenHint, bool)> {
         let l_brace = self.lexer.expect(tok::l_brace)?;
         let Some(first_num) = self.try_parse_decimal()? else {
             let span = l_brace.end()..self.lexer.lex().end();
@@ -230,12 +245,23 @@ impl<'s, 'c, C: Codec, const UNICODE: bool> ParserImpl<'s, 'c, C, UNICODE> {
                 return err::unexpected(spell, peeked.span(), "either `}` or `,`");
             }
         };
-        let r_brace = self.lexer.expect(tok::r_brace)?;
+        let token = self.lexer.lex();
+        let r_brace = match token.kind() {
+            tok::r_brace => token,
+            tok::r_brace_question => token,
+            _ => {
+                let spell = self.lexer.slice(token.span());
+                return err::unexpected(spell, token.span(), "either `}` or `}?`");
+            }
+        };
         let span = l_brace.start()..r_brace.end();
         match (first_num, second_num) {
             (0, Some(0)) => err::zero_repetition(span),
             (n, Some(m)) if n > m => err::invalid_repetition(span),
-            _ => Ok((first_num, second_num)),
+            _ => Ok((
+                LenHint::new(first_num, second_num),
+                r_brace.kind() == tok::r_brace_question,
+            )),
         }
     }
 

@@ -71,7 +71,7 @@ fn translate_repeat() {
     }
 
     let literal = Hir::literal("a");
-    let hir = Hir::repeat(literal, 0, None);
+    let hir = Hir::repeat(literal, 0, None, false);
     assert_eq!(
         tr(&hir),
         lit!(
@@ -91,7 +91,7 @@ fn translate_repeat() {
     );
 
     let literal = Hir::literal("a");
-    let hir = Hir::repeat(literal, 1, None);
+    let hir = Hir::repeat(literal, 1, None, false);
     assert_eq!(
         tr(&hir),
         lit!(
@@ -108,7 +108,7 @@ fn translate_repeat() {
     );
 
     let literal = Hir::literal("a");
-    let hir = Hir::repeat(literal, 3, None);
+    let hir = Hir::repeat(literal, 3, None, false);
     assert_eq!(
         tr(&hir),
         lit!(
@@ -127,7 +127,7 @@ fn translate_repeat() {
     );
 
     let literal = Hir::literal("a");
-    let hir = Hir::repeat(literal, 0, Some(0));
+    let hir = Hir::repeat(literal, 0, Some(0), false);
     assert_eq!(
         tr(&hir),
         lit!(
@@ -139,7 +139,7 @@ fn translate_repeat() {
     );
 
     let literal = Hir::literal("a");
-    let hir = Hir::repeat(literal, 3, Some(3));
+    let hir = Hir::repeat(literal, 3, Some(3), false);
     assert_eq!(
         tr(&hir),
         lit!(
@@ -153,7 +153,7 @@ fn translate_repeat() {
     );
 
     let literal = Hir::literal("a");
-    let hir = Hir::repeat(literal, 1, Some(3));
+    let hir = Hir::repeat(literal, 1, Some(3), false);
     assert_eq!(
         tr(&hir),
         lit!(
@@ -181,7 +181,7 @@ fn translate_repeat() {
 #[should_panic(expected = "invalid repetition counters: {3,2}")]
 fn translate_repeat_fails() {
     let literal = Hir::literal("a");
-    let repeat = Hir::repeat(literal, 3, Some(2));
+    let repeat = Hir::repeat(literal, 3, Some(2), false);
     let graph = Graph::new();
     let mut translator = Translator::new(&graph);
     let Hir::Repeat(repeat) = repeat else {

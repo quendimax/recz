@@ -20,9 +20,15 @@ postfix
     '*'
     '+'
     '?'
+    "*?"   ; non-greedy
+    "+?"   ; non-greedy
+    "??"   ; non-greedy
     '{' decimal '}'
+    '{' decimal '}' '?'   ; non-greedy
     '{' decimal ',' '}'
+    '{' decimal ',' '}' '?'   ; non-greedy
     '{' decimal ',' decimal '}'
+    '{' decimal ',' decimal '}' '?'   ; non-greedy
 
 group
     "(" disjunct ")"                       ; just parentheses

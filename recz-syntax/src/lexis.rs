@@ -20,6 +20,9 @@ pub enum TokenKind {
     /// `}`
     r_brace,
 
+    /// `}?`
+    r_brace_question,
+
     /// `(`
     l_paren,
 
@@ -40,6 +43,15 @@ pub enum TokenKind {
 
     /// `?`
     question,
+
+    /// `*?`
+    star_question,
+
+    /// `+?`
+    plus_question,
+
+    /// `??`
+    question_question,
 
     /// `-`
     minus,
@@ -67,12 +79,13 @@ pub mod tok {
 
 impl std::fmt::Display for TokenKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
+        match *self {
             tok::l_square => f.write_char('['),
             tok::l_square_caret => f.write_str("[^"),
             tok::r_square => f.write_char(']'),
             tok::l_brace => f.write_char('{'),
             tok::r_brace => f.write_char('}'),
+            tok::r_brace_question => f.write_str("}?"),
             tok::l_paren => f.write_char('('),
             tok::l_paren_question => f.write_str("(?"),
             tok::r_paren => f.write_char(')'),
@@ -80,11 +93,14 @@ impl std::fmt::Display for TokenKind {
             tok::star => f.write_char('*'),
             tok::plus => f.write_char('+'),
             tok::question => f.write_char('?'),
+            tok::star_question => f.write_str("*?"),
+            tok::plus_question => f.write_str("+?"),
+            tok::question_question => f.write_str("??"),
             tok::minus => f.write_char('-'),
             tok::dot => f.write_char('.'),
             tok::escape => f.write_char('\\'),
             tok::escape_char(c) => write!(f, "\\{}", c),
-            tok::char(c) => f.write_char(*c),
+            tok::char(c) => f.write_char(c),
             tok::eof => f.write_str("EOF"),
         }
     }
@@ -218,10 +234,31 @@ impl<'s> Lexer<'s> {
                     }
                 }
                 '.' => tok::dot,
-                '*' => tok::star,
-                '+' => tok::plus,
+                '*' => {
+                    if self.iter.next_if(|c| *c == '?').is_some() {
+                        end += '?'.len_utf8();
+                        tok::star_question
+                    } else {
+                        tok::star
+                    }
+                }
+                '+' => {
+                    if self.iter.next_if(|c| *c == '?').is_some() {
+                        end += '?'.len_utf8();
+                        tok::plus_question
+                    } else {
+                        tok::plus
+                    }
+                }
+                '?' => {
+                    if self.iter.next_if(|c| *c == '?').is_some() {
+                        end += '?'.len_utf8();
+                        tok::question_question
+                    } else {
+                        tok::question
+                    }
+                }
                 '-' => tok::minus,
-                '?' => tok::question,
                 '|' => tok::pipe,
                 '(' => {
                     if self.iter.next_if(|c| *c == '?').is_some() {
@@ -242,7 +279,14 @@ impl<'s> Lexer<'s> {
                 }
                 ']' => tok::r_square,
                 '{' => tok::l_brace,
-                '}' => tok::r_brace,
+                '}' => {
+                    if self.iter.next_if(|c| *c == '?').is_some() {
+                        end += '?'.len_utf8();
+                        tok::r_brace_question
+                    } else {
+                        tok::r_brace
+                    }
+                }
                 sym => tok::char(sym),
             };
             Token::new(kind, start, end)

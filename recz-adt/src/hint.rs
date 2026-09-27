@@ -39,6 +39,12 @@ impl LenHint {
     }
 }
 
+impl core::convert::From<(usize, Option<usize>)> for LenHint {
+    fn from((min, max): (usize, Option<usize>)) -> Self {
+        Self::new(min, max)
+    }
+}
+
 impl core::ops::BitAnd for LenHint {
     type Output = Self;
 
