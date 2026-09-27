@@ -12,7 +12,7 @@ mod hash;
 pub use hash::{DefaultHasher, RandomState};
 
 mod hint;
-pub use hint::LenHint;
+pub use hint::SizeHint;
 
 mod legible;
 pub use legible::Legible;

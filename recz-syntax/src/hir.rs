@@ -1,5 +1,5 @@
 use owo_colors::OwoColorize;
-use recz_adt::{Legible, LenHint, SetU8};
+use recz_adt::{Legible, SetU8, SizeHint};
 use recz_graph::CaptureLabel;
 use std::fmt::{Display, Write};
 
@@ -25,7 +25,7 @@ impl Hir {
         if alters.len() == 1 {
             return alters.into_iter().next().unwrap();
         }
-        let init = LenHint::new(usize::MAX - 1, Some(0));
+        let init = SizeHint::new(usize::MAX - 1, Some(0));
         let len_hint = alters.iter().fold(init, |acc, len| acc | len.len_hint());
         Hir::Disjunct(DisjunctHir { alters, len_hint })
     }
@@ -39,7 +39,7 @@ impl Hir {
         }
         let len_hint = items
             .iter()
-            .fold(LenHint::new(0, Some(0)), |acc, len| acc & len.len_hint());
+            .fold(SizeHint::new(0, Some(0)), |acc, len| acc & len.len_hint());
         if items.is_empty() {
             Hir::empty()
         } else {
@@ -56,7 +56,7 @@ impl Hir {
             );
         }
         Hir::Repeat(RepeatHir {
-            multiplier: LenHint::new(lower, upper),
+            multiplier: SizeHint::new(lower, upper),
             item: Box::new(item),
             lazy,
         })
@@ -71,7 +71,7 @@ impl Hir {
             );
         }
         Hir::Repeat(RepeatHir {
-            multiplier: LenHint::new(lower, upper),
+            multiplier: SizeHint::new(lower, upper),
             item: Box::new(item),
             lazy: true,
         })
@@ -133,21 +133,21 @@ impl Hir {
     }
 
     /// Returns the bounds of the Hir's length. `None` means infinite.
-    pub fn len_hint(&self) -> LenHint {
+    pub fn len_hint(&self) -> SizeHint {
         match self {
             Hir::Disjunct(hir) => hir.len_hint(),
             Hir::Concat(hir) => hir.len_hint(),
             Hir::Repeat(hir) => hir.len_hint(),
             Hir::Group(hir) => hir.len_hint(),
-            Hir::Class(_) => LenHint::new(1, Some(1)),
-            Hir::Literal(bytes) => LenHint::new(bytes.len(), Some(bytes.len())),
+            Hir::Class(_) => SizeHint::new(1, Some(1)),
+            Hir::Literal(bytes) => SizeHint::new(bytes.len(), Some(bytes.len())),
         }
     }
 
     /// Returns `Some(len)` if this hir instance has the exact length, otherwise
     /// returns `None`.
     pub fn exact_len(&self) -> Option<usize> {
-        self.len_hint().exact_len()
+        self.len_hint().exact_size()
     }
 }
 
@@ -190,7 +190,7 @@ impl Legible for Hir {
 #[derive(Debug, Clone, PartialEq)]
 pub struct DisjunctHir {
     alters: Vec<Hir>,
-    len_hint: LenHint,
+    len_hint: SizeHint,
 }
 
 impl DisjunctHir {
@@ -200,12 +200,12 @@ impl DisjunctHir {
     }
 
     #[inline]
-    pub fn len_hint(&self) -> LenHint {
+    pub fn len_hint(&self) -> SizeHint {
         self.len_hint
     }
 
     pub fn exact_len(&self) -> Option<usize> {
-        self.len_hint.exact_len()
+        self.len_hint.exact_size()
     }
 }
 
@@ -259,7 +259,7 @@ impl Legible for DisjunctHir {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConcatHir {
     items: Vec<Hir>,
-    len_hint: LenHint,
+    len_hint: SizeHint,
 }
 
 impl ConcatHir {
@@ -269,7 +269,7 @@ impl ConcatHir {
     }
 
     #[inline]
-    pub fn len_hint(&self) -> LenHint {
+    pub fn len_hint(&self) -> SizeHint {
         self.len_hint
     }
 }
@@ -324,7 +324,7 @@ impl Legible for ConcatHir {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RepeatHir {
-    multiplier: LenHint,
+    multiplier: SizeHint,
     item: Box<Hir>,
     lazy: bool,
 }
@@ -340,13 +340,13 @@ impl RepeatHir {
         self.lazy
     }
 
-    pub fn len_hint(&self) -> LenHint {
+    pub fn len_hint(&self) -> SizeHint {
         self.multiplier * self.item.len_hint()
     }
 
     /// Lower and upper bounds of possible number of iterations. `None` means infinite.
     #[inline]
-    pub fn multiplier(&self) -> LenHint {
+    pub fn multiplier(&self) -> SizeHint {
         self.multiplier
     }
 }
@@ -437,7 +437,7 @@ impl GroupHir {
     }
 
     #[inline]
-    pub fn len_hint(&self) -> LenHint {
+    pub fn len_hint(&self) -> SizeHint {
         self.item.len_hint()
     }
 }
