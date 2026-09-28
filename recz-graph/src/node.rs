@@ -98,7 +98,7 @@ impl<'a> Node<'a> {
 
     /// Returns an iterator over the node's attributes.
     pub fn attrs(&self) -> impl DoubleEndedIterator<Item = Attr> {
-        self.0.attrs.iter().copied()
+        self.0.attrs.iter().cloned()
     }
 
     /// Returns `true` if the node belongs to the given graph, `false`
